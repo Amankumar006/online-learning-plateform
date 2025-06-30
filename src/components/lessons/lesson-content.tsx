@@ -59,8 +59,10 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             />
           </div>
         )}
-        <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
-          <p>{lesson.content}</p>
+        <div className="prose dark:prose-invert prose-lg max-w-none mb-8 space-y-4">
+          {lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
         </div>
         {lesson.videoUrl && (
           <div className="my-8">
