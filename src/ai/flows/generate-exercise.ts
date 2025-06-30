@@ -20,6 +20,7 @@ const GenerateExerciseOutputSchema = z.object({
   options: z.array(z.string()).length(4).describe('An array of exactly 4 possible answers for the question.'),
   correctAnswer: z.string().describe('The correct answer from the provided options.'),
   explanation: z.string().describe('A brief explanation of why the correct answer is right.'),
+  hint: z.string().describe('A helpful hint for the student that does not give away the answer.'),
 });
 export type GenerateExerciseOutput = z.infer<typeof GenerateExerciseOutputSchema>;
 
@@ -37,6 +38,7 @@ The question should test understanding of a key concept from the lesson.
 Provide exactly four answer options. One of these options must be the correct answer.
 Specify which of the options is the correct answer.
 Provide a brief explanation for why the answer is correct.
+Also, provide a helpful hint for the student that helps them think about the problem without giving away the answer.
 
 Lesson Content:
 {{{lessonContent}}}
