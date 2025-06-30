@@ -21,8 +21,13 @@ function LessonsSkeleton() {
         <Card key={i} className="overflow-hidden flex flex-col">
           <Skeleton className="w-full h-40" />
           <CardContent className="p-4 flex flex-col flex-1">
-            <Skeleton className="h-6 w-3/4 mb-2" />
-            <Skeleton className="h-10 w-full mb-4" />
+            <div className="flex items-center gap-2 mb-2">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+            <Skeleton className="h-6 w-full mt-2" />
+            <Skeleton className="h-10 w-full my-4" />
+            <div className="flex-grow" />
             <Skeleton className="h-10 w-full mt-auto" />
           </CardContent>
         </Card>
@@ -79,33 +84,39 @@ export default function LessonsPage() {
           {lessons.map((lesson) => {
             const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id) ?? false;
             return (
-              <Card key={lesson.id} className="overflow-hidden flex flex-col">
-                <Link href={`/dashboard/lessons/${lesson.id}`} className="block">
-                  <Image
-                    src={lesson.image || "https://placehold.co/600x400.png"}
-                    width="600"
-                    height="400"
-                    alt={lesson.title}
-                    data-ai-hint={`${lesson.subject.toLowerCase()} learning`}
-                    className="w-full h-40 object-cover hover:opacity-90 transition-opacity"
-                  />
-                </Link>
-                <CardContent className="p-4 flex flex-col flex-1">
-                  <div className="flex justify-between items-start mb-2 gap-2">
-                    <CardTitle className="text-lg font-headline">{lesson.title}</CardTitle>
-                    {isCompleted && (
-                        <Badge className="border-transparent bg-primary/20 text-primary hover:bg-primary/30 shrink-0 whitespace-nowrap">
-                            <CheckCircle className="mr-1.5 h-4 w-4" />
-                            Completed
-                        </Badge>
-                    )}
-                  </div>
-
-                  <CardDescription className="mb-4 h-10 flex-grow">{lesson.description}</CardDescription>
-                  <Button asChild className="w-full mt-auto">
-                    <Link href={`/dashboard/lessons/${lesson.id}`}>{isCompleted ? 'Review Lesson' : 'Start Lesson'}</Link>
-                  </Button>
-                </CardContent>
+                <Card key={lesson.id} className="overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                    <div className="relative">
+                        <Link href={`/dashboard/lessons/${lesson.id}`} className="block overflow-hidden">
+                        <Image
+                            src={lesson.image || "https://placehold.co/600x400.png"}
+                            width="600"
+                            height="400"
+                            alt={lesson.title}
+                            data-ai-hint={`${lesson.subject.toLowerCase()} learning`}
+                            className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        </Link>
+                        {isCompleted && (
+                            <Badge variant="secondary" className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm">
+                                <CheckCircle className="mr-1.5 h-3 w-3 text-green-500" />
+                                Completed
+                            </Badge>
+                        )}
+                    </div>
+                    <CardContent className="p-4 flex flex-col flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="font-medium">{lesson.subject}</Badge>
+                            <Badge variant="outline" className="font-normal">{lesson.difficulty}</Badge>
+                        </div>
+                        
+                        <CardTitle className="text-lg font-headline mt-1">{lesson.title}</CardTitle>
+                        
+                        <CardDescription className="mb-4 mt-2 text-sm h-10 line-clamp-2 flex-grow">{lesson.description}</CardDescription>
+    
+                        <Button asChild className="w-full mt-auto">
+                            <Link href={`/dashboard/lessons/${lesson.id}`}>{isCompleted ? 'Review Lesson' : 'Start Lesson'}</Link>
+                        </Button>
+                    </CardContent>
               </Card>
             )
           })}
