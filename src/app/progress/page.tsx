@@ -1,20 +1,12 @@
-"use client";
-
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { getUserProgress } from "@/lib/data";
+import ProgressChart from "@/components/progress/progress-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { userProgress } from "@/lib/mock-data";
 
-const chartData = userProgress.subjectsMastery;
+export default async function ProgressPage() {
+  // In a real app, you'd get the user ID from the session.
+  const MOCK_USER_ID = "user123";
+  const userProgress = await getUserProgress(MOCK_USER_ID);
 
-const chartConfig = {
-  mastery: {
-    label: "Mastery",
-    color: "hsl(var(--primary))",
-  },
-};
-
-export default function ProgressPage() {
   return (
     <div className="flex flex-col gap-8">
       <Card>
@@ -22,30 +14,13 @@ export default function ProgressPage() {
           <CardTitle className="font-headline">Subject Mastery</CardTitle>
           <CardDescription>
             Here is a breakdown of your mastery level in each subject.
+            {userProgress.subjectsMastery.length === 0 && (
+              <span className="block mt-2 text-xs">(Hint: No progress data found in Firestore for user '{MOCK_USER_ID}')</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={chartData} accessibilityLayer>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="subject"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                />
-                <YAxis
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Bar dataKey="mastery" fill="var(--color-mastery)" radius={4} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          <ProgressChart chartData={userProgress.subjectsMastery} />
         </CardContent>
       </Card>
     </div>

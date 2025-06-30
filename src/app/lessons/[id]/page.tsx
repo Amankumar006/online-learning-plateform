@@ -1,4 +1,4 @@
-import { lessons } from "@/lib/mock-data";
+import { getLesson, getExercises } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LessonContent from "@/components/lessons/lesson-content";
@@ -6,12 +6,14 @@ import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import AIBuddy from "@/components/lessons/ai-buddy";
 import { BookText, Bot, BrainCircuit } from "lucide-react";
 
-export default function LessonPage({ params }: { params: { id: string } }) {
-  const lesson = lessons.find((l) => l.id === params.id);
-
+export default async function LessonPage({ params }: { params: { id: string } }) {
+  const lesson = await getLesson(params.id);
+  
   if (!lesson) {
     notFound();
   }
+  
+  const exercises = await getExercises(lesson.id);
 
   return (
     <div>
@@ -29,7 +31,7 @@ export default function LessonPage({ params }: { params: { id: string } }) {
           <LessonContent lesson={lesson} />
         </TabsContent>
         <TabsContent value="exercise">
-          <AdaptiveExercise lessonId={lesson.id} />
+          <AdaptiveExercise exercises={exercises} />
         </TabsContent>
         <TabsContent value="ai-buddy">
           <AIBuddy lessonContent={lesson.content} />
