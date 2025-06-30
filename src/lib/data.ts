@@ -1,12 +1,6 @@
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
-
-// NOTE: You will need to populate your Firestore database.
-// 1. Create a 'lessons' collection with documents matching the Lesson interface.
-// 2. Create a 'users' collection. Each document ID should be a user ID. The document
-//    should contain fields matching the UserProgress interface.
-// 3. Create an 'exercises' collection with documents matching the Exercise interface.
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 export interface Lesson {
   id: string;
@@ -70,6 +64,17 @@ export async function getUsers(): Promise<User[]> {
         return [];
     }
 }
+
+export async function updateUserRole(userId: string, role: 'student' | 'admin'): Promise<void> {
+    try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, { role });
+    } catch (error) {
+        console.error("Error updating user role: ", error);
+        throw new Error("Failed to update user role");
+    }
+}
+
 
 export async function createUserInFirestore(uid: string, email: string, name: string) {
     try {

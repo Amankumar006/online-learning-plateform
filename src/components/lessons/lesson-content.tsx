@@ -1,4 +1,4 @@
-import { Lesson } from "@/lib/mock-data";
+import { Lesson } from "@/lib/data";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 
