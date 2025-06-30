@@ -164,7 +164,7 @@ export default function DashboardPage() {
               <Card key={lesson.id} className="overflow-hidden flex flex-col">
                 <Link href={`/dashboard/lessons/${lesson.id}`} className="block">
                   <Image
-                    src={lesson.image}
+                    src={lesson.image || "https://placehold.co/600x400.png"}
                     width="600"
                     height="400"
                     alt={lesson.title}
