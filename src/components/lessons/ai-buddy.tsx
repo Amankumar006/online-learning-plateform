@@ -37,7 +37,7 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
           <Bot /> AI Study Buddy
         </CardTitle>
         <CardDescription>
-          Practice what you&apos;ve learned. Generate some conversation starters to discuss the topic.
+          Practice what you've learned. Generate some conversation starters to discuss the topic.
         </CardDescription>
       </CardHeader>
       <CardContent>
