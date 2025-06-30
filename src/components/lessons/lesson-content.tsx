@@ -3,12 +3,12 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Lesson, UserProgress } from "@/lib/data";
+import { Lesson, UserProgress, Section, Block } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,6 +67,50 @@ const FormattedParagraph = ({ text }: { text: string }) => {
   return <p>{parseTextWithMath(text)}</p>;
 };
 
+const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => (
+    <div className="my-6">
+        <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
+            <div className="flex items-center gap-2">
+                 <Code className="h-5 w-5" />
+                 <span className="text-sm font-semibold">{language}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(code)}>Copy</Button>
+        </div>
+        <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
+            <pre><code className={`language-${language}`}>{code}</code></pre>
+        </div>
+    </div>
+);
+
+
+const VideoBlockDisplay = ({ url }: { url: string }) => (
+    <div className="my-8" >
+        <h3 className="text-xl font-semibold mb-4 font-headline flex items-center gap-2"><Video /> Watch a video lesson</h3>
+        <div className="aspect-video">
+            <iframe
+                className="w-full h-full rounded-lg"
+                src={url}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+            ></iframe>
+        </div>
+    </div>
+);
+
+const BlockRenderer = ({ block }: { block: Block }) => {
+    switch (block.type) {
+        case 'text':
+            return <FormattedParagraph text={block.content} />;
+        case 'code':
+            return <CodeBlockDisplay language={block.language} code={block.code} />;
+        case 'video':
+            return <VideoBlockDisplay url={block.url} />;
+        default:
+            return null;
+    }
+};
 
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
@@ -96,38 +140,36 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   };
 
   const renderContent = () => {
-    // Handle new modular content structure
-    if (Array.isArray(lesson.content)) {
-      return lesson.content.map((block, index) => {
-        if (block.type === 'paragraph') {
-          return <FormattedParagraph key={index} text={block.value} />;
-        }
-        if (block.type === 'video') {
-          return (
-             <div className="my-8" key={index}>
-              <h3 className="text-xl font-semibold mb-4 font-headline">Watch a video lesson</h3>
-              <div className="aspect-video">
-                <iframe
-                  className="w-full h-full rounded-lg"
-                  src={block.value}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            </div>
-          );
-        }
-        return null;
-      });
+    // Render new section-based content
+    if (lesson.sections && lesson.sections.length > 0) {
+        return lesson.sections.map((section, sIndex) => (
+            <section key={sIndex} className="mb-8">
+                <h2 className="text-2xl font-bold font-headline mt-8 mb-4 border-b pb-2">{section.title}</h2>
+                <div className="space-y-4">
+                    {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
+                </div>
+            </section>
+        ));
     }
 
-    // Handle old string-based content for backward compatibility
+    // Fallback for old string-based content
     if (typeof lesson.content === 'string') {
       return lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
         <FormattedParagraph key={index} text={paragraph} />
       ));
+    }
+    
+    // Fallback for old block-based content
+    if (Array.isArray(lesson.content)) {
+        return lesson.content.map((block, index) => {
+            if (block.type === 'paragraph') {
+              return <FormattedParagraph key={index} text={block.value} />;
+            }
+            if (block.type === 'video') {
+              return <VideoBlockDisplay key={index} url={block.value} />;
+            }
+            return null;
+        });
     }
     
     return <p>No content available for this lesson.</p>;
@@ -151,21 +193,9 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             {renderContent()}
         </div>
 
-        {/* Backward compatibility for old videoUrl field */}
-        {lesson.videoUrl && !Array.isArray(lesson.content) && (
-            <div className="my-8">
-            <h3 className="text-xl font-semibold mb-4 font-headline">Watch a video lesson</h3>
-            <div className="aspect-video">
-                <iframe
-                className="w-full h-full rounded-lg"
-                src={lesson.videoUrl}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                ></iframe>
-            </div>
-            </div>
+        {/* Backward compatibility for old top-level videoUrl field */}
+        {lesson.videoUrl && !lesson.sections && (
+             <VideoBlockDisplay url={lesson.videoUrl} />
         )}
 
         <div className="mt-8 pt-6 border-t">

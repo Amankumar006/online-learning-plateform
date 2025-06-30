@@ -3,10 +3,33 @@
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 
+// Old structure
 export interface ContentBlock {
   type: 'paragraph' | 'video';
   value: string;
 }
+
+// New Structure
+export interface TextBlock {
+    type: 'text';
+    content: string;
+}
+export interface CodeBlock {
+    type: 'code';
+    language: string;
+    code: string;
+}
+export interface VideoBlock {
+    type: 'video';
+    url: string;
+}
+export type Block = TextBlock | CodeBlock | VideoBlock;
+
+export interface Section {
+    title: string;
+    blocks: Block[];
+}
+
 
 export interface Lesson {
   id: string;
@@ -14,10 +37,13 @@ export interface Lesson {
   subject: string;
   description: string;
   image: string;
-  videoUrl?: string; // For backward compatibility
-  content: ContentBlock[] | string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   tags?: string[];
+  // New structure
+  sections?: Section[];
+  // Old structure for backward compatibility
+  content?: ContentBlock[] | string;
+  videoUrl?: string;
 }
 
 export interface UserProgress {
