@@ -1,7 +1,6 @@
-
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 
 export interface Lesson {
   id: string;
@@ -20,6 +19,8 @@ export interface UserProgress {
   mastery: number;
   subjectsMastery: { subject: string; mastery: number }[];
   completedLessonIds: string[];
+  totalExercisesAttempted?: number;
+  totalExercisesCorrect?: number;
 }
 
 export interface User {
@@ -91,6 +92,8 @@ export async function createUserInFirestore(uid: string, email: string, name: st
                 mastery: 0,
                 subjectsMastery: [],
                 completedLessonIds: [],
+                totalExercisesAttempted: 0,
+                totalExercisesCorrect: 0,
             }
         });
     } catch (error) {
@@ -196,5 +199,31 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
     } catch (error) {
         console.error("Error completing lesson: ", error);
         throw new Error("Failed to update lesson progress.");
+    }
+}
+
+export async function saveExerciseResult(userId: string, isCorrect: boolean) {
+    const userRef = doc(db, 'users', userId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) {
+                throw "User document does not exist!";
+            }
+            const progress = userDoc.data().progress as UserProgress;
+            
+            const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
+            const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
+            const newAverageScore = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+
+            transaction.update(userRef, { 
+                'progress.totalExercisesAttempted': totalAttempted,
+                'progress.totalExercisesCorrect': totalCorrect,
+                'progress.averageScore': newAverageScore
+            });
+        });
+    } catch (e) {
+        console.error("Transaction failed: ", e);
+        throw new Error("Failed to save exercise result.");
     }
 }

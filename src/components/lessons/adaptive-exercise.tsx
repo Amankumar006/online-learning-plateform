@@ -7,13 +7,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@/lib/data";
+import { saveExerciseResult } from "@/lib/data";
+import { useToast } from "@/hooks/use-toast";
 
-export default function AdaptiveExercise({ exercises }: { exercises: Exercise[] }) {
+export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId: string }) {
   const [currentExercise, setCurrentExercise] = useState<Exercise | undefined>(undefined);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [difficulty, setDifficulty] = useState(1);
   const [key, setKey] = useState(0);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadNextExercise();
@@ -48,11 +51,26 @@ export default function AdaptiveExercise({ exercises }: { exercises: Exercise[] 
     setKey(prevKey => prevKey + 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedAnswer || !currentExercise) return;
     const correct = selectedAnswer === currentExercise.correctAnswer;
     setIsCorrect(correct);
     
+    try {
+      await saveExerciseResult(userId, correct);
+      toast({
+        title: correct ? "Correct!" : "Not quite",
+        description: correct ? "Great job! Your progress has been updated." : "Don't worry, keep practicing!",
+      });
+    } catch (error) {
+      console.error("Failed to save exercise result:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not save your progress. Please try again.",
+      });
+    }
+
     if (correct) {
       setDifficulty(prev => Math.min(prev + 1, 3)); // Max difficulty 3
     } else {

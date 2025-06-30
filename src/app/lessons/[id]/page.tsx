@@ -123,7 +123,7 @@ export default function LessonPage({ params }: { params: { id: string } }) {
           />
         </TabsContent>
         <TabsContent value="exercise">
-          <AdaptiveExercise exercises={exercises} />
+          <AdaptiveExercise exercises={exercises} userId={user.uid} />
         </TabsContent>
         <TabsContent value="ai-buddy">
           <AIBuddy lessonContent={lesson.content} />
