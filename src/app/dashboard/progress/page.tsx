@@ -77,16 +77,6 @@ export default function ProgressPage() {
     return () => unsubscribe();
   }, []);
   
-  // Mock data for weekly activity chart
-  const weeklyActivityData = [
-    { week: "W-4", skillsMastered: 0, timeSpent: 0 },
-    { week: "W-3", skillsMastered: 0, timeSpent: 0 },
-    { week: "W-2", skillsMastered: 2, timeSpent: 0.1 },
-    { week: "Last Week", skillsMastered: 5, timeSpent: 0.25 },
-    { week: "Current Week", skillsMastered: 3, timeSpent: 0.3 },
-  ];
-
-
   if (isLoading) {
     return <ProgressSkeleton />;
   }
@@ -163,7 +153,7 @@ export default function ProgressPage() {
                     <CardDescription>Skills mastered and time spent per week (last 5 weeks).</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <WeeklyActivityChart data={weeklyActivityData} />
+                    <WeeklyActivityChart data={userProgress.weeklyActivity || []} />
                 </CardContent>
             </Card>
              <Card>

@@ -20,6 +20,14 @@ const chartConfig = {
 };
 
 export default function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="flex items-center justify-center min-h-[250px] text-muted-foreground">
+                <p>No weekly activity data to display yet.</p>
+            </div>
+        );
+    }
+
   return (
     <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
         <ResponsiveContainer width="100%" height={250}>
