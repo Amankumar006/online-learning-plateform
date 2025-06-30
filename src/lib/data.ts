@@ -59,6 +59,18 @@ export async function getUser(userId: string): Promise<User | null> {
     }
 }
 
+export async function getUsers(): Promise<User[]> {
+    try {
+        const usersCol = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCol);
+        const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+        return userList;
+    } catch (error) {
+        console.error("Error fetching users: ", error);
+        return [];
+    }
+}
+
 export async function createUserInFirestore(uid: string, email: string, name: string) {
     try {
         await setDoc(doc(db, "users", uid), {
