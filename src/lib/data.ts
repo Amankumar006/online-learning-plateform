@@ -1,6 +1,6 @@
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 
 // NOTE: You will need to populate your Firestore database.
 // 1. Create a 'lessons' collection with documents matching the Lesson interface.
@@ -26,6 +26,14 @@ export interface UserProgress {
   subjectsMastery: { subject: string; mastery: number }[];
 }
 
+export interface User {
+  uid: string;
+  email: string | null;
+  name?: string;
+  role: 'student' | 'admin';
+  progress: UserProgress;
+}
+
 export interface Exercise {
     id: string;
     lessonId: string;
@@ -33,6 +41,61 @@ export interface Exercise {
     question: string;
     options: string[];
     correctAnswer: string;
+}
+
+export async function getUser(userId: string): Promise<User | null> {
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+            return { uid: userSnap.id, ...userSnap.data() } as User;
+        } else {
+            console.warn(`No user found with id: ${userId}`);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching user: ", error);
+        return null;
+    }
+}
+
+export async function createUserInFirestore(uid: string, email: string, name: string) {
+    try {
+        await setDoc(doc(db, "users", uid), {
+            uid,
+            email,
+            name,
+            role: 'student', // Default role for new signups
+            progress: {
+                completedLessons: 0,
+                averageScore: 0,
+                mastery: 0,
+                subjectsMastery: [],
+            }
+        });
+    } catch (error) {
+        console.error("Error creating user in Firestore: ", error);
+        throw error;
+    }
+}
+
+export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, "lessons"), lessonData);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating lesson: ", error);
+    throw new Error("Failed to create lesson");
+  }
+}
+
+export async function deleteLesson(lessonId: string): Promise<void> {
+    try {
+        await deleteDoc(doc(db, 'lessons', lessonId));
+    } catch (error) {
+        console.error("Error deleting lesson: ", error);
+        throw new Error("Failed to delete lesson");
+    }
 }
 
 export async function getLessons(): Promise<Lesson[]> {
@@ -63,15 +126,9 @@ export async function getLesson(id: string): Promise<Lesson | null> {
 }
 
 export async function getUserProgress(userId: string): Promise<UserProgress> {
-    try {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
-    
-        if (userSnap.exists()) {
-            return userSnap.data() as UserProgress;
-        }
-    } catch (error) {
-      console.error("Error fetching user progress: ", error);
+    const user = await getUser(userId);
+    if (user && user.progress) {
+        return user.progress;
     }
 
     // Return a default structure if user not found or on error
