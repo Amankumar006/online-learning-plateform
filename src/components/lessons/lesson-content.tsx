@@ -47,7 +47,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   };
 
   const handleNextLesson = () => {
-    router.push('/dashboard');
+    router.push('/dashboard/lessons');
   };
 
   return (
@@ -91,7 +91,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
                 <p className="text-muted-foreground text-sm">You have already completed this lesson.</p>
               </div>
               <Button onClick={handleNextLesson} className="sm:ml-auto">
-                Back to Dashboard
+                Browse Other Lessons
               </Button>
             </>
           ) : (
