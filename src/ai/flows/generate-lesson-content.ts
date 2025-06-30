@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateLessonContentInputSchema = z.object({
+const GenerateLessonContentInputSchema = z.object({
   topic: z.string().describe('The topic for the lesson to be generated.'),
 });
 export type GenerateLessonContentInput = z.infer<typeof GenerateLessonContentInputSchema>;
@@ -44,7 +44,7 @@ const SectionSchema = z.object({
 });
 
 
-export const GenerateLessonContentOutputSchema = z.object({
+const GenerateLessonContentOutputSchema = z.object({
   title: z.string().describe('A concise and engaging title for the lesson.'),
   subject: z.string().describe('The subject the lesson topic belongs to (e.g., "Mathematics", "Web Development").'),
   description: z.string().describe('A short, one-sentence description of what the lesson covers.'),
