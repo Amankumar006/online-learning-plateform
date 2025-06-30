@@ -1,8 +1,8 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -84,26 +84,23 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
   
   if (!exercises || exercises.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <p>No exercises available for this lesson yet.</p>
-          <p className="text-sm mt-2 text-muted-foreground">(Hint: Populate your Firestore 'exercises' collection for this lesson)</p>
-        </CardContent>
-      </Card>
+      <div className="p-6 text-center">
+        <p>No exercises available for this lesson yet.</p>
+        <p className="text-sm mt-2 text-muted-foreground">(Hint: Populate your Firestore 'exercises' collection for this lesson)</p>
+      </div>
     );
   }
 
   return (
-    <Card key={key} className="animate-in fade-in-0 zoom-in-95">
-      <CardHeader>
-        <CardTitle className="font-headline">Practice Question</CardTitle>
-        <CardDescription className="flex items-center gap-1">
+    <div key={key} className="animate-in fade-in-0 zoom-in-95">
+      <div className="mb-4">
+        <h3 className="font-headline text-xl font-semibold">Practice Question</h3>
+        <p className="text-sm text-muted-foreground flex items-center gap-1">
           Difficulty: {Array.from({ length: 3 }).map((_, i) => (
             <span key={i} className={cn(i < difficulty ? 'text-accent' : 'text-muted-foreground/50')}>⭐</span>
           ))}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
+      </div>
         {currentExercise ? (
           <>
             <p className="text-lg mb-6">{currentExercise.question}</p>
@@ -146,7 +143,6 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
         ) : (
             <p>Loading exercise...</p>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }

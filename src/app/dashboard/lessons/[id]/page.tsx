@@ -24,19 +24,21 @@ function LessonPageSkeleton() {
             <Skeleton className="h-6 w-1/2 mb-6" />
             <Skeleton className="h-10 w-3/4 mb-2" />
             <Skeleton className="h-6 w-1/4 mb-6" />
-            <Tabs defaultValue="lesson" className="w-full">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
-                    <TabsTrigger value="lesson" disabled><BookText className="mr-2"/>Lesson</TabsTrigger>
-                    <TabsTrigger value="exercise" disabled><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
-                    <TabsTrigger value="ai-buddy" disabled><Bot className="mr-2"/>AI Buddy</TabsTrigger>
-                </TabsList>
-                <TabsContent value="lesson">
-                    <Card><CardContent className="p-6 space-y-4">
-                        <Skeleton className="h-[400px] w-full" />
-                        <Skeleton className="h-24 w-full" />
-                    </CardContent></Card>
-                </TabsContent>
-            </Tabs>
+            <Card>
+                <CardContent className="p-6">
+                    <Tabs defaultValue="lesson" className="w-full">
+                        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 mb-6">
+                            <TabsTrigger value="lesson" disabled><BookText className="mr-2"/>Lesson</TabsTrigger>
+                            <TabsTrigger value="exercise" disabled><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
+                            <TabsTrigger value="ai-buddy" disabled><Bot className="mr-2"/>AI Buddy</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="lesson" className="space-y-4">
+                            <Skeleton className="h-[400px] w-full" />
+                            <Skeleton className="h-24 w-full" />
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
         </div>
     )
 }
@@ -128,27 +130,31 @@ export default function LessonPage() {
         <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
         <p className="text-lg text-muted-foreground">{lesson.subject}</p>
       </div>
-      <Tabs defaultValue="lesson" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
-          <TabsTrigger value="lesson"><BookText className="mr-2"/>Lesson</TabsTrigger>
-          <TabsTrigger value="exercise"><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
-          <TabsTrigger value="ai-buddy"><Bot className="mr-2"/>AI Buddy</TabsTrigger>
-        </TabsList>
-        <TabsContent value="lesson">
-          <LessonContent 
-            lesson={lesson} 
-            userId={user.uid}
-            userProgress={userProgress}
-            onLessonComplete={() => fetchUserProgress(user.uid)}
-          />
-        </TabsContent>
-        <TabsContent value="exercise">
-          <AdaptiveExercise exercises={exercises} userId={user.uid} />
-        </TabsContent>
-        <TabsContent value="ai-buddy">
-          <AIBuddy lessonContent={textContentForAI} />
-        </TabsContent>
-      </Tabs>
+      <Card>
+          <CardContent className="p-4 sm:p-6">
+            <Tabs defaultValue="lesson" className="w-full">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 mb-6">
+                <TabsTrigger value="lesson"><BookText className="mr-2"/>Lesson</TabsTrigger>
+                <TabsTrigger value="exercise"><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
+                <TabsTrigger value="ai-buddy"><Bot className="mr-2"/>AI Buddy</TabsTrigger>
+                </TabsList>
+                <TabsContent value="lesson">
+                <LessonContent 
+                    lesson={lesson} 
+                    userId={user.uid}
+                    userProgress={userProgress}
+                    onLessonComplete={() => fetchUserProgress(user.uid)}
+                />
+                </TabsContent>
+                <TabsContent value="exercise">
+                <AdaptiveExercise exercises={exercises} userId={user.uid} />
+                </TabsContent>
+                <TabsContent value="ai-buddy">
+                <AIBuddy lessonContent={textContentForAI} />
+                </TabsContent>
+            </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }

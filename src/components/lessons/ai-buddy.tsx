@@ -1,8 +1,8 @@
+
 "use client";
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateConversationStarters } from '@/ai/flows/generate-conversation-starters';
 import { Bot, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -31,16 +31,15 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
   };
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline flex items-center gap-2">
-          <Bot /> AI Study Buddy
-        </CardTitle>
-        <CardDescription>
-          Practice what you've learned. Generate some conversation starters to discuss the topic.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div>
+        <div className="mb-4">
+            <h3 className="font-headline text-xl font-semibold flex items-center gap-2">
+            <Bot /> AI Study Buddy
+            </h3>
+            <p className="text-sm text-muted-foreground">
+            Practice what you've learned. Generate some conversation starters to discuss the topic.
+            </p>
+        </div>
         <div className="flex justify-center mb-6">
             <Button onClick={handleGenerate} disabled={isLoading} size="lg">
               {isLoading ? (
@@ -71,7 +70,6 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
             </ul>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
