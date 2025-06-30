@@ -1,6 +1,7 @@
+
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 
 export interface Lesson {
   id: string;
@@ -18,6 +19,7 @@ export interface UserProgress {
   averageScore: number;
   mastery: number;
   subjectsMastery: { subject: string; mastery: number }[];
+  completedLessonIds: string[];
 }
 
 export interface User {
@@ -88,6 +90,7 @@ export async function createUserInFirestore(uid: string, email: string, name: st
                 averageScore: 0,
                 mastery: 0,
                 subjectsMastery: [],
+                completedLessonIds: [],
             }
         });
     } catch (error) {
@@ -154,6 +157,7 @@ export async function getUserProgress(userId: string): Promise<UserProgress> {
         averageScore: 0,
         mastery: 0,
         subjectsMastery: [],
+        completedLessonIds: [],
     };
 }
 
@@ -166,5 +170,31 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
     } catch (error) {
       console.error("Error fetching exercises: ", error);
       return [];
+    }
+}
+
+export async function completeLesson(userId: string, lessonId: string): Promise<void> {
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            throw new Error("User not found");
+        }
+        
+        const userData = userSnap.data() as User;
+        if (userData.progress?.completedLessonIds?.includes(lessonId)) {
+            console.log("Lesson already completed.");
+            return;
+        }
+
+        await updateDoc(userRef, {
+            'progress.completedLessons': increment(1),
+            'progress.completedLessonIds': arrayUnion(lessonId)
+        });
+
+    } catch (error) {
+        console.error("Error completing lesson: ", error);
+        throw new Error("Failed to update lesson progress.");
     }
 }
