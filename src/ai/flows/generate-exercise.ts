@@ -12,6 +12,9 @@ import {z} from 'genkit';
 
 const GenerateExerciseInputSchema = z.object({
   lessonContent: z.string().describe('The content of the lesson to generate an exercise from.'),
+  mcqCount: z.number().min(0).default(0).describe('Number of Multiple-Choice questions to generate.'),
+  trueFalseCount: z.number().min(0).default(0).describe('Number of True/False questions to generate.'),
+  longFormCount: z.number().min(0).default(0).describe('Number of Long-Form questions to generate.'),
 });
 export type GenerateExerciseInput = z.infer<typeof GenerateExerciseInputSchema>;
 
@@ -46,7 +49,7 @@ const GeneratedExerciseSchema = z.discriminatedUnion("type", [McqQuestionSchema,
 export type GeneratedExercise = z.infer<typeof GeneratedExerciseSchema>;
 
 const GenerateExerciseOutputSchema = z.object({
-    exercises: z.array(GeneratedExerciseSchema).describe("An array of 3-5 generated exercises of different types.")
+    exercises: z.array(GeneratedExerciseSchema).describe("An array of generated exercises based on the specified counts.")
 });
 
 
@@ -60,12 +63,16 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateExerciseInputSchema},
   output: {schema: GenerateExerciseOutputSchema},
   prompt: `You are an expert curriculum developer creating adaptive exercises for an AI learning platform.
-Based on the following lesson content, generate a diverse set of 3-5 exercises.
-
-Include a mix of the following types:
-- Multiple-Choice ('mcq'): A question, 4 options, the correct answer, an explanation, and a hint.
-- True/False ('true_false'): A statement, the correct boolean answer, an explanation, and a hint.
-- Long-Form ('long_form'): A question that requires a detailed, multi-step answer, along with evaluation criteria for an AI to grade it later, and a hint.
+Based on the following lesson content, generate a precise set of exercises based on these requirements:
+{{#if mcqCount}}
+- **{{mcqCount}}** Multiple-Choice ('mcq') questions. Each with: a question, 4 options, the correct answer, an explanation, and a hint.
+{{/if}}
+{{#if trueFalseCount}}
+- **{{trueFalseCount}}** True/False ('true_false') questions. Each with: a statement, the correct boolean answer, an explanation, and a hint.
+{{/if}}
+{{#if longFormCount}}
+- **{{longFormCount}}** Long-Form ('long_form') questions. Each with: a question that requires a detailed, multi-step answer, evaluation criteria for an AI to grade it later, and a hint.
+{{/if}}
 
 Assign a difficulty from 1 (easy) to 3 (hard) for each exercise.
 
