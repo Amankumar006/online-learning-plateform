@@ -46,9 +46,9 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Home /> },
-    { href: "/lessons", label: "Lessons", icon: <BookOpen /> },
-    { href: "/exercises", label: "Exercises", icon: <BrainCircuit /> },
-    { href: "/progress", label: "Progress", icon: <LineChart /> },
+    { href: "/dashboard/lessons", label: "Lessons", icon: <BookOpen /> },
+    { href: "/dashboard/exercises", label: "Exercises", icon: <BrainCircuit /> },
+    { href: "/dashboard/progress", label: "Progress", icon: <LineChart /> },
   ];
   
   const getInitials = (name?: string) => {

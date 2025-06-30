@@ -157,7 +157,7 @@ export default function DashboardPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {lessons.map((lesson) => (
               <Card key={lesson.id} className="overflow-hidden flex flex-col">
-                <Link href={`/lessons/${lesson.id}`} className="block">
+                <Link href={`/dashboard/lessons/${lesson.id}`} className="block">
                   <Image
                     src={lesson.image}
                     width="600"
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                   <CardTitle className="text-lg font-headline mb-2">{lesson.title}</CardTitle>
                   <CardDescription className="mb-4 h-10 flex-grow">{lesson.description}</CardDescription>
                   <Button asChild className="w-full mt-auto">
-                    <Link href={`/lessons/${lesson.id}`}>Start Lesson</Link>
+                    <Link href={`/dashboard/lessons/${lesson.id}`}>Start Lesson</Link>
                   </Button>
                 </CardContent>
               </Card>
