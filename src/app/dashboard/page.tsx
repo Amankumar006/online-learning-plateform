@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 
 function DashboardSkeleton() {
   return (
@@ -45,8 +46,11 @@ function DashboardSkeleton() {
                       <Skeleton className="h-4 w-full" />
                   </CardHeader>
                   <CardContent className="space-y-4">
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-16 w-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-2/3" />
+                      </div>
                       <Skeleton className="h-10 w-full" />
                   </CardContent>
               </Card>
@@ -62,7 +66,9 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingTopics, setIsGeneratingTopics] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -78,8 +84,25 @@ export default function DashboardPage() {
             setUserProfile(profile);
             setUserProgress(progress);
             setLessons(lessonsData);
+            
+            // Generate topic suggestions
+            const progressSummary = `Completed lessons: ${progress.completedLessonIds.length}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
+            const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
+
+            generateStudyTopics({ currentProgress: progressSummary, learningGoals: goals })
+              .then(result => {
+                  setSuggestedTopics(result.suggestedTopics);
+              })
+              .catch(err => {
+                  console.error("Failed to generate study topics:", err);
+              })
+              .finally(() => {
+                  setIsGeneratingTopics(false);
+              });
+
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error);
+            setIsGeneratingTopics(false);
         } finally {
             setIsLoading(false);
         }
@@ -87,6 +110,7 @@ export default function DashboardPage() {
         setUser(null);
         setUserProfile(null);
         setIsLoading(false);
+        setIsGeneratingTopics(false);
       }
     });
 
@@ -98,9 +122,6 @@ export default function DashboardPage() {
 
   const recentlyCompleted = completedLessonIds.slice(-3).reverse().map(id => lessonMap.get(id)).filter(Boolean) as Lesson[];
   const lastCompletedLesson = recentlyCompleted.length > 0 ? recentlyCompleted[0] : null;
-
-  const recommendedLessons = lessons.filter(lesson => !completedLessonIds.includes(lesson.id));
-  const nextLesson = recommendedLessons.length > 0 ? recommendedLessons[0] : null;
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -154,7 +175,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-              <Sparkles className="w-6 h-6 text-primary"/>
+              <CheckCircle className="w-6 h-6 text-primary"/>
               <CardTitle className="font-headline text-xl">Recently Completed</CardTitle>
             </CardHeader>
             <CardContent>
@@ -184,35 +205,32 @@ export default function DashboardPage() {
         <div className="lg:col-span-1">
           <Card className="sticky top-20">
             <CardHeader>
-              <CardTitle className="font-headline text-xl">Your Learning Path</CardTitle>
-              <CardDescription>Based on your progress, here's a recommended next step.</CardDescription>
+              <CardTitle className="font-headline text-xl flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Your Learning Path
+              </CardTitle>
+              <CardDescription>AI-powered suggestions based on your progress.</CardDescription>
             </CardHeader>
             <CardContent>
-              {nextLesson ? (
-                <div className="space-y-4">
-                    <div className="p-4 bg-card-foreground/5 rounded-lg">
-                      <p className="text-xs font-semibold text-primary flex items-center gap-1"><BookOpen className="w-3 h-3" /> Recommended Lesson</p>
-                      <h4 className="font-semibold text-foreground mb-1">{nextLesson.title}</h4>
-                      <p className="text-sm text-muted-foreground mb-2">{nextLesson.description}</p>
-                      <Link href={`/dashboard/lessons/${nextLesson.id}`} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
-                        Start Lesson <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </div>
-                    <div className="p-4 bg-card-foreground/5 rounded-lg opacity-50">
-                      <p className="text-xs font-semibold text-primary">Generate Custom Exercise</p>
-                      <h4 className="font-semibold text-foreground mb-1">AI-Powered Practice</h4>
-                      <p className="text-sm text-muted-foreground mb-2">Apply your knowledge in a new context. (Coming Soon)</p>
-                       <span className="text-sm font-semibold text-primary/50 flex items-center gap-1 cursor-not-allowed">
-                        Generate Exercise <ArrowRight className="w-4 h-4" />
-                      </span>
-                    </div>
+              {isGeneratingTopics ? (
+                <div className="space-y-3 py-4">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
                 </div>
+              ) : suggestedTopics.length > 0 ? (
+                  <ul className="space-y-3">
+                    {suggestedTopics.map((topic, index) => (
+                      <li key={index} className="flex items-start gap-3">
+                          <Sparkles className="w-4 h-4 mt-1 text-accent shrink-0" />
+                          <span className="text-sm text-foreground">{topic}</span>
+                      </li>
+                    ))}
+                  </ul>
               ) : (
-                 <div className="text-center py-6">
-                    <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-                    <h3 className="mt-2 text-lg font-medium">All Lessons Completed!</h3>
+                <div className="text-center py-6">
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Congratulations! You've completed all available lessons.
+                        Could not generate suggestions. Complete more lessons to get personalized recommendations!
                     </p>
                  </div>
               )}
