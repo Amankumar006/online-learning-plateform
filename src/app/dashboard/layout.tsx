@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, Home, LineChart, Search, LogOut } from "lucide-react";
+import { BookOpenCheck, Home, LineChart, Search, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,8 +16,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { getUser } from "@/lib/data";
+
 
 export default function DashboardLayout({
   children,
@@ -24,11 +29,31 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<{name?: string} | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const profile = await getUser(currentUser.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Home /> },
     { href: "/progress", label: "Progress", icon: <LineChart /> },
   ];
+  
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -79,13 +104,13 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full"
               >
                 <Avatar>
-                  <AvatarImage src="https://placehold.co/32x32.png" alt="@user" />
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarImage src="https://placehold.co/32x32.png" alt={userProfile?.name || "User"} />
+                  <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>{userProfile?.name || "My Account"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>

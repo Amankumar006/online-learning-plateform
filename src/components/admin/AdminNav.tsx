@@ -1,17 +1,37 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, LayoutDashboard, BookCopy, Users, LogOut } from "lucide-react";
+import { BookOpenCheck, LayoutDashboard, BookCopy, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LogoutButton } from "../auth/LogoutButton";
-
+import { useState, useEffect } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { getUser } from "@/lib/data";
 
 export default function AdminNav() {
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<{name?: string; email?: string | null;} | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const profile = await getUser(currentUser.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
@@ -47,12 +67,12 @@ export default function AdminNav() {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start gap-2">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src="https://placehold.co/32x32.png" alt="@admin" />
+                        <AvatarImage src="https://placehold.co/32x32.png" alt={userProfile?.name || "Admin"} />
                         <AvatarFallback>A</AvatarFallback>
                     </Avatar>
                     <div className="text-left">
-                        <p className="text-sm font-medium">Admin User</p>
-                        <p className="text-xs text-muted-foreground">admin@example.com</p>
+                        <p className="text-sm font-medium">{userProfile?.name || 'Admin User'}</p>
+                        <p className="text-xs text-muted-foreground">{userProfile?.email || 'admin@example.com'}</p>
                     </div>
                 </Button>
             </DropdownMenuTrigger>
