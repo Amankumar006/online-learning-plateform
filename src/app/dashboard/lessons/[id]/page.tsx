@@ -42,7 +42,7 @@ function LessonPageSkeleton() {
 }
 
 
-export default function LessonPage({ params }: { params: { id: string } }) {
+export default function LessonPage({ params: { id } }: { params: { id: string } }) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -62,8 +62,8 @@ export default function LessonPage({ params }: { params: { id: string } }) {
         setIsLoading(true);
         try {
           const [lessonData, exercisesData, progressData] = await Promise.all([
-            getLesson(params.id),
-            getExercises(params.id),
+            getLesson(id),
+            getExercises(id),
             getUserProgress(currentUser.uid),
           ]);
           
@@ -86,7 +86,7 @@ export default function LessonPage({ params }: { params: { id: string } }) {
     });
 
     return () => unsubscribe();
-  }, [params.id, router]);
+  }, [id, router]);
 
   if (isLoading) {
     return <LessonPageSkeleton />;
