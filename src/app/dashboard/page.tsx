@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { getLessons, getUserProgress, Lesson, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { BookOpen, Target, Award, Loader2 } from "lucide-react";
+import { BookOpen, Target, Award, Loader2, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ function DashboardSkeleton() {
         </Card>
       </div>
       <div>
-        <h2 className="text-2xl font-bold tracking-tight font-headline my-4">Continue Learning</h2>
+        <h2 className="text-2xl font-bold tracking-tight font-headline my-4">Recommended for You</h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="overflow-hidden flex flex-col">
@@ -112,6 +112,10 @@ export default function DashboardPage() {
       </div>
     )
   }
+  
+  const recommendedLessons = lessons.filter(
+    (lesson) => !userProgress.completedLessonIds.includes(lesson.id)
+  );
 
   const breadcrumbItems = [{ href: "/dashboard", label: "Dashboard" }];
 
@@ -152,10 +156,11 @@ export default function DashboardPage() {
       </div>
 
       <div>
-        <h2 className="text-2xl font-bold tracking-tight font-headline my-4">Continue Learning</h2>
-        {lessons.length > 0 ? (
+        <h2 className="text-2xl font-bold tracking-tight font-headline my-4">Recommended for You</h2>
+        <p className="text-muted-foreground mb-6">Here are some lessons we think you should tackle next.</p>
+        {recommendedLessons.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {lessons.map((lesson) => (
+            {recommendedLessons.map((lesson) => (
               <Card key={lesson.id} className="overflow-hidden flex flex-col">
                 <Link href={`/dashboard/lessons/${lesson.id}`} className="block">
                   <Image
@@ -169,6 +174,7 @@ export default function DashboardPage() {
                 </Link>
                 <CardContent className="p-4 flex flex-col flex-1">
                   <CardTitle className="text-lg font-headline mb-2">{lesson.title}</CardTitle>
+
                   <CardDescription className="mb-4 h-10 flex-grow">{lesson.description}</CardDescription>
                   <Button asChild className="w-full mt-auto">
                     <Link href={`/dashboard/lessons/${lesson.id}`}>Start Lesson</Link>
@@ -178,11 +184,13 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              <p>No lessons available yet. Check back soon!</p>
-              <p className="text-sm mt-2">(Hint: Admins can add lessons in the /admin/lessons section)</p>
-            </CardContent>
+           <Card className="flex flex-col items-center justify-center p-10 text-center">
+            <CheckCircle className="h-12 w-12 text-primary mb-4" />
+            <CardTitle className="mb-2 font-headline">All Caught Up!</CardTitle>
+            <CardDescription>You've completed all available lessons. Great job!</CardDescription>
+            <Button asChild className="mt-6">
+                <Link href="/dashboard/lessons">Review Lessons</Link>
+            </Button>
           </Card>
         )}
       </div>
