@@ -115,8 +115,8 @@ export default function AdminDashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">18</div>
-            <p className="text-xs text-muted-foreground">Students currently active</p>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Real-time data coming soon</p>
           </CardContent>
         </Card>
       </div>
