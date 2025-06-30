@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { History, Sparkles, ArrowRight, BookOpen, CheckCircle } from "lucide-react";
+import { History, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,8 +85,7 @@ export default function DashboardPage() {
             setUserProgress(progress);
             setLessons(lessonsData);
             
-            // Generate topic suggestions
-            const progressSummary = `Completed lessons: ${progress.completedLessonIds.length}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
+            const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
             const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
 
             generateStudyTopics({ currentProgress: progressSummary, learningGoals: goals })
@@ -122,6 +121,20 @@ export default function DashboardPage() {
 
   const recentlyCompleted = completedLessonIds.slice(-3).reverse().map(id => lessonMap.get(id)).filter(Boolean) as Lesson[];
   const lastCompletedLesson = recentlyCompleted.length > 0 ? recentlyCompleted[0] : null;
+
+  const findLessonForTopic = (topic: string): Lesson | null => {
+      if (!lessons || !userProgress) return null;
+      const uncompletedLessons = lessons.filter(l => !completedLessonIds.includes(l.id));
+      
+      const lowerTopic = topic.toLowerCase();
+      // Try to find a lesson where the title is a good match for the topic
+      const foundLesson = uncompletedLessons.find(l => 
+          l.title.toLowerCase().includes(lowerTopic) || 
+          lowerTopic.includes(l.title.toLowerCase())
+      );
+      
+      return foundLesson || null;
+  }
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -220,12 +233,22 @@ export default function DashboardPage() {
                 </div>
               ) : suggestedTopics.length > 0 ? (
                   <ul className="space-y-3">
-                    {suggestedTopics.map((topic, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                          <Sparkles className="w-4 h-4 mt-1 text-accent shrink-0" />
-                          <span className="text-sm text-foreground">{topic}</span>
-                      </li>
-                    ))}
+                    {suggestedTopics.map((topic, index) => {
+                       const lesson = findLessonForTopic(topic);
+                       return (
+                          <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-secondary/50 transition-colors">
+                              <Sparkles className="w-4 h-4 mt-1 text-accent shrink-0" />
+                              {lesson ? (
+                                <Link href={`/dashboard/lessons/${lesson.id}`} className="flex-1 text-sm font-medium text-foreground hover:text-primary">
+                                    {topic}
+                                    <span className="block text-xs text-muted-foreground">{lesson.subject}</span>
+                                </Link>
+                              ) : (
+                                <span className="flex-1 text-sm text-muted-foreground">{topic}</span>
+                              )}
+                          </li>
+                       );
+                    })}
                   </ul>
               ) : (
                 <div className="text-center py-6">
@@ -246,3 +269,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+ 
