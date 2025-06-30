@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
@@ -67,16 +66,34 @@ export interface User {
   progress: UserProgress;
 }
 
-export interface Exercise {
+// New Exercise Data Structure
+export interface BaseExercise {
     id: string;
     lessonId: string;
     difficulty: number;
     question: string;
+    explanation?: string;
+    hint?: string;
+}
+
+export interface McqExercise extends BaseExercise {
+    type: 'mcq';
     options: string[];
     correctAnswer: string;
-    hint?: string;
-    explanation?: string;
 }
+
+export interface TrueFalseExercise extends BaseExercise {
+    type: 'true_false';
+    correctAnswer: boolean;
+}
+
+export interface LongFormExercise extends BaseExercise {
+    type: 'long_form';
+    evaluationCriteria: string;
+}
+
+export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise;
+
 
 export interface ExerciseWithLessonTitle extends Exercise {
     lessonTitle: string;

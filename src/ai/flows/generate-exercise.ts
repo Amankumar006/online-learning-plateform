@@ -1,10 +1,10 @@
 'use server';
 /**
- * @fileOverview A Genkit flow to generate a multiple-choice exercise from lesson content.
+ * @fileOverview A Genkit flow to generate a set of exercises from lesson content.
  *
- * - generateExercise - A function that generates an exercise.
+ * - generateExercise - A function that generates an array of exercises.
  * - GenerateExerciseInput - The input type for the generateExercise function.
- * - GenerateExerciseOutput - The return type for the generateExercise function.
+ * - GeneratedExercise - The output type for a single generated exercise.
  */
 
 import {ai} from '@/ai/genkit';
@@ -15,30 +15,59 @@ const GenerateExerciseInputSchema = z.object({
 });
 export type GenerateExerciseInput = z.infer<typeof GenerateExerciseInputSchema>;
 
-const GenerateExerciseOutputSchema = z.object({
-  question: z.string().describe('The generated multiple-choice question.'),
-  options: z.array(z.string()).length(4).describe('An array of exactly 4 possible answers for the question.'),
-  correctAnswer: z.string().describe('The correct answer from the provided options.'),
-  explanation: z.string().describe('A brief explanation of why the correct answer is right.'),
-  hint: z.string().describe('A helpful hint for the student that does not give away the answer.'),
+const McqQuestionSchema = z.object({
+    type: z.literal('mcq'),
+    difficulty: z.number().min(1).max(3),
+    question: z.string().describe("The multiple-choice question."),
+    options: z.array(z.string()).length(4).describe("An array of exactly 4 possible answers."),
+    correctAnswer: z.string().describe("The correct answer from the options."),
+    explanation: z.string().describe("An explanation of why the answer is correct."),
+    hint: z.string().describe("A hint for the student."),
 });
-export type GenerateExerciseOutput = z.infer<typeof GenerateExerciseOutputSchema>;
 
-export async function generateExercise(input: GenerateExerciseInput): Promise<GenerateExerciseOutput> {
-  return generateExerciseFlow(input);
+const TrueFalseQuestionSchema = z.object({
+    type: z.literal('true_false'),
+    difficulty: z.number().min(1).max(3),
+    question: z.string().describe("The true/false statement."),
+    correctAnswer: z.boolean().describe("Whether the statement is true or false."),
+    explanation: z.string().describe("An explanation of why the answer is correct."),
+    hint: z.string().describe("A hint for the student."),
+});
+
+const LongFormQuestionSchema = z.object({
+    type: z.literal('long_form'),
+    difficulty: z.number().min(1).max(3),
+    question: z.string().describe("The open-ended question requiring a detailed answer."),
+    evaluationCriteria: z.string().describe("The criteria the AI will use to evaluate the student's answer."),
+    hint: z.string().describe("A hint for the student."),
+});
+
+const GeneratedExerciseSchema = z.discriminatedUnion("type", [McqQuestionSchema, TrueFalseQuestionSchema, LongFormQuestionSchema]);
+export type GeneratedExercise = z.infer<typeof GeneratedExerciseSchema>;
+
+const GenerateExerciseOutputSchema = z.object({
+    exercises: z.array(GeneratedExerciseSchema).describe("An array of 3-5 generated exercises of different types.")
+});
+
+
+export async function generateExercise(input: GenerateExerciseInput): Promise<GeneratedExercise[]> {
+  const result = await generateExerciseFlow(input);
+  return result.exercises;
 }
 
 const prompt = ai.definePrompt({
   name: 'generateExercisePrompt',
   input: {schema: GenerateExerciseInputSchema},
   output: {schema: GenerateExerciseOutputSchema},
-  prompt: `You are an expert curriculum developer. Based on the following lesson content, generate a single, relevant multiple-choice question.
+  prompt: `You are an expert curriculum developer creating adaptive exercises for an AI learning platform.
+Based on the following lesson content, generate a diverse set of 3-5 exercises.
 
-The question should test understanding of a key concept from the lesson.
-Provide exactly four answer options. One of these options must be the correct answer.
-Specify which of the options is the correct answer.
-Provide a brief explanation for why the answer is correct.
-Also, provide a helpful hint for the student that helps them think about the problem without giving away the answer.
+Include a mix of the following types:
+- Multiple-Choice ('mcq'): A question, 4 options, the correct answer, an explanation, and a hint.
+- True/False ('true_false'): A statement, the correct boolean answer, an explanation, and a hint.
+- Long-Form ('long_form'): A question that requires a detailed, multi-step answer, along with evaluation criteria for an AI to grade it later, and a hint.
+
+Assign a difficulty from 1 (easy) to 3 (hard) for each exercise.
 
 Lesson Content:
 {{{lessonContent}}}
@@ -53,8 +82,13 @@ const generateExerciseFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    if (output && !output.options.includes(output.correctAnswer)) {
-      output.correctAnswer = output.options[0];
+    if (output) {
+      // Ensure MCQ correct answers are one of the options.
+      output.exercises.forEach(ex => {
+        if (ex.type === 'mcq' && !ex.options.includes(ex.correctAnswer)) {
+          ex.correctAnswer = ex.options[0];
+        }
+      });
     }
     return output!;
   }
