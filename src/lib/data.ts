@@ -223,32 +223,83 @@ export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promis
     }
 }
 
-
 export async function completeLesson(userId: string, lessonId: string): Promise<void> {
-    try {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+    const userRef = doc(db, 'users', userId);
+    const lessonRef = doc(db, 'lessons', lessonId);
 
-        if (!userSnap.exists()) {
-            throw new Error("User not found");
+    try {
+        // Fetch lesson details to get the subject
+        const lessonSnap = await getDoc(lessonRef);
+        if (!lessonSnap.exists()) {
+            throw new Error("Lesson not found");
         }
-        
-        const userData = userSnap.data() as User;
-        if (userData.progress?.completedLessonIds?.includes(lessonId)) {
-            console.log("Lesson already completed.");
+        const lessonData = lessonSnap.data() as Omit<Lesson, 'id'>;
+        const subject = lessonData.subject;
+
+        // Fetch all lessons for that subject to calculate total
+        const subjectQuery = query(collection(db, 'lessons'), where('subject', '==', subject));
+        const subjectLessonsSnapshot = await getDocs(subjectQuery);
+        const totalLessonsInSubject = subjectLessonsSnapshot.size;
+
+        if (totalLessonsInSubject === 0) {
+            // This case should ideally not be hit if a lesson exists, but it's a safe fallback.
+            await updateDoc(userRef, {
+                'progress.completedLessons': increment(1),
+                'progress.completedLessonIds': arrayUnion(lessonId),
+            });
             return;
         }
 
-        await updateDoc(userRef, {
-            'progress.completedLessons': increment(1),
-            'progress.completedLessonIds': arrayUnion(lessonId)
-        });
+        await runTransaction(db, async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists()) {
+                throw new Error("User not found");
+            }
+            const userData = userSnap.data() as User;
+            const progress = userData.progress || {};
 
+            // If already completed, do nothing.
+            if (progress.completedLessonIds?.includes(lessonId)) {
+                return;
+            }
+
+            // Get user's completed lessons in this subject
+            const completedLessonIds = [...(progress.completedLessonIds || []), lessonId];
+            const subjectLessonIds = subjectLessonsSnapshot.docs.map(doc => doc.id);
+
+            let completedInSubjectCount = 0;
+            completedLessonIds.forEach(id => {
+                if (subjectLessonIds.includes(id)) {
+                    completedInSubjectCount++;
+                }
+            });
+
+            // Calculate new mastery percentage
+            const newMastery = Math.round((completedInSubjectCount / totalLessonsInSubject) * 100);
+
+            // Update or add the subject in the mastery array
+            const subjectsMastery = progress.subjectsMastery || [];
+            const subjectIndex = subjectsMastery.findIndex(sm => sm.subject === subject);
+
+            if (subjectIndex > -1) {
+                subjectsMastery[subjectIndex].mastery = newMastery;
+            } else {
+                subjectsMastery.push({ subject: subject, mastery: newMastery });
+            }
+
+            // Update user document
+            transaction.update(userRef, {
+                'progress.completedLessons': increment(1),
+                'progress.completedLessonIds': completedLessonIds,
+                'progress.subjectsMastery': subjectsMastery,
+            });
+        });
     } catch (error) {
         console.error("Error completing lesson: ", error);
         throw new Error("Failed to update lesson progress.");
     }
 }
+
 
 export async function saveExerciseResult(userId: string, isCorrect: boolean) {
     const userRef = doc(db, 'users', userId);
