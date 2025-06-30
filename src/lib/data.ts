@@ -23,7 +23,10 @@ export interface UserProgress {
   completedLessonIds: string[];
   totalExercisesAttempted?: number;
   totalExercisesCorrect?: number;
+  timeSpent?: number; // in seconds
+  weeklyActivity?: { week: string; skillsMastered: number; timeSpent: number }[];
 }
+
 
 export interface User {
   uid: string;
@@ -102,6 +105,8 @@ export async function createUserInFirestore(uid: string, email: string, name: st
                 completedLessonIds: [],
                 totalExercisesAttempted: 0,
                 totalExercisesCorrect: 0,
+                timeSpent: 0,
+                weeklyActivity: [],
             }
         });
     } catch (error) {
@@ -169,6 +174,7 @@ export async function getUserProgress(userId: string): Promise<UserProgress> {
         mastery: 0,
         subjectsMastery: [],
         completedLessonIds: [],
+        timeSpent: 0,
     };
 }
 
@@ -314,11 +320,14 @@ export async function saveExerciseResult(userId: string, isCorrect: boolean) {
             const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
             const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
             const newAverageScore = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+            const timePerExercise = 30; // 30 seconds per exercise
+            const newTimeSpent = (progress.timeSpent || 0) + timePerExercise;
 
             transaction.update(userRef, { 
                 'progress.totalExercisesAttempted': totalAttempted,
                 'progress.totalExercisesCorrect': totalCorrect,
-                'progress.averageScore': newAverageScore
+                'progress.averageScore': newAverageScore,
+                'progress.timeSpent': newTimeSpent
             });
         });
     } catch (e) {
