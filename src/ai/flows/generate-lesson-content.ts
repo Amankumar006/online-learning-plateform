@@ -29,7 +29,7 @@ const CodeBlockSchema = z.object({
 
 const VideoBlockSchema = z.object({
     type: z.enum(['video']),
-    url: z.string().url().describe("A relevant YouTube embed URL."),
+    url: z.string().describe("A relevant YouTube embed URL."),
 });
 
 const BlockSchema = z.discriminatedUnion("type", [
