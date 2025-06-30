@@ -127,6 +127,14 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
                 </div>
               ))}
             </RadioGroup>
+            
+            {isCorrect !== null && currentExercise.explanation && (
+                <div className="mt-4 p-4 bg-secondary rounded-md border animate-in fade-in-0">
+                    <h4 className="font-semibold mb-2">Explanation</h4>
+                    <p className="text-sm text-secondary-foreground">{currentExercise.explanation}</p>
+                </div>
+            )}
+
             <div className="mt-6 flex justify-end">
               {isCorrect === null ? (
                 <Button onClick={handleSubmit} disabled={!selectedAnswer}>Submit</Button>

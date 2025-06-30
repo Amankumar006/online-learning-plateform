@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createExercise, getLessons, Lesson } from "@/lib/data";
 import { Loader2 } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function NewExercisePage() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function NewExercisePage() {
     options: ["", "", "", ""],
     correctAnswer: "",
     difficulty: "1",
+    hint: "",
+    explanation: "",
   });
 
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function NewExercisePage() {
     fetchLessons();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
@@ -155,6 +158,16 @@ export default function NewExercisePage() {
                     ))}
                 </RadioGroup>
                 <p className="text-xs text-muted-foreground">Enter the answer options and select the correct one using the radio button.</p>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="hint">Hint (Optional)</Label>
+                <Input id="hint" value={formData.hint} onChange={handleChange} placeholder="e.g., Remember the order of operations." />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="explanation">Explanation (Optional)</Label>
+                <Textarea id="explanation" value={formData.explanation} onChange={handleChange} placeholder="Explain why the correct answer is right." rows={3} />
             </div>
 
             <div className="flex justify-end gap-2">

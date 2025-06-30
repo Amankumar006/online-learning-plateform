@@ -26,6 +26,7 @@ export default function NewLessonPage() {
     content: "",
     image: "https://placehold.co/600x400.png",
     difficulty: "Beginner" as "Beginner" | "Intermediate" | "Advanced",
+    tags: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -42,7 +43,11 @@ export default function NewLessonPage() {
     setIsLoading(true);
 
     try {
-      await createLesson(formData);
+      const lessonData = {
+        ...formData,
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      };
+      await createLesson(lessonData);
       toast({
         title: "Success!",
         description: "New lesson has been created.",
@@ -112,6 +117,10 @@ export default function NewLessonPage() {
                     <Label htmlFor="image">Image URL</Label>
                     <Input id="image" value={formData.image} onChange={handleChange} placeholder="https://example.com/image.png" required/>
                 </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Input id="tags" value={formData.tags} onChange={handleChange} placeholder="e.g., algebra, basics, calculus" />
             </div>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" asChild>

@@ -11,6 +11,7 @@ export interface Lesson {
   videoUrl?: string;
   content: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  tags?: string[];
 }
 
 export interface UserProgress {
@@ -38,6 +39,8 @@ export interface Exercise {
     question: string;
     options: string[];
     correctAnswer: string;
+    hint?: string;
+    explanation?: string;
 }
 
 export interface ExerciseWithLessonTitle extends Exercise {
