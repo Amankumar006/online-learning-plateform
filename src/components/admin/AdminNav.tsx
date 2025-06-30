@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, LayoutDashboard, BookCopy, Users } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, BookCopy, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -40,11 +39,11 @@ export default function AdminNav() {
   ];
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-card">
+    <aside className="hidden md:flex w-64 flex-col border-r bg-muted">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-          <BookOpenCheck className="h-6 w-6 text-primary" />
-          <span>AdaptEd Admin</span>
+          <ShieldCheck className="h-6 w-6 text-primary" />
+          <span>Admin Panel</span>
         </Link>
       </div>
       <nav className="flex-1 space-y-2 p-4">
