@@ -1,0 +1,42 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the requesting user has the 'admin' role.
+    function isAdmin() {
+      // Check if the user document exists and has the role 'admin'.
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for the 'users' collection.
+    match /users/{userId} {
+      // Logged-in users can create their own user document.
+      allow create: if request.auth.uid == userId;
+
+      // Users can read and update their own document.
+      allow get, update: if request.auth.uid == userId;
+
+      // Admins can read the full list of users and get any individual user.
+      allow get, list: if isAdmin();
+    }
+
+    // Rules for the 'lessons' collection.
+    match /lessons/{lessonId} {
+      // Any authenticated user can read lessons.
+      allow read: if request.auth != null; // read = get and list
+      // Only admins can write to the lessons collection.
+      allow write: if isAdmin(); // write = create, update, delete
+    }
+
+    // Rules for the 'exercises' collection.
+    match /exercises/{exerciseId} {
+      // Any authenticated user can read exercises.
+      allow read: if request.auth != null;
+      // Only admins can write to the exercises collection.
+      allow write: if isAdmin();
+    }
+  }
+}
