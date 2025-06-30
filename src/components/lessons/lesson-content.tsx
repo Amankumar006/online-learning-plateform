@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 interface LessonContentProps {
   lesson: Lesson;
@@ -20,7 +19,6 @@ interface LessonContentProps {
 
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
-  const router = useRouter();
   const [isCompleting, setIsCompleting] = useState(false);
 
   const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id);
@@ -44,10 +42,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     } finally {
       setIsCompleting(false);
     }
-  };
-
-  const handleNextLesson = () => {
-    router.push('/dashboard/lessons');
   };
 
   return (
@@ -90,8 +84,9 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
                 <p className="font-semibold text-lg flex items-center gap-2"><CheckCircle className="text-primary"/> Lesson Completed</p>
                 <p className="text-muted-foreground text-sm">You have already completed this lesson.</p>
               </div>
-              <Button onClick={handleNextLesson} className="sm:ml-auto">
-                Browse Other Lessons
+              <Button disabled className="sm:ml-auto">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Completed
               </Button>
             </>
           ) : (
