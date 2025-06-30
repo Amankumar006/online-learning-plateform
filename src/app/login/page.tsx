@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -10,8 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { getUser } from "@/lib/data";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getUser, createUserInFirestore } from "@/lib/data";
+
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <title>Google</title>
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.84-4.52 1.84-5.45 0-9.88-4.45-9.88-9.88s4.43-9.88 9.88-9.88c2.92 0 5.04 1.17 6.6 2.6l2.33-2.33C19.2 2.18 16.23 1 12.48 1 5.83 1 1 5.83 1 12.5s4.83 11.5 11.48 11.5c6.36 0 11.22-4.45 11.22-11.22 0-1.2-.12-2.2-.3-3.18h-11.4z" />
+    </svg>
+);
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,15 +29,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
-      // Check user role from Firestore
       const userProfile = await getUser(user.uid);
 
       toast({
@@ -37,7 +44,7 @@ export default function LoginPage() {
       });
 
       if (userProfile?.role === 'admin') {
-        router.push("/admin/lessons");
+        router.push("/admin/dashboard");
       } else {
         router.push("/dashboard");
       }
@@ -52,10 +59,45 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      let userProfile = await getUser(user.uid);
+      if (!userProfile) {
+        await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');
+        userProfile = await getUser(user.uid);
+      }
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userProfile?.name}!`,
+      });
+
+      if (userProfile?.role === 'admin') {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      toast({
+        variant: "destructive",
+        title: "Google Login Failed",
+        description: error.message || "An unknown error occurred.",
+      });
+      setIsLoading(false);
+    }
+  };
+
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-sm">
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleEmailLogin}>
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
               <BookOpenCheck className="h-10 w-10 text-primary" />
@@ -96,8 +138,23 @@ export default function LoginPage() {
               {isLoading && <Loader2 className="animate-spin" />}
               Login
             </Button>
-            <Button variant="outline" className="w-full" disabled={isLoading}>
-              Login with Google
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full" type="button" onClick={handleGoogleLogin} disabled={isLoading}>
+                {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <GoogleIcon className="mr-2 h-4 w-4" />
+                )}
+                Login with Google
             </Button>
           </CardContent>
           <CardFooter className="text-center text-sm">
