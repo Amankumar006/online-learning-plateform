@@ -1,13 +1,16 @@
 
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 import { Lesson, UserProgress } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle } from "lucide-react";
+import { BlockMath, InlineMath } from 'react-katex';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface LessonContentProps {
   lesson: Lesson;
@@ -15,6 +18,55 @@ interface LessonContentProps {
   userProgress: UserProgress | null;
   onLessonComplete: () => void;
 }
+
+const parseTextWithMath = (text: string) => {
+    const parts = text.split(/(\${1,2}[^$]+\${1,2})/g);
+    return parts.filter(part => part).map((part, index) => {
+        if (part.startsWith('$$') && part.endsWith('$$')) {
+            return <BlockMath key={index}>{part.slice(2, -2)}</BlockMath>;
+        }
+        if (part.startsWith('$') && part.endsWith('$')) {
+            return <InlineMath key={index}>{part.slice(1, -1)}</InlineMath>;
+        }
+        return <React.Fragment key={index}>{part}</React.Fragment>;
+    });
+};
+
+const FormattedParagraph = ({ text }: { text: string }) => {
+  const keyWordStyleMap = {
+    '**Example:**': {
+      icon: <Lightbulb className="h-5 w-5 text-primary" />,
+      title: "Example",
+      cardClass: "my-6 bg-secondary/50",
+    },
+    '**Question:**': {
+      icon: <HelpCircle className="h-5 w-5 text-primary" />,
+      title: "Question",
+      cardClass: "my-6 border-primary",
+    },
+  };
+
+  for (const keyword in keyWordStyleMap) {
+    if (text.startsWith(keyword)) {
+      const { icon, title, cardClass } = keyWordStyleMap[keyword as keyof typeof keyWordStyleMap];
+      const content = text.replace(keyword, '').trim();
+      return (
+        <Card className={cardClass}>
+          <CardHeader className="flex flex-row items-center gap-3 pb-2 pt-4">
+            {icon}
+            <CardTitle className="text-lg font-headline">{title}</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-2 text-sm md:text-base prose-p:my-2">
+             {parseTextWithMath(content)}
+          </CardContent>
+        </Card>
+      );
+    }
+  }
+  
+  return <p>{parseTextWithMath(text)}</p>;
+};
+
 
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
@@ -48,7 +100,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     if (Array.isArray(lesson.content)) {
       return lesson.content.map((block, index) => {
         if (block.type === 'paragraph') {
-          return <p key={index}>{block.value}</p>;
+          return <FormattedParagraph key={index} text={block.value} />;
         }
         if (block.type === 'video') {
           return (
@@ -74,7 +126,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     // Handle old string-based content for backward compatibility
     if (typeof lesson.content === 'string') {
       return lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
+        <FormattedParagraph key={index} text={paragraph} />
       ));
     }
     
@@ -95,7 +147,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             />
             </div>
         )}
-        <div className="prose dark:prose-invert prose-lg max-w-none mb-8 space-y-4">
+        <div className="prose dark:prose-invert prose-lg max-w-none mb-8 space-y-0">
             {renderContent()}
         </div>
 
