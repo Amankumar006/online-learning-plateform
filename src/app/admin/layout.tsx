@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Users,
+  BrainCircuit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +54,7 @@ export default function AdminLayout({
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
     { href: "/admin/lessons", label: "Lessons", icon: <BookCopy /> },
+    { href: "/admin/exercises", label: "Exercises", icon: <BrainCircuit /> },
     { href: "/admin/students", label: "Students", icon: <Users /> },
   ];
 
@@ -84,7 +86,7 @@ export default function AdminLayout({
                 href={item.href}
                 className={cn(
                   "transition-colors hover:text-foreground",
-                  pathname === item.href
+                  pathname.startsWith(item.href)
                     ? "text-foreground"
                     : "text-muted-foreground"
                 )}
@@ -126,7 +128,7 @@ export default function AdminLayout({
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
-        <div className="grid h-16 grid-cols-3">
+        <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => (
             <Link
               key={item.href}

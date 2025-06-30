@@ -40,6 +40,10 @@ export interface Exercise {
     correctAnswer: string;
 }
 
+export interface ExerciseWithLessonTitle extends Exercise {
+    lessonTitle: string;
+}
+
 export async function getUser(userId: string): Promise<User | null> {
     try {
         const userRef = doc(db, 'users', userId);
@@ -175,6 +179,46 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
       return [];
     }
 }
+
+export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
+    try {
+        const [exercisesSnapshot, lessonsSnapshot] = await Promise.all([
+            getDocs(collection(db, 'exercises')),
+            getDocs(collection(db, 'lessons'))
+        ]);
+
+        const lessonsMap = new Map<string, string>();
+        lessonsSnapshot.docs.forEach(doc => {
+            lessonsMap.set(doc.id, doc.data().title);
+        });
+
+        const exerciseList = exercisesSnapshot.docs.map(doc => {
+            const data = doc.data() as Omit<Exercise, 'id'>;
+            return {
+                id: doc.id,
+                ...data,
+                lessonTitle: lessonsMap.get(data.lessonId) || 'Unknown Lesson'
+            } as ExerciseWithLessonTitle;
+        });
+
+        return exerciseList;
+    } catch (error) {
+        console.error("Error fetching all exercises with lesson titles: ", error);
+        return [];
+    }
+}
+
+
+export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promise<string> {
+    try {
+        const docRef = await addDoc(collection(db, "exercises"), exerciseData);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error creating exercise: ", error);
+        throw new Error("Failed to create exercise");
+    }
+}
+
 
 export async function completeLesson(userId: string, lessonId: string): Promise<void> {
     try {
