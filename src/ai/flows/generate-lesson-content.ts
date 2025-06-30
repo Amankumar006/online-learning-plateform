@@ -17,18 +17,18 @@ const GenerateLessonContentInputSchema = z.object({
 export type GenerateLessonContentInput = z.infer<typeof GenerateLessonContentInputSchema>;
 
 const TextBlockSchema = z.object({
-  type: z.literal('text'),
+  type: z.enum(['text']),
   content: z.string().describe("Markdown formatted text. Use LaTeX for equations, e.g., $ax^2+bx+c=0$."),
 });
 
 const CodeBlockSchema = z.object({
-    type: z.literal('code'),
+    type: z.enum(['code']),
     language: z.string().describe("The programming language of the code snippet, e.g., 'javascript'."),
     code: z.string().describe("The code snippet."),
 });
 
 const VideoBlockSchema = z.object({
-    type: z.literal('video'),
+    type: z.enum(['video']),
     url: z.string().url().describe("A relevant YouTube embed URL."),
 });
 
