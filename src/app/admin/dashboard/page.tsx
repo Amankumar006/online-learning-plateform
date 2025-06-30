@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookCopy, Users, Activity } from "lucide-react";
 import { getLessons, getUsers } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function DashboardSkeleton() {
     return (
@@ -71,9 +72,12 @@ export default function AdminDashboardPage() {
     fetchData();
   }, []);
 
+  const breadcrumbItems = [{ href: "/admin/dashboard", label: "Dashboard" }];
+
   if (isLoading) {
     return (
         <div>
+            <Breadcrumb items={breadcrumbItems} />
             <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
             <DashboardSkeleton />
         </div>
@@ -82,6 +86,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>

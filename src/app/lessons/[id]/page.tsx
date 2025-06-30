@@ -15,11 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 
 function LessonPageSkeleton() {
     return (
         <div>
+            <Skeleton className="h-6 w-1/2 mb-6" />
             <Skeleton className="h-10 w-3/4 mb-2" />
             <Skeleton className="h-6 w-1/4 mb-6" />
             <Tabs defaultValue="lesson" className="w-full">
@@ -102,8 +104,15 @@ export default function LessonPage({ params }: { params: { id: string } }) {
     );
   }
 
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/lessons", label: "Lessons" },
+    { href: `/lessons/${lesson.id}`, label: lesson.title },
+  ];
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
         <p className="text-lg text-muted-foreground">{lesson.subject}</p>

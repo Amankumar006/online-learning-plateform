@@ -12,6 +12,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function DashboardSkeleton() {
   return (
@@ -112,8 +113,11 @@ export default function DashboardPage() {
     )
   }
 
+  const breadcrumbItems = [{ href: "/dashboard", label: "Dashboard" }];
+
   return (
-    <>
+    <div>
+      <Breadcrumb items={breadcrumbItems} />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -182,6 +186,6 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
-    </>
+    </div>
   );
 }

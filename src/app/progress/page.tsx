@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function ProgressSkeleton() {
     return (
@@ -64,22 +65,30 @@ export default function ProgressPage() {
     )
   }
 
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/progress", label: "Progress" },
+  ];
+
   return (
-    <div className="flex flex-col gap-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">Subject Mastery</CardTitle>
-          <CardDescription>
-            Here is a breakdown of your mastery level in each subject.
-            {userProgress.subjectsMastery.length === 0 && !isLoading && (
-              <span className="block mt-2 text-xs">(Hint: No progress data found in Firestore for user '{user.uid}')</span>
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ProgressChart chartData={userProgress.subjectsMastery} />
-        </CardContent>
-      </Card>
+    <div>
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="flex flex-col gap-8">
+        <Card>
+            <CardHeader>
+            <CardTitle className="font-headline">Subject Mastery</CardTitle>
+            <CardDescription>
+                Here is a breakdown of your mastery level in each subject.
+                {userProgress.subjectsMastery.length === 0 && !isLoading && (
+                <span className="block mt-2 text-xs">(Hint: No progress data found in Firestore for user '{user.uid}')</span>
+                )}
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <ProgressChart chartData={userProgress.subjectsMastery} />
+            </CardContent>
+        </Card>
+        </div>
     </div>
   );
 }

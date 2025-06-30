@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function LessonsSkeleton() {
   return (
@@ -39,8 +41,14 @@ export default function LessonsPage() {
     fetchLessons();
   }, []);
 
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/lessons", label: "Lessons" },
+  ];
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold font-headline">All Lessons</h1>
         <p className="text-lg text-muted-foreground">Browse our library of lessons to continue your learning journey.</p>
