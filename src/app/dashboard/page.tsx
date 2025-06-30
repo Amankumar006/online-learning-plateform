@@ -114,7 +114,7 @@ export default function DashboardPage() {
   }
   
   const recommendedLessons = lessons.filter(
-    (lesson) => !userProgress.completedLessonIds.includes(lesson.id)
+    (lesson) => !(userProgress.completedLessonIds || []).includes(lesson.id)
   );
 
   const breadcrumbItems = [{ href: "/dashboard", label: "Dashboard" }];
