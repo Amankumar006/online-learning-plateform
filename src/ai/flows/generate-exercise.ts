@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow to generate a set of exercises from lesson content.
@@ -19,7 +20,7 @@ const GenerateExerciseInputSchema = z.object({
 export type GenerateExerciseInput = z.infer<typeof GenerateExerciseInputSchema>;
 
 const McqQuestionSchema = z.object({
-    type: z.literal('mcq'),
+    type: z.enum(['mcq']),
     difficulty: z.number().min(1).max(3),
     question: z.string().describe("The multiple-choice question."),
     options: z.array(z.string()).length(4).describe("An array of exactly 4 possible answers."),
@@ -29,7 +30,7 @@ const McqQuestionSchema = z.object({
 });
 
 const TrueFalseQuestionSchema = z.object({
-    type: z.literal('true_false'),
+    type: z.enum(['true_false']),
     difficulty: z.number().min(1).max(3),
     question: z.string().describe("The true/false statement."),
     correctAnswer: z.boolean().describe("Whether the statement is true or false."),
@@ -38,7 +39,7 @@ const TrueFalseQuestionSchema = z.object({
 });
 
 const LongFormQuestionSchema = z.object({
-    type: z.literal('long_form'),
+    type: z.enum(['long_form']),
     difficulty: z.number().min(1).max(3),
     question: z.string().describe("The open-ended question requiring a detailed answer."),
     evaluationCriteria: z.string().describe("The criteria the AI will use to evaluate the student's answer."),
