@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { generateLessonContent } from "@/ai/flows/generate-lesson-content";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function NewLessonPage() {
   const router = useRouter();
@@ -111,7 +112,7 @@ export default function NewLessonPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create New Lesson</CardTitle>
-            <CardDescription>Use AI to generate a complete, structured lesson from a single topic.</CardDescription>
+            <CardDescription>Use AI to generate a complete, structured lesson from a single topic, then review and save.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             
@@ -121,34 +122,34 @@ export default function NewLessonPage() {
               <AlertDescription className="mb-4">
                   Enter a topic, and let AI generate the entire lesson structure for you.
               </AlertDescription>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                   <Input 
                       id="ai-topic" 
                       value={aiTopic} 
                       onChange={(e) => setAiTopic(e.target.value)} 
                       placeholder="e.g., Introduction to Photosynthesis"
-                      className="md:col-span-3"
+                      className="flex-grow"
                   />
-              </div>
-              <div className="flex justify-end mt-4">
-                  <Button type="button" variant="outline" onClick={handleGenerateLesson} disabled={isGenerating || !aiTopic.trim()}>
+                  <Button type="button" variant="outline" onClick={handleGenerateLesson} disabled={isGenerating || !aiTopic.trim()} className="shrink-0">
                       {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                       Generate with AI
                   </Button>
               </div>
             </Alert>
 
-            <div className="space-y-2 pt-6 border-t">
-              <Label htmlFor="title">Lesson Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Generated or manually enter title" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
-              <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Biology" required />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+              <div className="space-y-2">
+                <Label htmlFor="title">Lesson Title</Label>
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Generated or manually enter title" required />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Biology" required />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Short Description</Label>
-              <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the lesson." required />
+              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the lesson." required />
             </div>
             
             <div className="space-y-4 rounded-lg border p-4">
@@ -163,9 +164,9 @@ export default function NewLessonPage() {
                                 <div className="space-y-4">
                                     {section.blocks.map((block, bIndex) => (
                                         <div key={bIndex} className="p-3 bg-background rounded-md shadow-sm">
-                                            {block.type === 'text' && <div className="flex items-start gap-3"><FileText className="h-5 w-5 text-muted-foreground mt-1" /><p className="flex-1 text-sm">{block.content}</p></div>}
-                                            {block.type === 'code' && <div className="flex items-start gap-3"><Code className="h-5 w-5 text-muted-foreground mt-1" /><pre className="flex-1 text-sm bg-muted p-2 rounded-md overflow-x-auto"><code>{block.code}</code></pre></div>}
-                                            {block.type === 'video' && <div className="flex items-start gap-3"><Video className="h-5 w-5 text-muted-foreground mt-1" /><p className="flex-1 text-sm text-blue-600 truncate">{block.url}</p></div>}
+                                            {block.type === 'text' && <div className="flex items-start gap-3"><FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><p className="flex-1 text-sm">{block.content}</p></div>}
+                                            {block.type === 'code' && <div className="flex items-start gap-3"><Code className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><div className="flex-1"><span className="text-xs font-mono bg-muted px-2 py-1 rounded">{block.language}</span><pre className="text-sm bg-muted p-2 rounded-md overflow-x-auto mt-2"><code>{block.code}</code></pre></div></div>}
+                                            {block.type === 'video' && <div className="flex items-start gap-3"><Video className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><a href={block.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm text-blue-600 truncate hover:underline">{block.url}</a></div>}
                                         </div>
                                     ))}
                                 </div>
