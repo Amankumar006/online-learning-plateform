@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, Home, LineChart, BookOpenCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<{name?: string} | null>(null);
 
@@ -97,7 +98,7 @@ export default function DashboardLayout({
                 <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{userProfile?.name || "My Account"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <LogoutButton />

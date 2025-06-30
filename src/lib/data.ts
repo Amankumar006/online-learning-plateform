@@ -89,6 +89,16 @@ export async function updateUserRole(userId: string, role: 'student' | 'admin'):
     }
 }
 
+export async function updateUserProfile(userId: string, data: { name: string }): Promise<void> {
+    try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, data);
+    } catch (error) {
+        console.error("Error updating user profile: ", error);
+        throw new Error("Failed to update user profile");
+    }
+}
+
 
 export async function createUserInFirestore(uid: string, email: string, name: string) {
     try {

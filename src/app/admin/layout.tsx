@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BookCopy,
   LayoutDashboard,
@@ -33,6 +33,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<{ name?: string } | null>(
     null
@@ -116,7 +117,7 @@ export default function AdminLayout({
                 {userProfile?.name || "Admin Account"}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
               <LogoutButton />
             </DropdownMenuContent>
