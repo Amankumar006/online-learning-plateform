@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, Home, LineChart, LogOut, User as UserIcon } from "lucide-react";
+import { BookOpen, BrainCircuit, Home, LineChart, LogOut, User as UserIcon, BookOpenCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -46,6 +46,8 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Home /> },
+    { href: "/lessons", label: "Lessons", icon: <BookOpen /> },
+    { href: "/exercises", label: "Exercises", icon: <BrainCircuit /> },
     { href: "/progress", label: "Progress", icon: <LineChart /> },
   ];
   
@@ -73,7 +75,7 @@ export default function DashboardLayout({
                 href={item.href}
                 className={cn(
                     "transition-colors hover:text-foreground",
-                    pathname === item.href ? "text-foreground" : "text-muted-foreground"
+                    (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)) ? "text-foreground" : "text-muted-foreground"
                 )}
                 >
                 {item.label}
@@ -109,14 +111,14 @@ export default function DashboardLayout({
       </main>
       
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
-        <div className="grid h-16 grid-cols-2">
+        <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-sm font-medium",
-                pathname.startsWith(item.href)
+                (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href))
                   ? "text-primary"
                   : "text-muted-foreground hover:text-primary"
               )}
