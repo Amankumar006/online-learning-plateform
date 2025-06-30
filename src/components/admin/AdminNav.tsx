@@ -1,89 +1,124 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ShieldCheck, LayoutDashboard, BookCopy, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { getLessons, Lesson } from "@/lib/data";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogoutButton } from "../auth/LogoutButton";
-import { useState, useEffect } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { getUser } from "@/lib/data";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, PlusCircle } from "lucide-react";
+import LessonActions from "@/components/admin/LessonActions";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function AdminNav() {
-  const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<{name?: string; email?: string | null;} | null>(null);
+function LessonsSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+            </div>
+            <Skeleton className="h-10 w-36" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead>Difficulty</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...Array(3)].map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+
+export default function AdminLessonsPage() {
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        const profile = await getUser(currentUser.uid);
-        setUserProfile(profile);
-      } else {
-        setUserProfile(null);
-      }
-    });
-    return () => unsubscribe();
+    const fetchLessons = async () => {
+      const lessonsData = await getLessons();
+      setLessons(lessonsData);
+      setIsLoading(false);
+    };
+    fetchLessons();
   }, []);
 
-
-  const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
-    { href: "/admin/lessons", label: "Lessons", icon: <BookCopy /> },
-    { href: "/admin/students", label: "Students", icon: <Users /> },
-  ];
+  if (isLoading) {
+    return <LessonsSkeleton />;
+  }
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-muted">
-      <div className="flex h-16 items-center border-b px-6">
-        <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-          <ShieldCheck className="h-6 w-6 text-primary" />
-          <span>Admin Panel</span>
-        </Link>
-      </div>
-      <nav className="flex-1 space-y-2 p-4">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-              pathname.startsWith(item.href) && "bg-primary/10 text-primary"
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+            <div>
+                <CardTitle>Manage Lessons</CardTitle>
+                <CardDescription>
+                    Here you can create, edit, and delete lessons.
+                </CardDescription>
+            </div>
+            <Button asChild>
+                <Link href="/admin/lessons/new">
+                    <PlusCircle className="mr-2"/>
+                    Create Lesson
+                </Link>
+            </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead>Difficulty</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {lessons.length > 0 ? (
+              lessons.map((lesson: Lesson) => (
+                <TableRow key={lesson.id}>
+                  <TableCell className="font-medium">{lesson.title}</TableCell>
+                  <TableCell>{lesson.subject}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{lesson.difficulty}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <LessonActions lessonId={lesson.id} />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">
+                  No lessons found.
+                </TableCell>
+              </TableRow>
             )}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="mt-auto p-4 border-t">
-         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2">
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src="https://placehold.co/32x32.png" alt={userProfile?.name || "Admin"} />
-                        <AvatarFallback>A</AvatarFallback>
-                    </Avatar>
-                    <div className="text-left">
-                        <p className="text-sm font-medium">{userProfile?.name || 'Admin User'}</p>
-                        <p className="text-xs text-muted-foreground">{userProfile?.email || 'admin@example.com'}</p>
-                    </div>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <LogoutButton />
-            </DropdownMenuContent>
-          </DropdownMenu>
-      </div>
-    </aside>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
