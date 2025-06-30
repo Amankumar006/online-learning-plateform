@@ -105,6 +105,15 @@ export default function LessonPage() {
       </div>
     );
   }
+  
+  const textContentForAI = Array.isArray(lesson.content)
+    ? lesson.content
+        .filter(block => block.type === 'paragraph')
+        .map(block => block.value)
+        .join('\n\n')
+    : typeof lesson.content === 'string'
+    ? lesson.content
+    : '';
 
   const breadcrumbItems = [
     { href: "/dashboard", label: "Dashboard" },
@@ -137,7 +146,7 @@ export default function LessonPage() {
           <AdaptiveExercise exercises={exercises} userId={user.uid} />
         </TabsContent>
         <TabsContent value="ai-buddy">
-          <AIBuddy lessonContent={lesson.content} />
+          <AIBuddy lessonContent={textContentForAI} />
         </TabsContent>
       </Tabs>
     </div>

@@ -44,6 +44,44 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     }
   };
 
+  const renderContent = () => {
+    // Handle new modular content structure
+    if (Array.isArray(lesson.content)) {
+      return lesson.content.map((block, index) => {
+        if (block.type === 'paragraph') {
+          return <p key={index}>{block.value}</p>;
+        }
+        if (block.type === 'video') {
+          return (
+             <div className="my-8" key={index}>
+              <h3 className="text-xl font-semibold mb-4 font-headline">Watch a video lesson</h3>
+              <div className="aspect-video">
+                <iframe
+                  className="w-full h-full rounded-lg"
+                  src={block.value}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      });
+    }
+
+    // Handle old string-based content for backward compatibility
+    if (typeof lesson.content === 'string') {
+      return lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
+        <p key={index}>{paragraph}</p>
+      ));
+    }
+    
+    return <p>No content available for this lesson.</p>;
+  };
+
   return (
     <Card>
       <CardContent className="p-6">
@@ -60,11 +98,11 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
           </div>
         )}
         <div className="prose dark:prose-invert prose-lg max-w-none mb-8 space-y-4">
-          {lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
+          {renderContent()}
         </div>
-        {lesson.videoUrl && (
+
+        {/* Backward compatibility for old videoUrl field */}
+        {lesson.videoUrl && !Array.isArray(lesson.content) && (
           <div className="my-8">
             <h3 className="text-xl font-semibold mb-4 font-headline">Watch a video lesson</h3>
             <div className="aspect-video">
@@ -79,6 +117,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             </div>
           </div>
         )}
+
          <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-center gap-4">
           {isCompleted ? (
             <>

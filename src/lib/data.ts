@@ -3,14 +3,19 @@
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 
+export interface ContentBlock {
+  type: 'paragraph' | 'video';
+  value: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   subject: string;
   description: string;
   image: string;
-  videoUrl?: string;
-  content: string;
+  videoUrl?: string; // For backward compatibility
+  content: ContentBlock[] | string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   tags?: string[];
 }
