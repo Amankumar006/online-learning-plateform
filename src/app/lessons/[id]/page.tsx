@@ -2,7 +2,7 @@
 "use client";
 
 import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress } from "@/lib/data";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
@@ -42,7 +42,9 @@ function LessonPageSkeleton() {
 }
 
 
-export default function LessonPage({ params: { id } }: { params: { id: string } }) {
+export default function LessonPage() {
+  const params = useParams();
+  const id = params.id as string;
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
