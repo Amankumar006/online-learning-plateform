@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Book, ChartLine, MessageSquare, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Book, ChartLine, Sparkles, Target, Bot } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -147,7 +147,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-2 md:col-span-2 bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300">
+        <Card className="lg:col-span-2 md:col-span-2 rounded-lg bg-card/50 backdrop-blur-lg border border-primary/10 hover:border-primary/30 transition-all duration-300">
             <CardHeader>
                 <CardTitle className="font-headline text-xl">Your Next Lesson</CardTitle>
             </CardHeader>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
                     <div>
                         <p className="text-2xl font-semibold text-primary">{nextLesson.title}</p>
                         <p className="text-muted-foreground mb-4">{nextLesson.subject}</p>
-                        <div className="w-full h-24 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center mb-4">
+                        <div className="w-full h-24 bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg flex items-center justify-center mb-4">
                             <ChartLine className="w-12 h-12 text-primary/50" />
                         </div>
                         <Button asChild className="w-full">
@@ -177,9 +177,9 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
 
-        <Card className="bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300">
+        <Card className="rounded-lg bg-card/50 backdrop-blur-lg border border-primary/10 hover:border-primary/30 transition-all duration-300">
              <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
-                <MessageSquare className="w-6 h-6 text-primary"/>
+                <Bot className="w-6 h-6 text-primary"/>
                 <CardTitle className="font-headline text-lg">AI Recommendations</CardTitle>
             </CardHeader>
             <CardContent>
@@ -213,7 +213,7 @@ export default function DashboardPage() {
             </CardContent>
         </Card>
         
-        <Card className="bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 flex flex-col">
+        <Card className="rounded-lg bg-card/50 backdrop-blur-lg border border-primary/10 hover:border-primary/30 transition-all duration-300 flex flex-col">
              <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
                 <Target className="w-6 h-6 text-primary"/>
                 <CardTitle className="font-headline text-lg">Track Progress</CardTitle>
@@ -239,7 +239,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {recentlyCompleted.map((lesson) => (
                     <Link key={lesson.id} href={`/dashboard/lessons/${lesson.id}`}>
-                        <Card className="h-full bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:scale-105">
+                        <Card className="h-full rounded-lg bg-card/50 backdrop-blur-lg border border-primary/10 hover:border-primary/30 transition-all duration-300 hover:scale-105">
                             <CardContent className="p-4 flex items-center gap-4">
                                 <div className="p-3 bg-primary/20 rounded-lg">
                                     <Book className="w-6 h-6 text-primary" />
