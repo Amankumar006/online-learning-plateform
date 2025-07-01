@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Link from "next/link";
 
 export default function LessonActions({ lessonId }: { lessonId: string }) {
   const router = useRouter();
@@ -41,9 +42,11 @@ export default function LessonActions({ lessonId }: { lessonId: string }) {
 
   return (
     <div className="flex gap-2 justify-end">
-      <Button variant="ghost" size="icon" disabled>
-        <Edit className="h-4 w-4" />
-        <span className="sr-only">Edit</span>
+      <Button variant="ghost" size="icon" asChild>
+        <Link href={`/admin/lessons/${lessonId}/edit`}>
+            <Edit className="h-4 w-4" />
+            <span className="sr-only">Edit</span>
+        </Link>
       </Button>
       <AlertDialog>
         <AlertDialogTrigger asChild>

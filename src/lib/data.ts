@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
@@ -180,6 +181,16 @@ export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<stri
   } catch (error) {
     console.error("Error creating lesson: ", error);
     throw new Error("Failed to create lesson");
+  }
+}
+
+export async function updateLesson(lessonId: string, lessonData: Partial<Omit<Lesson, 'id'>>): Promise<void> {
+  try {
+    const lessonRef = doc(db, 'lessons', lessonId);
+    await updateDoc(lessonRef, lessonData);
+  } catch (error) {
+    console.error("Error updating lesson: ", error);
+    throw new Error("Failed to update lesson");
   }
 }
 
