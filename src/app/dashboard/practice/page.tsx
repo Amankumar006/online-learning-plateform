@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SingleExerciseSolver from '@/components/practice/single-exercise-solver';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 function PracticePageSkeleton() {
     return (
