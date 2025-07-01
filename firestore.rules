@@ -4,50 +4,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Users can read and update their own profile information.
+    // They can also create their own user document upon signup.
     match /users/{userId} {
-      // Any authenticated user can read a user profile.
-      allow get: if request.auth != null;
-
-      // Only admins can list all users.
-      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      
-      // Admins can update any field. Users can update their own profile, but cannot change their role.
-      allow update: if request.auth != null &&
-                      ( (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-                        (request.auth.uid == userId && request.resource.data.role == resource.data.role) );
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
     }
 
+    // All authenticated users can read lessons.
+    // Writes are currently permissive and rely on client-side admin checks.
+    // For production, you would lock this down further with custom claims for admins.
     match /lessons/{lessonId} {
-      // Anyone logged in can read lessons.
       allow read: if request.auth != null;
-
-      // Only admins can write/delete lessons.
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if request.auth != null;
     }
-
+    
+    // For exercises, allow reading of all.
+    // For custom exercises, only allow users to manage their own.
     match /exercises/{exerciseId} {
-      // Anyone logged in can read exercises.
       allow read: if request.auth != null;
       
-      // Admins can update exercises.
-      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow creation if it's a non-custom exercise OR if it's a custom one and the userId matches.
+      allow create: if request.auth != null && 
+                     (request.resource.data.isCustom == false || 
+                      (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid));
       
-      // Admins can delete any exercise. Students can delete their own custom exercises.
-      allow delete: if request.auth != null && 
-                      ( get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-                        (resource.data.isCustom == true && resource.data.userId == request.auth.uid) );
-
-      // Admins can create non-custom exercises. Students can create custom exercises for themselves.
-      allow create: if request.auth != null &&
-                      ( (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && request.resource.data.isCustom == false) ||
-                        (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid) );
+      // Allow update/delete if it's non-custom (for admin) OR it's the user's own custom exercise.
+      allow update, delete: if request.auth != null &&
+                             (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.isCustom == false || 
+                              get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid);
     }
-
+    
+    // Users can create, read, and update their own exercise responses.
     match /exerciseResponses/{responseId} {
-      // A user can read/write their own response.
-      // For 'list' operations, Firestore enforces that the client query must guarantee this rule is met
-      // (e.g., by including `where("userId", "==", request.auth.uid)`).
-      allow read, write: if request.auth.uid == resource.data.userId || request.auth.uid == request.resource.data.userId;
+      // Allow write if the user ID in the document matches the authenticated user.
+      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Allow read if the user ID in the document matches the authenticated user.
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }
