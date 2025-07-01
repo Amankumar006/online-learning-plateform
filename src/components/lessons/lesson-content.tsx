@@ -2,17 +2,18 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Lesson, UserProgress, Section, Block, TextBlock } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Volume2, PauseCircle } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Volume2, Pause, Play, Headphones } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
 import { cn } from "@/lib/utils";
+import LessonPlayer from "./lesson-player";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
     const [copied, setCopied] = React.useState(false);
@@ -178,6 +179,21 @@ const BlockRenderer = ({ block }: { block: Block }) => {
     }
 };
 
+const SectionHeader = ({ section, onPlay, isPlaying, isGenerating, isActive }: { section: Section, onPlay: () => void, isPlaying: boolean, isGenerating: boolean, isActive: boolean }) => {
+    return (
+        <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
+            <h2 className={cn("text-2xl font-bold font-headline transition-colors", isActive && "text-primary")}>{section.title}</h2>
+            <div className="flex items-center gap-2">
+                 <Button variant="ghost" size="icon" onClick={onPlay} disabled={isGenerating}>
+                    {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause /> : <Play />)}
+                    <span className="sr-only">Listen to this section</span>
+                 </Button>
+            </div>
+        </div>
+    );
+};
+
+
 interface LessonContentProps {
   lesson: Lesson;
   userId: string;
@@ -185,77 +201,103 @@ interface LessonContentProps {
   onLessonComplete: () => void;
 }
 
-const SectionHeader = ({ section, index, onPlay, isPlaying, isGenerating, audioUrl }: { section: Section, index: number, onPlay: (index: number, content: string) => void, isPlaying: boolean, isGenerating: boolean, audioUrl: string | null }) => {
-    const audioRef = React.useRef<HTMLAudioElement>(null);
-    const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
-
-    const sectionContent = section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n');
-
-    const handlePlayClick = () => {
-        onPlay(index, sectionContent);
-    };
-
-    const handleAudioEnded = () => {
-        setIsCurrentlyPlaying(false);
-    };
-
-    React.useEffect(() => {
-        if (isPlaying && audioUrl && audioRef.current) {
-            audioRef.current.play().then(() => setIsCurrentlyPlaying(true)).catch(e => console.error("Audio play failed:", e));
-        } else if (!isPlaying && audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            setIsCurrentlyPlaying(false);
-        }
-    }, [isPlaying, audioUrl]);
-    
-    return (
-        <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
-            <h2 className="text-2xl font-bold font-headline">{section.title}</h2>
-            <div className="flex items-center gap-2">
-                 <Button variant="ghost" size="icon" onClick={handlePlayClick} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="animate-spin" /> : (isCurrentlyPlaying ? <PauseCircle /> : <Volume2 />)}
-                    <span className="sr-only">Listen to this section</span>
-                 </Button>
-                 {audioUrl && <audio ref={audioRef} src={audioUrl} onEnded={handleAudioEnded} />}
-            </div>
-        </div>
-    );
-};
-
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
   const [isCompleting, setIsCompleting] = useState(false);
-  const [audioState, setAudioState] = useState<{ isGenerating: boolean; isPlaying: boolean; audioUrl: string | null; activeSection: number | null }>({
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const [audioPlayerState, setAudioPlayerState] = useState<{
+    isGenerating: boolean;
+    isPlaying: boolean;
+    currentSectionIndex: number | null;
+    audioUrl: string | null;
+  }>({
     isGenerating: false,
     isPlaying: false,
+    currentSectionIndex: null,
     audioUrl: null,
-    activeSection: null
   });
 
   const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id);
+  const sections = lesson.sections || [];
 
-  const handlePlayAudio = async (sectionIndex: number, textContent: string) => {
-    if (audioState.isPlaying && audioState.activeSection === sectionIndex) {
-        setAudioState(prev => ({ ...prev, isPlaying: false }));
-        return;
+  const playSection = async (index: number) => {
+    if (index >= sections.length) {
+      handleStop();
+      return;
     }
-
-    setAudioState({ isGenerating: true, isPlaying: false, audioUrl: null, activeSection: sectionIndex });
     
+    setAudioPlayerState({ isPlaying: false, audioUrl: null, isGenerating: true, currentSectionIndex: index });
+
     try {
-        const result = await generateAudioFromText({ text: textContent });
-        setAudioState({ isGenerating: false, isPlaying: true, audioUrl: result.audioDataUri, activeSection: sectionIndex });
+      const section = sections[index];
+      const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n');
+      
+      if (!textContent.trim()) {
+        playSection(index + 1); // Skip empty sections
+        return;
+      }
+      
+      const result = await generateAudioFromText({ text: textContent });
+      setAudioPlayerState(prev => ({ ...prev, isGenerating: false, isPlaying: true, audioUrl: result.audioDataUri }));
     } catch (error) {
-        console.error(error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to generate audio for this section.",
-        });
-        setAudioState({ isGenerating: false, isPlaying: false, audioUrl: null, activeSection: null });
+      console.error(error);
+      toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to generate audio for this section.",
+      });
+      handleStop();
     }
   };
+  
+  const handlePlayPause = () => {
+    if (audioPlayerState.isGenerating) return;
+    
+    if (audioPlayerState.isPlaying) {
+      setAudioPlayerState(prev => ({ ...prev, isPlaying: false }));
+    } else {
+      if (audioPlayerState.currentSectionIndex === null) {
+        playSection(0); // Start from the beginning
+      } else {
+        setAudioPlayerState(prev => ({ ...prev, isPlaying: true }));
+      }
+    }
+  };
+
+  const handlePlaySection = (index: number) => {
+    if (audioPlayerState.currentSectionIndex === index) {
+      handlePlayPause();
+    } else {
+      playSection(index);
+    }
+  };
+  
+  const handleStop = () => {
+    setAudioPlayerState({
+      isGenerating: false,
+      isPlaying: false,
+      currentSectionIndex: null,
+      audioUrl: null
+    });
+  };
+  
+  const handleAudioEnded = () => {
+    if (audioPlayerState.currentSectionIndex !== null) {
+      playSection(audioPlayerState.currentSectionIndex + 1);
+    }
+  };
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audioPlayerState.isPlaying && audio.src) {
+        audio.play().catch(e => console.error("Audio play failed:", e));
+    } else {
+        audio.pause();
+    }
+  }, [audioPlayerState.isPlaying, audioPlayerState.audioUrl]);
 
 
   const handleComplete = async () => {
@@ -280,17 +322,15 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   };
 
   const renderContent = () => {
-    // Render new section-based content
-    if (lesson.sections && lesson.sections.length > 0) {
-        return lesson.sections.map((section, sIndex) => (
-            <section key={sIndex} className="mb-8">
+    if (sections.length > 0) {
+        return sections.map((section, sIndex) => (
+            <section key={sIndex} id={`section-${sIndex}`} className={cn("mb-8 p-4 rounded-lg transition-all", audioPlayerState.currentSectionIndex === sIndex && "bg-primary/10 ring-2 ring-primary/50")}>
                 <SectionHeader 
                     section={section}
-                    index={sIndex}
-                    onPlay={handlePlayAudio}
-                    isPlaying={audioState.isPlaying && audioState.activeSection === sIndex}
-                    isGenerating={audioState.isGenerating && audioState.activeSection === sIndex}
-                    audioUrl={audioState.activeSection === sIndex ? audioState.audioUrl : null}
+                    onPlay={() => handlePlaySection(sIndex)}
+                    isPlaying={audioPlayerState.isPlaying && audioPlayerState.currentSectionIndex === sIndex}
+                    isGenerating={audioPlayerState.isGenerating && audioPlayerState.currentSectionIndex === sIndex}
+                    isActive={audioPlayerState.currentSectionIndex === sIndex}
                 />
                 <div>
                     {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
@@ -299,29 +339,44 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
         ));
     }
 
-    // Fallback for old string-based content
-    if (typeof lesson.content === 'string') {
-      return <TextContentRenderer text={lesson.content} />;
-    }
+    if (typeof lesson.content === 'string') return <TextContentRenderer text={lesson.content} />;
     
-    // Fallback for old block-based content
     if (Array.isArray(lesson.content)) {
         return lesson.content.map((block, index) => {
-            if (block.type === 'paragraph') {
-              return <TextContentRenderer key={index} text={block.value} />;
-            }
-            if (block.type === 'video') {
-              return <VideoBlockDisplay key={index} url={block.value} />;
-            }
+            if (block.type === 'paragraph') return <TextContentRenderer key={index} text={block.value} />;
+            if (block.type === 'video') return <VideoBlockDisplay key={index} url={block.value} />;
             return null;
         });
     }
     
     return <p>No content available for this lesson.</p>;
   };
+  
+  const currentSectionTitle = audioPlayerState.currentSectionIndex !== null ? sections[audioPlayerState.currentSectionIndex]?.title : null;
 
   return (
     <div>
+        {sections.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-muted/50">
+            <div className="text-center sm:text-left">
+              <p className="font-semibold text-lg flex items-center gap-2"><Headphones className="text-primary h-5 w-5"/> Read Aloud</p>
+              <p className="text-muted-foreground text-sm">Listen to the entire lesson, section by section.</p>
+            </div>
+            <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
+              <Play className="mr-2"/>
+              Start from Beginning
+            </Button>
+          </div>
+        )}
+
+        <LessonPlayer 
+            isPlaying={audioPlayerState.isPlaying}
+            isGenerating={audioPlayerState.isGenerating}
+            currentSectionTitle={currentSectionTitle}
+            onPlayPause={handlePlayPause}
+            onStop={handleStop}
+        />
+
         {lesson.image && (
             <div className="mb-6">
             <Image
@@ -338,10 +393,11 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             {renderContent()}
         </div>
 
-        {/* Backward compatibility for old top-level videoUrl field */}
         {lesson.videoUrl && !lesson.sections && (
              <VideoBlockDisplay url={lesson.videoUrl} />
         )}
+
+        <audio ref={audioRef} src={audioPlayerState.audioUrl || ""} onEnded={handleAudioEnded} />
 
         <div className="mt-8 pt-6 border-t">
           {isCompleted ? (
