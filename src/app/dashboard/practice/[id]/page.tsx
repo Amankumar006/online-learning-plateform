@@ -15,11 +15,29 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 function SolverPageSkeleton() {
     return (
         <div className="space-y-4">
-            <Skeleton className="h-6 w-1/3" />
-            <div className="border rounded-lg h-[calc(100vh-14rem)] flex flex-col">
-                <div className="p-6 border-b"><Skeleton className="h-7 w-3/4" /></div>
-                <div className="p-6 flex-grow"><Skeleton className="h-48 w-full" /></div>
-                <div className="p-4 border-t flex justify-end"><Skeleton className="h-10 w-32" /></div>
+            <Breadcrumb items={[{ href: "/dashboard", label: "Dashboard" }, { href: "/dashboard/practice", label: "Practice" }, { href: "#", label: "..." }]} />
+            <div className="border rounded-lg h-[calc(100vh-14rem)] flex flex-col p-6 space-y-6">
+                {/* Question Skeleton */}
+                <div className="space-y-3">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-5 w-1/2" />
+                    <Skeleton className="h-5 w-2/3" />
+                </div>
+                {/* Metadata Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                </div>
+                {/* Tags Skeleton */}
+                <div className="flex gap-2">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-6 w-24" />
+                </div>
+                {/* Hint Skeleton */}
+                <Skeleton className="h-20 w-full" />
+                 {/* Answer Area Skeleton */}
+                <Skeleton className="h-48 w-full flex-grow" />
             </div>
         </div>
     )
@@ -77,7 +95,7 @@ export default function SolveExercisePage() {
     const breadcrumbItems = [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/dashboard/practice", label: "Practice" },
-        { href: `/dashboard/practice/${exerciseId}`, label: response ? "Review Exercise" : "Solve Exercise" },
+        { href: `/dashboard/practice/${exerciseId}`, label: exercise ? (response ? "Review Exercise" : "Solve Exercise") : "..." },
     ];
 
     if (isLoading) {
@@ -98,7 +116,7 @@ export default function SolveExercisePage() {
     return (
         <div className="space-y-4">
              <Breadcrumb items={breadcrumbItems} />
-             <div className="flex flex-col h-[calc(100vh-14rem)] bg-card rounded-lg border">
+             <div className="flex flex-col h-full bg-card rounded-lg border">
                  <SingleExerciseSolver
                     exercise={exercise}
                     userId={user.uid}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -10,14 +10,14 @@ import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { Loader2, CheckCircle, XCircle, Lightbulb } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
 import MathEditor from "@/components/lessons/math-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface SingleExerciseSolverProps {
     exercise: Exercise;
@@ -25,6 +25,72 @@ interface SingleExerciseSolverProps {
     onSolved: () => void;
     initialResponse?: UserExerciseResponse | null;
 }
+
+const FormattedQuestion = ({ text }: { text: string }) => {
+    const parts = text.split(/(`.*?`)/g);
+    return <p className="text-lg mb-2 leading-relaxed">{parts.filter(Boolean).map((part, index) => {
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
+        }
+        return <React.Fragment key={index}>{part}</React.Fragment>;
+    })}</p>;
+};
+
+const difficultyToText = (level: number) => {
+    switch (level) {
+        case 1: return "Beginner";
+        case 2: return "Intermediate";
+        case 3: return "Advanced";
+        default: return "N/A";
+    }
+};
+
+const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
+    <div className="space-y-6">
+        <FormattedQuestion text={exercise.question} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {exercise.category === 'code' && exercise.language && (
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Language</CardTitle>
+                        <Code className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg font-bold capitalize">{exercise.language}</div>
+                    </CardContent>
+                </Card>
+            )}
+            <Card>
+                 <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Difficulty</CardTitle>
+                    <BarChartHorizontal className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-lg font-bold">{difficultyToText(exercise.difficulty)}</div>
+                </CardContent>
+            </Card>
+        </div>
+
+        {exercise.tags && exercise.tags.length > 0 && (
+             <div className="space-y-3">
+                 <h4 className="font-semibold text-sm flex items-center gap-2"><Tags className="h-4 w-4" /> Concept Tags</h4>
+                 <div className="flex flex-wrap gap-2">
+                     {exercise.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                 </div>
+             </div>
+        )}
+
+        {exercise.hint && (
+            <div className="space-y-3">
+                 <h4 className="font-semibold text-sm flex items-center gap-2"><Lightbulb className="h-4 w-4" /> Hint</h4>
+                <div className="text-sm p-4 border rounded-md bg-secondary/50">
+                    <FormattedQuestion text={exercise.hint} />
+                </div>
+            </div>
+        )}
+    </div>
+);
 
 export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -36,14 +102,12 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   const { toast } = useToast();
 
   useEffect(() => {
-    // Reset state when exercise changes
     setSelectedAnswer(null);
     setLongFormAnswer("");
     setIsAnswered(false);
     setIsCorrect(null);
     setFeedback(null);
     
-    // If there's an initial response (review mode), populate the state
     if (initialResponse) {
       setIsAnswered(true);
       setIsCorrect(initialResponse.isCorrect);
@@ -59,7 +123,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         }
       } else if (exercise.type === 'true_false') {
         setSelectedAnswer(initialResponse.submittedAnswer ? 'True' : 'False');
-      } else { // mcq
+      } else { 
         setSelectedAnswer(initialResponse.submittedAnswer as string);
       }
     }
@@ -101,8 +165,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 correct = selectedAnswer === exercise.correctAnswer;
                 break;
             case 'true_false':
-                submittedAnswer = selectedAnswer === 'True';
-                correct = (exercise.correctAnswer as unknown as string === String(submittedAnswer).toLowerCase());
+                correct = (exercise.correctAnswer as unknown as string === String(selectedAnswer === 'True').toLowerCase());
                 break;
         }
         score = correct ? 100 : 0;
@@ -130,7 +193,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     }
   };
 
-  const renderExercise = () => {
+  const renderAnswerArea = () => {
     switch (exercise.type) {
         case 'mcq':
             const mcq = exercise as McqExercise;
@@ -149,7 +212,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
              return (
                 <RadioGroup value={selectedAnswer ?? ''} onValueChange={setSelectedAnswer} disabled={isAnswered} className="space-y-3">
                     {['True', 'False'].map((option, index) => (
-                        <div key={index} className={cn("flex items-center space-x-3 p-4 rounded-lg border transition-all", isAnswered && String(tf.correctAnswer).toLowerCase() === option.toLowerCase() && "border-primary bg-primary/10 ring-2 ring-primary", isAnswered && selectedAnswer === option && String(tf.correctAnswer).toLowerCase() !== option.toLowerCase() && "border-destructive bg-destructive/10 ring-2 ring-destructive", !isAnswered && "hover:bg-accent/50 cursor-pointer")}>
+                        <div key={index} className={cn("flex items-center space-x-3 p-4 rounded-lg border transition-all", String(tf.correctAnswer).toLowerCase() === option.toLowerCase() && isAnswered && "border-primary bg-primary/10 ring-2 ring-primary", selectedAnswer === option && String(tf.correctAnswer).toLowerCase() !== option.toLowerCase() && isAnswered && "border-destructive bg-destructive/10 ring-2 ring-destructive", !isAnswered && "hover:bg-accent/50 cursor-pointer")}>
                             <RadioGroupItem value={option} id={`option-${index}`} />
                             <Label htmlFor={`option-${index}`} className="w-full text-base font-normal cursor-pointer">{option}</Label>
                         </div>
@@ -172,35 +235,14 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex-shrink-0 border-b p-6">
-            <div className="flex justify-between items-start gap-4">
-                <h3 className="font-headline text-xl font-semibold flex-1">{exercise.question}</h3>
-                 <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="capitalize">{exercise.category}</Badge>
-                    <Badge variant="outline">Difficulty: {exercise.difficulty}/3</Badge>
-                </div>
-            </div>
-        </div>
-        
         <ScrollArea className="flex-grow">
-            <div className="p-6 space-y-6">
-                {renderExercise()}
-                
-                {exercise.hint && !isAnswered && (
-                     <div className="mt-4">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="sm"><Lightbulb className="mr-2 h-4 w-4" />Show Hint</Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{exercise.hint}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                )}
-
+            <div className="p-6">
+                <ExerciseDetails exercise={exercise} />
+            </div>
+            <Separator className="my-6" />
+            <div className="p-6 pt-0 space-y-6">
+                <h3 className="text-xl font-bold font-headline">Your Answer</h3>
+                {renderAnswerArea()}
                 {isAnswered && (
                      <div className="mt-6 space-y-4 animate-in fade-in-20">
                         {(exercise.type !== 'long_form' && exercise.explanation) && (
