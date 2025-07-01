@@ -204,7 +204,7 @@ export default function PracticePage() {
                         </div>
                         <div className="flex gap-2 shrink-0">
                             {getDifficultyBadge(previewExercise.difficulty)}
-                            <Badge variant="default" className="capitalize">{previewExercise.type.replace('_', ' ')}</Badge>
+                            {previewExercise.type && <Badge variant="default" className="capitalize">{previewExercise.type.replace('_', ' ')}</Badge>}
                         </div>
                     </div>
                 </CardHeader>
