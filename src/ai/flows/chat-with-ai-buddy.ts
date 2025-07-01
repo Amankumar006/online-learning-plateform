@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A conversational AI flow for the AI Study Buddy.
@@ -11,13 +12,13 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {generateConversationStartersTool, summarizeLessonContentTool} from '@/ai/tools/lesson-tools';
 
-export const ChatWithAIBuddyInputSchema = z.object({
+const ChatWithAIBuddyInputSchema = z.object({
   lessonContent: z.string().describe('The content of the lesson the user is currently viewing.'),
   userMessage: z.string().describe('The message sent by the user.'),
 });
 export type ChatWithAIBuddyInput = z.infer<typeof ChatWithAIBuddyInputSchema>;
 
-export const ChatWithAIBuddyOutputSchema = z.object({
+const ChatWithAIBuddyOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
 });
 export type ChatWithAIBuddyOutput = z.infer<typeof ChatWithAIBuddyOutputSchema>;
@@ -26,18 +27,11 @@ export async function chatWithAIBuddy(input: ChatWithAIBuddyInput): Promise<Chat
   return chatWithAIBuddyFlow(input);
 }
 
-const chatWithAIBuddyFlow = ai.defineFlow(
-  {
-    name: 'chatWithAIBuddyFlow',
-    inputSchema: ChatWithAIBuddyInputSchema,
-    outputSchema: ChatWithAIBuddyOutputSchema,
-  },
-  async (input) => {
-    const prompt = ai.definePrompt({
-        name: 'aiBuddyChatPrompt',
-        tools: [summarizeLessonContentTool, generateConversationStartersTool],
-        input: { schema: ChatWithAIBuddyInputSchema },
-        prompt: `You are an AI study buddy. You are friendly, encouraging, and helpful.
+const prompt = ai.definePrompt({
+    name: 'aiBuddyChatPrompt',
+    tools: [summarizeLessonContentTool, generateConversationStartersTool],
+    input: { schema: ChatWithAIBuddyInputSchema },
+    prompt: `You are an AI study buddy. You are friendly, encouraging, and helpful.
 The user is currently studying a lesson. Your primary source of information is the provided lesson content.
 Based on the user's message, you can do one of three things:
 1. If the user asks for a summary, to explain something in simpler terms, or a similar request, use the 'summarizeLessonContent' tool.
@@ -50,8 +44,15 @@ Lesson Content:
 User's Message:
 {{{userMessage}}}
 `,
-    });
+});
 
+const chatWithAIBuddyFlow = ai.defineFlow(
+  {
+    name: 'chatWithAIBuddyFlow',
+    inputSchema: ChatWithAIBuddyInputSchema,
+    outputSchema: ChatWithAIBuddyOutputSchema,
+  },
+  async (input) => {
     const { text } = await prompt(input);
 
     return { response: text };

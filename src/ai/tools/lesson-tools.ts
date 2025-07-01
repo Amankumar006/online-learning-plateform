@@ -1,4 +1,4 @@
-'use server';
+
 /**
  * @fileOverview Tools for the AI Study Buddy.
  */
