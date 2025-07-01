@@ -8,7 +8,7 @@ import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Volume2, Pause, Play, Headphones } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Headphones } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
@@ -186,7 +186,7 @@ const SectionHeader = ({ section, onPlay, isPlaying, isGenerating, isActive }: {
             <h2 className={cn("text-2xl font-bold font-headline transition-colors", isActive && "text-primary")}>{section.title}</h2>
             <div className="flex items-center gap-2">
                  <Button variant="ghost" size="icon" onClick={onPlay} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause /> : <Play />)}
+                    {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause className="h-5 w-5"/> : <Headphones className="h-5 w-5"/>)}
                     <span className="sr-only">Listen to this section</span>
                  </Button>
             </div>
@@ -291,6 +291,21 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     }
   };
 
+  const handleDownload = () => {
+    if (!audioPlayerState.audioUrl || audioPlayerState.currentSectionIndex === null) return;
+
+    const sectionTitle = sections[audioPlayerState.currentSectionIndex].title;
+    const safeFileName = sectionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+    const link = document.createElement('a');
+    link.href = audioPlayerState.audioUrl;
+    link.download = `${safeFileName}.wav`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+
   React.useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -385,7 +400,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
                   </SelectContent>
               </Select>
               <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
-                <Play className="mr-2 h-4 w-4"/>
+                <Headphones className="mr-2 h-4 w-4"/>
                 Start
               </Button>
             </div>
@@ -396,8 +411,10 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             isPlaying={audioPlayerState.isPlaying}
             isGenerating={audioPlayerState.isGenerating}
             currentSectionTitle={currentSectionTitle}
+            audioUrl={audioPlayerState.audioUrl}
             onPlayPause={handlePlayPause}
             onStop={handleStop}
+            onDownload={handleDownload}
             playbackRate={playbackRate}
             onPlaybackRateChange={setPlaybackRate}
         />
