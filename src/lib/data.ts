@@ -100,6 +100,18 @@ export interface LongFormExercise extends BaseExercise {
 
 export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise;
 
+export interface UserExerciseResponse {
+  id: string; // doc id
+  userId: string;
+  lessonId: string;
+  exerciseId: string;
+  submittedAnswer: string | boolean;
+  isCorrect: boolean;
+  score: number;
+  feedback?: string;
+  submittedAt: number; // using timestamp for sorting
+}
+
 
 export interface ExerciseWithLessonTitle extends Exercise {
     lessonTitle: string;
@@ -450,9 +462,35 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
 }
 
 
-export async function saveExerciseResult(userId: string, isCorrect: boolean, score: number) {
+export async function saveExerciseAttempt(
+    userId: string,
+    lessonId: string,
+    exerciseId: string,
+    submittedAnswer: string | boolean,
+    isCorrect: boolean,
+    score: number,
+    feedback?: string
+) {
     const userRef = doc(db, 'users', userId);
+    // Use a predictable ID to easily check for existence and avoid duplicates
+    const responseRef = doc(db, 'exerciseResponses', `${userId}_${exerciseId}`);
+    
     try {
+        // Save the detailed response record
+        await setDoc(responseRef, {
+            userId,
+            lessonId,
+            exerciseId,
+            submittedAnswer,
+            isCorrect,
+            score,
+            feedback: feedback || "",
+            submittedAt: Date.now()
+        }, { merge: true }); // Use merge to allow for re-attempts if needed in future
+
+        // Then, update aggregate stats in a transaction
+        // NOTE: This logic increments stats on every attempt. For more complex logic 
+        // (e.g., only counting first attempts), this would need to be enhanced.
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists()) {
@@ -463,12 +501,10 @@ export async function saveExerciseResult(userId: string, isCorrect: boolean, sco
             const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
             const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
             
-            // This needs to be more sophisticated. Let's just track the running total score for now.
-            // A true average would need to store all scores.
             const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
             const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
 
-            const timePerExercise = 30; // 30 seconds per exercise
+            const timePerExercise = 30; // approx 30 seconds per exercise
             const newTimeSpent = (progress.timeSpent || 0) + timePerExercise;
 
             transaction.update(userRef, { 
@@ -479,7 +515,25 @@ export async function saveExerciseResult(userId: string, isCorrect: boolean, sco
             });
         });
     } catch (e) {
-        console.error("Transaction failed: ", e);
+        console.error("Save exercise attempt failed: ", e);
         throw new Error("Failed to save exercise result.");
     }
 }
+
+export async function getUserResponsesForLesson(userId: string, lessonId: string): Promise<UserExerciseResponse[]> {
+    try {
+        const q = query(
+            collection(db, "exerciseResponses"),
+            where("userId", "==", userId),
+            where("lessonId", "==", lessonId)
+        );
+        const querySnapshot = await getDocs(q);
+        const responses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserExerciseResponse));
+        return responses;
+    } catch (error) {
+        console.error("Error fetching user responses for lesson: ", error);
+        return [];
+    }
+}
+
+    

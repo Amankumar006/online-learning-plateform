@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserProgress } from "@/lib/data";
-import { saveExerciseResult, getUserProgress, updateUserExerciseIndex } from "@/lib/data";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse } from "@/lib/data";
+import { saveExerciseAttempt, getUserProgress, updateUserExerciseIndex, getUserResponsesForLesson } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,43 +26,84 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
-  const [key, setKey] = useState(0);
+  const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
   const { toast } = useToast();
 
   const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
   const totalExercises = exercises.length;
+  const currentExercise = exercises[currentExerciseIndex];
 
   useEffect(() => {
     if (!userId || !lessonId) {
       setIsLoading(false);
       return;
     };
-    const loadProgress = async () => {
+    const loadData = async () => {
       setIsLoading(true);
       try {
-        const progress = await getUserProgress(userId);
+        const [progress, responses] = await Promise.all([
+            getUserProgress(userId),
+            getUserResponsesForLesson(userId, lessonId)
+        ]);
+
         if (progress.exerciseProgress && progress.exerciseProgress[lessonId]) {
           const savedIndex = progress.exerciseProgress[lessonId].currentExerciseIndex;
-          setCurrentExerciseIndex(savedIndex);
+          setCurrentExerciseIndex(savedIndex < totalExercises ? savedIndex : 0);
         }
+        setUserResponses(new Map(responses.map(r => [r.exerciseId, r])));
+
       } catch (error) {
         console.error("Failed to load user progress:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    loadProgress();
-  }, [userId, lessonId]);
-  
-  const currentExercise = exercises[currentExerciseIndex];
+    loadData();
+  }, [userId, lessonId, totalExercises]);
+
+  useEffect(() => {
+    if (isLoading || !currentExercise) return;
+
+    // Reset component state for the current question
+    setSelectedAnswer(null);
+    setLongFormAnswer("");
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setFeedback(null);
+    
+    // Check for a previous response and set state accordingly
+    const previousResponse = userResponses.get(currentExercise.id);
+    if (previousResponse) {
+        setIsAnswered(true);
+        setIsCorrect(previousResponse.isCorrect);
+
+        if (currentExercise.type === 'long_form') {
+            setLongFormAnswer(previousResponse.submittedAnswer as string);
+            if (previousResponse.feedback) {
+                setFeedback({
+                    isCorrect: previousResponse.isCorrect,
+                    score: previousResponse.score,
+                    feedback: previousResponse.feedback
+                });
+            }
+        } else if (currentExercise.type === 'true_false') {
+            setSelectedAnswer(previousResponse.submittedAnswer ? 'True' : 'False');
+        } else { // MCQ
+            setSelectedAnswer(previousResponse.submittedAnswer as string);
+        }
+    }
+  }, [currentExerciseIndex, isLoading, userResponses, currentExercise]);
 
   const handleAnswerSubmit = async () => {
     if (!currentExercise) return;
     
     let correct = false;
     let score = 0;
+    let submittedAnswer: string | boolean = selectedAnswer!;
+    let aiFeedback: GradeLongFormAnswerOutput | null = null;
 
     if (currentExercise.type === 'long_form') {
+        submittedAnswer = longFormAnswer;
         setIsGrading(true);
         try {
             const result = await gradeLongFormAnswer({
@@ -70,6 +111,7 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
                 evaluationCriteria: currentExercise.evaluationCriteria,
                 studentAnswer: longFormAnswer,
             });
+            aiFeedback = result;
             setFeedback(result);
             correct = result.isCorrect;
             score = result.score;
@@ -86,14 +128,14 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
             setIsGrading(false);
         }
     } else {
+        if (!selectedAnswer) return;
         switch (currentExercise.type) {
             case 'mcq':
-                if (!selectedAnswer) return;
                 correct = selectedAnswer === currentExercise.correctAnswer;
                 break;
             case 'true_false':
-                if (!selectedAnswer) return;
-                correct = (String(currentExercise.correctAnswer).toLowerCase() === selectedAnswer.toLowerCase());
+                submittedAnswer = selectedAnswer === 'True';
+                correct = (currentExercise.correctAnswer === submittedAnswer);
                 break;
         }
         score = correct ? 100 : 0;
@@ -103,7 +145,30 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     setIsCorrect(correct);
     
     try {
-        await saveExerciseResult(userId, correct, score);
+        await saveExerciseAttempt(
+            userId, 
+            lessonId!,
+            currentExercise.id,
+            submittedAnswer,
+            correct,
+            score,
+            aiFeedback?.feedback
+        );
+
+        // Optimistically update local state
+        const newResponse: UserExerciseResponse = {
+            id: `${userId}_${currentExercise.id}`,
+            userId,
+            lessonId: lessonId!,
+            exerciseId: currentExercise.id,
+            submittedAnswer,
+            isCorrect: correct,
+            score,
+            feedback: aiFeedback?.feedback,
+            submittedAt: Date.now()
+        };
+        setUserResponses(prev => new Map(prev).set(currentExercise.id, newResponse));
+        
         if (currentExercise.type !== 'long_form') {
             toast({
                 title: correct ? "Correct!" : "Not quite",
@@ -132,15 +197,7 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
        toast({ variant: "destructive", title: "Save Error", description: "Your progress could not be saved." });
        return;
     }
-    
-    // Reset state for the next question
-    setIsAnswered(false);
-    setIsCorrect(null);
-    setSelectedAnswer(null);
-    setLongFormAnswer("");
-    setFeedback(null);
-    setKey(prev => prev + 1);
-    
+        
     setCurrentExerciseIndex(nextIndex);
     
     if (nextIndex >= totalExercises) {
@@ -153,9 +210,8 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
       try {
           await updateUserExerciseIndex(userId, lessonId, 0);
           setCurrentExerciseIndex(0);
-          setKey(k => k + 1);
-          setIsAnswered(false);
-          setIsCorrect(null);
+          // Reset responses for a fresh start
+          setUserResponses(new Map());
       } catch (error) {
           console.error("Failed to reset progress:", error);
           toast({ variant: "destructive", title: "Error", description: "Could not reset progress." });
@@ -238,7 +294,7 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
   }
 
   return (
-    <div key={key} className="animate-in fade-in-0 zoom-in-95">
+    <div className="animate-in fade-in-0 zoom-in-95">
       <div className="mb-4">
         <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
         <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -321,3 +377,5 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     </div>
   );
 }
+
+    
