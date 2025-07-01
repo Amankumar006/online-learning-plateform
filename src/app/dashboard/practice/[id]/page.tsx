@@ -10,11 +10,13 @@ import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function SolverPageSkeleton() {
     return (
-        <div className="space-y-6">
-            <div className="border rounded-lg h-[calc(100vh-10rem)] flex flex-col">
+        <div className="space-y-4">
+            <Skeleton className="h-6 w-1/3" />
+            <div className="border rounded-lg h-[calc(100vh-14rem)] flex flex-col">
                 <div className="p-6 border-b"><Skeleton className="h-7 w-3/4" /></div>
                 <div className="p-6 flex-grow"><Skeleton className="h-48 w-full" /></div>
                 <div className="p-4 border-t flex justify-end"><Skeleton className="h-10 w-32" /></div>
@@ -72,6 +74,12 @@ export default function SolveExercisePage() {
         router.push('/dashboard/practice');
     };
     
+    const breadcrumbItems = [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard/practice", label: "Practice" },
+        { href: `/dashboard/practice/${exerciseId}`, label: response ? "Review Exercise" : "Solve Exercise" },
+    ];
+
     if (isLoading) {
         return <SolverPageSkeleton />;
     }
@@ -88,13 +96,16 @@ export default function SolveExercisePage() {
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-12rem)] bg-card rounded-lg border">
-             <SingleExerciseSolver
-                exercise={exercise}
-                userId={user.uid}
-                onSolved={handleSolved}
-                initialResponse={response}
-            />
+        <div className="space-y-4">
+             <Breadcrumb items={breadcrumbItems} />
+             <div className="flex flex-col h-[calc(100vh-14rem)] bg-card rounded-lg border">
+                 <SingleExerciseSolver
+                    exercise={exercise}
+                    userId={user.uid}
+                    onSolved={handleSolved}
+                    initialResponse={response}
+                />
+            </div>
         </div>
     );
 }
