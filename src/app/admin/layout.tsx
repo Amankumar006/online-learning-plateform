@@ -26,6 +26,7 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { getUser } from "@/lib/data";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function AdminLayout({
   children,
@@ -118,6 +119,9 @@ export default function AdminLayout({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
+              <DropdownMenuItem>
+                <ThemeToggle />
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <LogoutButton />
             </DropdownMenuContent>
