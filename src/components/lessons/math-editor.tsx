@@ -18,26 +18,37 @@ interface MathEditorProps {
 const FormattedMath = ({ text }: { text: string }) => {
     // This regex splits the text by block and inline LaTeX, preserving them
     const parts = text.split(/(\$\$[\s\S]*?\$\$|\$.*?\$)/g);
+    
     return (
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-            {parts.filter(Boolean).map((part, index) => {
+        <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
+            {parts.map((part, index) => {
+                if (!part) return null;
                 try {
                     if (part.startsWith('$$') && part.endsWith('$$')) {
-                        return <BlockMath key={index} math={part.slice(2, -2)} />;
+                        // For block math, render it directly. KaTeX handles block display.
+                        return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>;
                     }
                     if (part.startsWith('$') && part.endsWith('$')) {
+                        // For inline math, render it directly.
                         return <InlineMath key={index} math={part.slice(1, -1)} />;
                     }
                 } catch (error) {
-                    // If KaTeX fails to parse, just render the raw string
-                    return <p key={index} className="text-destructive">{part}</p>;
+                    // If KaTeX fails to parse, render the raw string with an error style
+                    return <span key={index} className="text-destructive font-mono bg-destructive/10 p-1 rounded-sm mx-1">{part}</span>;
                 }
-                // Render plain text segments inside a paragraph to maintain structure
-                return <p key={index}>{part}</p>;
+
+                // Render plain text segments, preserving line breaks by splitting and rejoining with <br />
+                return part.split('\n').map((line, lineIndex, arr) => (
+                    <React.Fragment key={`${index}-${lineIndex}`}>
+                        {line}
+                        {lineIndex < arr.length - 1 && <br />}
+                    </React.Fragment>
+                ));
             })}
         </div>
     );
 };
+
 
 const mathSymbols = [
     { display: 'π', latex: '\\pi ' },
@@ -67,6 +78,7 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
         const newValue = text.substring(0, start) + latex + text.substring(end);
         onValueChange(newValue);
 
+        // Setting timeout to allow React to re-render before we manipulate the DOM
         setTimeout(() => {
             if (textareaRef.current) {
                 const newCursorPos = start + latex.length + offset;
@@ -78,16 +90,16 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="flex flex-col gap-2">
-                 <div className="p-2 border rounded-md flex flex-wrap gap-1 justify-center bg-muted/50">
+            <div className="flex flex-col gap-2 rounded-lg border bg-background p-3 focus-within:ring-2 focus-within:ring-ring">
+                 <div className="flex flex-wrap gap-1 justify-center border-b pb-2">
                     {mathSymbols.map((symbol) => (
                         <Button
                             key={symbol.display}
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="font-mono h-8 px-2"
-                            onClick={() => insertSymbol(symbol.latex, symbol.offset)}
+                            className="font-mono h-8 px-2 text-base"
+                            onClick={() => insertSymbol(symbol.latex, symbol.offset || 0)}
                             disabled={disabled}
                         >
                             {symbol.display}
@@ -99,21 +111,20 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                     value={value}
                     onChange={(e) => onValueChange(e.target.value)}
                     placeholder={placeholder}
-                    rows={10}
                     disabled={disabled}
-                    className="font-mono text-sm min-h-[200px] flex-grow"
+                    className="font-mono text-sm min-h-[250px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2"
                 />
             </div>
-            <Card>
+            <Card className="h-full">
                  <CardHeader className="py-2 px-4 border-b">
                     <CardTitle className="text-base font-medium">Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                    <ScrollArea className="h-[244px]">
+                    <ScrollArea className="h-[280px]">
                        {value ? (
                            <FormattedMath text={value} />
                        ) : (
-                           <div className="text-muted-foreground text-center flex items-center justify-center h-[244px]">
+                           <div className="text-muted-foreground text-center flex items-center justify-center h-full">
                                <p>Your rendered equations will appear here.</p>
                            </div>
                        )}
