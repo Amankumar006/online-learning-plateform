@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock } from "@/lib/data";
 import { notFound, useRouter, useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LessonContent from "@/components/lessons/lesson-content";
@@ -108,14 +108,16 @@ export default function LessonPage() {
     );
   }
   
-  const textContentForAI = Array.isArray(lesson.content)
-    ? lesson.content
-        .filter(block => block.type === 'paragraph')
-        .map(block => block.value)
-        .join('\n\n')
-    : typeof lesson.content === 'string'
-    ? lesson.content
-    : '';
+  const textContentForAI = lesson.sections && lesson.sections.length > 0
+    ? lesson.sections.map(section => {
+        const sectionTitle = `## ${section.title}\n\n`;
+        const sectionContent = section.blocks
+            .filter(block => block.type === 'text')
+            .map(block => (block as TextBlock).content)
+            .join('\n\n');
+        return sectionTitle + sectionContent;
+      }).join('\n\n---\n\n')
+    : "This lesson has no textual content.";
 
   const breadcrumbItems = [
     { href: "/dashboard", label: "Dashboard" },
