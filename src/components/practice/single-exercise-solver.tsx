@@ -51,17 +51,21 @@ const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
         <FormattedQuestion text={exercise.question} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {exercise.category === 'code' && (exercise as LongFormExercise).language && (
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Language</CardTitle>
-                        <Code className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-lg font-bold capitalize">{(exercise as LongFormExercise).language}</div>
-                    </CardContent>
-                </Card>
-            )}
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Category</CardTitle>
+                    {exercise.category === 'code' && <Code className="h-4 w-4 text-muted-foreground" />}
+                    {exercise.category === 'math' && <FunctionSquare className="h-4 w-4 text-muted-foreground" />}
+                </CardHeader>
+                <CardContent>
+                    <div className="text-lg font-bold capitalize">
+                        {exercise.category === 'code' && (exercise as LongFormExercise).language 
+                            ? `${exercise.category} (${(exercise as LongFormExercise).language})`
+                            : exercise.category
+                        }
+                    </div>
+                </CardContent>
+            </Card>
             <Card>
                  <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Difficulty</CardTitle>
