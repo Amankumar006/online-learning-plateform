@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
 import { cn } from "@/lib/utils";
 import LessonPlayer from "./lesson-player";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
     const [copied, setCopied] = React.useState(false);
@@ -206,6 +207,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   const [isCompleting, setIsCompleting] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   
+  const [selectedVoice, setSelectedVoice] = useState('Algenib');
   const [audioPlayerState, setAudioPlayerState] = useState<{
     isGenerating: boolean;
     isPlaying: boolean;
@@ -238,7 +240,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
         return;
       }
       
-      const result = await generateAudioFromText({ text: textContent });
+      const result = await generateAudioFromText({ text: textContent, voice: selectedVoice });
       setAudioPlayerState(prev => ({ ...prev, isGenerating: false, isPlaying: true, audioUrl: result.audioDataUri }));
     } catch (error) {
       console.error(error);
@@ -358,14 +360,27 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     <div>
         {sections.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-muted/50">
-            <div className="text-center sm:text-left">
-              <p className="font-semibold text-lg flex items-center gap-2"><Headphones className="text-primary h-5 w-5"/> Read Aloud</p>
-              <p className="text-muted-foreground text-sm">Listen to the entire lesson, section by section.</p>
+             <div className="flex-1 text-center sm:text-left">
+                <p className="font-semibold text-lg flex items-center gap-2"><Headphones className="text-primary h-5 w-5"/> Read Aloud</p>
+                <p className="text-muted-foreground text-sm">Listen to the lesson and select a voice.</p>
             </div>
-            <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
-              <Play className="mr-2"/>
-              Start from Beginning
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={audioPlayerState.isPlaying || audioPlayerState.isGenerating}>
+                  <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="Algenib">Voice Algenib</SelectItem>
+                      <SelectItem value="Achernar">Voice Achernar</SelectItem>
+                      <SelectItem value="Polaris">Voice Polaris</SelectItem>
+                      <SelectItem value="Regulus">Voice Regulus</SelectItem>
+                  </SelectContent>
+              </Select>
+              <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
+                <Play className="mr-2 h-4 w-4"/>
+                Start
+              </Button>
+            </div>
           </div>
         )}
 
