@@ -47,6 +47,7 @@ const LongFormQuestionSchema = z.object({
     category: QuestionCategorySchema,
     difficulty: z.number().min(1).max(3),
     question: z.string().describe("The open-ended question requiring a detailed answer."),
+    language: z.string().optional().describe("The programming language for 'code' category questions, e.g., 'javascript'."),
     evaluationCriteria: z.string().describe("The criteria the AI will use to evaluate the student's answer."),
     hint: z.string().describe("A hint for the student."),
 });
@@ -77,7 +78,7 @@ Based on the following lesson content, generate a precise set of exercises based
 - **{{trueFalseCount}}** True/False ('true_false') questions. Each with: a statement, the correct boolean answer, an explanation, and a hint.
 {{/if}}
 {{#if longFormCount}}
-- **{{longFormCount}}** Long-Form ('long_form') questions. Each with: a question that requires a detailed, multi-step answer, evaluation criteria for an AI to grade it later, and a hint.
+- **{{longFormCount}}** Long-Form ('long_form') questions. Each with: a question that requires a detailed, multi-step answer, evaluation criteria for an AI to grade it later, and a hint. If the category is 'code', also provide the programming 'language'.
 {{/if}}
 
 Assign a difficulty from 1 (easy) to 3 (hard) for each exercise.

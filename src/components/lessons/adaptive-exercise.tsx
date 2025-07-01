@@ -15,6 +15,7 @@ import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade
 import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CodeEditor from "./code-editor";
 
 export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId:string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -250,14 +251,13 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
             const lfExercise = currentExercise as LongFormExercise;
             if (lfExercise.category === 'code') {
                  return (
-                    <div className="rounded-lg bg-card-foreground p-4">
-                        <Textarea
+                    <div>
+                        <CodeEditor
                             value={longFormAnswer}
-                            onChange={(e) => setLongFormAnswer(e.target.value)}
-                            placeholder="Write your code here..."
-                            rows={8}
+                            onValueChange={setLongFormAnswer}
                             disabled={isAnswered || isGrading}
-                            className="bg-transparent text-background font-mono border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder="Write your code here..."
+                            language={lfExercise.language}
                         />
                         <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
                     </div>
@@ -416,5 +416,3 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     </div>
   );
 }
-
-    

@@ -96,6 +96,7 @@ export interface TrueFalseExercise extends BaseExercise {
 
 export interface LongFormExercise extends BaseExercise {
     type: 'long_form';
+    language?: string;
     evaluationCriteria: string;
 }
 
@@ -536,5 +537,3 @@ export async function getUserResponsesForLesson(userId: string, lessonId: string
         return [];
     }
 }
-
-    
