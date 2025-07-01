@@ -43,15 +43,8 @@ const CodeBlockDisplay = ({ language, code }: { language: string, code: string }
 };
 
 const FormattedText = ({ text }: { text: string }) => {
-    const parts = text.split(/(```[\s\S]*?```|\*\*.*?\*\*|`.*?`|\$\$.*?\$\$|\$.*?\$)/g);
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\$\$.*?\$\$|\$.*?\$)/g);
     return <>{parts.filter(Boolean).map((part, index) => {
-        if (part.startsWith('```')) {
-            const content = part.slice(3, -3);
-            const firstLineBreak = content.indexOf('\n');
-            const language = content.substring(0, firstLineBreak).trim();
-            const code = content.substring(firstLineBreak + 1);
-            return <CodeBlockDisplay key={index} language={language} code={code} />;
-        }
         if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={index}>{part.slice(2, -2)}</strong>;
         }
@@ -69,7 +62,7 @@ const FormattedText = ({ text }: { text: string }) => {
 };
 
 
-const FormattedParagraph = ({ text }: { text: string }) => {
+const TextContentRenderer = ({ text }: { text: string }) => {
   const keyWordStyleMap = {
     '**Example:**': {
       icon: <Lightbulb className="h-5 w-5 text-primary" />,
@@ -94,30 +87,63 @@ const FormattedParagraph = ({ text }: { text: string }) => {
             <CardTitle className="text-lg font-headline">{title}</CardTitle>
           </CardHeader>
           <CardContent className="pt-2 text-sm md:text-base prose-p:my-2">
-             <FormattedText text={content} />
+             <TextContentRenderer text={content} />
           </CardContent>
         </Card>
       );
     }
   }
 
-  const listSegments = text.split(/\s\*\s/g);
-  if (listSegments.length > 1) {
-    const intro = listSegments[0].trim();
-    const listItems = listSegments.slice(1);
-    return (
-      <div className="prose-p:my-2">
-        {intro && <p><FormattedText text={intro} /></p>}
-        <ul className="list-disc pl-5 my-4 space-y-2">
-          {listItems.map((item, index) => (
-            <li key={index}><FormattedText text={item.trim()} /></li>
+  const segments = text.split(/(```[\s\S]*?```)/g);
+
+  const renderedSegments = segments.filter(Boolean).map((segment, index) => {
+    if (segment.startsWith('```')) {
+      const content = segment.slice(3, -3);
+      const firstLineBreak = content.indexOf('\n');
+      const language = content.substring(0, firstLineBreak).trim();
+      const code = content.substring(firstLineBreak + 1);
+      return <CodeBlockDisplay key={index} language={language} code={code} />;
+    }
+
+    const lines = segment.trim().split('\n');
+    const elements: React.ReactNode[] = [];
+    let currentList: string[] = [];
+
+    lines.forEach((line, lineIndex) => {
+      const isListItem = line.trim().startsWith('* ');
+      if (isListItem) {
+        currentList.push(line.trim().substring(2));
+      } else {
+        if (currentList.length > 0) {
+          elements.push(
+            <ul key={`list-${index}-${lineIndex}`} className="list-disc pl-5 my-4 space-y-2">
+              {currentList.map((item, i) => (
+                <li key={i}><FormattedText text={item} /></li>
+              ))}
+            </ul>
+          );
+          currentList = [];
+        }
+        if (line.trim()) {
+          elements.push(<p key={`p-${index}-${lineIndex}`}><FormattedText text={line} /></p>);
+        }
+      }
+    });
+
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={`list-final-${index}`} className="list-disc pl-5 my-4 space-y-2">
+          {currentList.map((item, i) => (
+            <li key={i}><FormattedText text={item} /></li>
           ))}
         </ul>
-      </div>
-    );
-  }
-  
-  return <p><FormattedText text={text} /></p>;
+      );
+    }
+
+    return elements;
+  });
+
+  return <>{renderedSegments}</>;
 };
 
 
@@ -140,7 +166,7 @@ const VideoBlockDisplay = ({ url }: { url: string }) => (
 const BlockRenderer = ({ block }: { block: Block }) => {
     switch (block.type) {
         case 'text':
-            return <FormattedParagraph text={block.content} />;
+            return <TextContentRenderer text={block.content} />;
         case 'code':
             return <CodeBlockDisplay language={block.language} code={block.code} />;
         case 'video':
@@ -190,7 +216,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
         return lesson.sections.map((section, sIndex) => (
             <section key={sIndex} className="mb-8">
                 <h2 className="text-2xl font-bold font-headline mt-8 mb-4 border-b pb-2">{section.title}</h2>
-                <div className="space-y-4">
+                <div>
                     {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
                 </div>
             </section>
@@ -199,16 +225,14 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
 
     // Fallback for old string-based content
     if (typeof lesson.content === 'string') {
-      return lesson.content.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
-        <FormattedParagraph key={index} text={paragraph} />
-      ));
+      return <TextContentRenderer text={lesson.content} />;
     }
     
     // Fallback for old block-based content
     if (Array.isArray(lesson.content)) {
         return lesson.content.map((block, index) => {
             if (block.type === 'paragraph') {
-              return <FormattedParagraph key={index} text={block.value} />;
+              return <TextContentRenderer key={index} text={block.value} />;
             }
             if (block.type === 'video') {
               return <VideoBlockDisplay key={index} url={block.value} />;
@@ -234,7 +258,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             />
             </div>
         )}
-        <div className="prose dark:prose-invert prose-lg max-w-none mb-8 space-y-0">
+        <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
             {renderContent()}
         </div>
 
