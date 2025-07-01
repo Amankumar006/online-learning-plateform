@@ -3,14 +3,16 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Lesson, UserProgress, Section, Block } from "@/lib/data";
+import { Lesson, UserProgress, Section, Block, TextBlock } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Volume2, PauseCircle } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
+import { cn } from "@/lib/utils";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
     const [copied, setCopied] = React.useState(false);
@@ -183,11 +185,78 @@ interface LessonContentProps {
   onLessonComplete: () => void;
 }
 
+const SectionHeader = ({ section, index, onPlay, isPlaying, isGenerating, audioUrl }: { section: Section, index: number, onPlay: (index: number, content: string) => void, isPlaying: boolean, isGenerating: boolean, audioUrl: string | null }) => {
+    const audioRef = React.useRef<HTMLAudioElement>(null);
+    const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
+
+    const sectionContent = section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n');
+
+    const handlePlayClick = () => {
+        onPlay(index, sectionContent);
+    };
+
+    const handleAudioEnded = () => {
+        setIsCurrentlyPlaying(false);
+    };
+
+    React.useEffect(() => {
+        if (isPlaying && audioUrl && audioRef.current) {
+            audioRef.current.play().then(() => setIsCurrentlyPlaying(true)).catch(e => console.error("Audio play failed:", e));
+        } else if (!isPlaying && audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setIsCurrentlyPlaying(false);
+        }
+    }, [isPlaying, audioUrl]);
+    
+    return (
+        <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
+            <h2 className="text-2xl font-bold font-headline">{section.title}</h2>
+            <div className="flex items-center gap-2">
+                 <Button variant="ghost" size="icon" onClick={handlePlayClick} disabled={isGenerating}>
+                    {isGenerating ? <Loader2 className="animate-spin" /> : (isCurrentlyPlaying ? <PauseCircle /> : <Volume2 />)}
+                    <span className="sr-only">Listen to this section</span>
+                 </Button>
+                 {audioUrl && <audio ref={audioRef} src={audioUrl} onEnded={handleAudioEnded} />}
+            </div>
+        </div>
+    );
+};
+
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
   const [isCompleting, setIsCompleting] = useState(false);
+  const [audioState, setAudioState] = useState<{ isGenerating: boolean; isPlaying: boolean; audioUrl: string | null; activeSection: number | null }>({
+    isGenerating: false,
+    isPlaying: false,
+    audioUrl: null,
+    activeSection: null
+  });
 
   const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id);
+
+  const handlePlayAudio = async (sectionIndex: number, textContent: string) => {
+    if (audioState.isPlaying && audioState.activeSection === sectionIndex) {
+        setAudioState(prev => ({ ...prev, isPlaying: false }));
+        return;
+    }
+
+    setAudioState({ isGenerating: true, isPlaying: false, audioUrl: null, activeSection: sectionIndex });
+    
+    try {
+        const result = await generateAudioFromText({ text: textContent });
+        setAudioState({ isGenerating: false, isPlaying: true, audioUrl: result.audioDataUri, activeSection: sectionIndex });
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to generate audio for this section.",
+        });
+        setAudioState({ isGenerating: false, isPlaying: false, audioUrl: null, activeSection: null });
+    }
+  };
+
 
   const handleComplete = async () => {
     setIsCompleting(true);
@@ -215,7 +284,14 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     if (lesson.sections && lesson.sections.length > 0) {
         return lesson.sections.map((section, sIndex) => (
             <section key={sIndex} className="mb-8">
-                <h2 className="text-2xl font-bold font-headline mt-8 mb-4 border-b pb-2">{section.title}</h2>
+                <SectionHeader 
+                    section={section}
+                    index={sIndex}
+                    onPlay={handlePlayAudio}
+                    isPlaying={audioState.isPlaying && audioState.activeSection === sIndex}
+                    isGenerating={audioState.isGenerating && audioState.activeSection === sIndex}
+                    audioUrl={audioState.activeSection === sIndex ? audioState.audioUrl : null}
+                />
                 <div>
                     {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
                 </div>
