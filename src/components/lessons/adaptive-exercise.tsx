@@ -16,6 +16,7 @@ import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "./code-editor";
+import MathEditor from "./math-editor";
 
 export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId:string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -266,12 +267,13 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
              if (lfExercise.category === 'math') {
                  return (
                     <div>
-                         <Textarea
+                         <MathEditor
                             value={longFormAnswer}
-                            onChange={(e) => setLongFormAnswer(e.target.value)}
-                            placeholder="Enter your mathematical formula or explanation here... You can use LaTeX for equations like $E=mc^2$."
-                            rows={8}
+                            onValueChange={setLongFormAnswer}
                             disabled={isAnswered || isGrading}
+                            placeholder="Enter your mathematical formula or explanation here... Use LaTeX for equations, e.g., $E=mc^2$ or $$
+\int_a^b f(x) \,dx = F(b) - F(a)
+$$"
                         />
                         <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
                     </div>
