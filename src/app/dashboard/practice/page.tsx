@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles, ListChecks, Trash2, Pencil, BrainCircuit, Save, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format, formatDistanceToNow } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SingleExerciseSolver from '@/components/practice/single-exercise-solver';
 
 function PracticePageSkeleton() {
@@ -81,7 +81,6 @@ export default function PracticePage() {
                 setUser(currentUser);
                 fetchData(currentUser.uid);
             }
-            // The layout now handles redirection if the user is not logged in.
         });
         return () => unsubscribe();
     }, []);
@@ -117,7 +116,7 @@ export default function PracticePage() {
             toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
             setPreviewExercise(null);
             setPrompt("");
-            fetchData(user.uid); // Refresh list
+            fetchData(user.uid);
         } catch (e) {
             console.error(e);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save the exercise.' });
@@ -135,7 +134,7 @@ export default function PracticePage() {
         try {
             await deleteExercise(exerciseId);
             toast({ title: "Exercise Discarded", description: "The exercise has been removed." });
-            fetchData(user.uid); // Refresh list
+            fetchData(user.uid);
         } catch (e) {
             console.error(e);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to discard the exercise.' });
@@ -299,9 +298,10 @@ export default function PracticePage() {
         </div>
 
         <Dialog open={!!solvingExercise} onOpenChange={(open) => !open && setSolvingExercise(null)}>
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>Solve Custom Exercise</DialogTitle>
+            <DialogContent className="max-w-6xl w-full h-[90vh] flex flex-col p-0">
+                <DialogHeader className="p-6 pb-2">
+                    <DialogTitle className="text-2xl font-headline">Practice Arena</DialogTitle>
+                    <DialogDescription>Solve your custom-generated exercise in this focused workspace.</DialogDescription>
                 </DialogHeader>
                 {solvingExercise && user && (
                     <SingleExerciseSolver 
@@ -314,5 +314,4 @@ export default function PracticePage() {
         </Dialog>
       </div>
     );
-
-    
+}
