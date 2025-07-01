@@ -138,6 +138,15 @@ export default function EditLessonPage() {
         sections,
         tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
       };
+
+      if (lessonData.image.startsWith('data:image')) {
+        lessonData.image = "https://placehold.co/600x400.png";
+        toast({
+            title: "Image Placeholder Used",
+            description: "AI-generated images are for preview only. A placeholder has been saved.",
+        });
+      }
+
       await updateLesson(lessonId, lessonData);
       toast({
         title: "Success!",
@@ -248,6 +257,7 @@ export default function EditLessonPage() {
                          <span className="sr-only">Generate Image</span>
                     </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">AI-generated images are previews and are not saved directly. Please use a permanent image URL.</p>
                  {image && (
                     <div className="mt-2 rounded-md border p-2">
                         <Image src={image} width={200} height={100} alt="Lesson image preview" className="rounded-md aspect-video object-cover" />
