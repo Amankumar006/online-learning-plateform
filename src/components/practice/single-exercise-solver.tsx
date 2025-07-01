@@ -10,7 +10,8 @@ import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare } from "lucide-react";
+import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
+import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Terminal, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
@@ -50,14 +51,14 @@ const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
         <FormattedQuestion text={exercise.question} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {exercise.category === 'code' && exercise.language && (
+            {exercise.category === 'code' && (exercise as LongFormExercise).language && (
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Language</CardTitle>
                         <Code className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-lg font-bold capitalize">{exercise.language}</div>
+                        <div className="text-lg font-bold capitalize">{(exercise as LongFormExercise).language}</div>
                     </CardContent>
                 </Card>
             )}
@@ -92,6 +93,35 @@ const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
     </div>
 );
 
+const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
+  if (!isLoading && !result) {
+    return null; 
+  }
+
+  const hasOutput = result?.stdout && result.stdout.length > 0;
+  const hasError = result?.stderr && result.stderr.length > 0;
+
+  return (
+    <div className="space-y-2">
+       <h4 className="font-semibold text-sm flex items-center gap-2"><Terminal className="h-4 w-4" /> Simulated Console Output</h4>
+        <div className="p-4 bg-black rounded-md text-sm text-white font-mono min-h-[100px] whitespace-pre-wrap">
+            {isLoading ? (
+                 <div className="flex items-center gap-2">
+                    <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
+                 </div>
+            ) : (
+                <>
+                    {hasOutput && <pre>{result.stdout}</pre>}
+                    {hasError && <pre className="text-red-400">{result.stderr}</pre>}
+                    {!hasOutput && !hasError && <p className="text-gray-400">Execution finished with no output.</p>}
+                </>
+            )}
+        </div>
+    </div>
+  );
+};
+
+
 export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
@@ -99,6 +129,8 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -107,6 +139,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     setIsAnswered(false);
     setIsCorrect(null);
     setFeedback(null);
+    setSimulationResult(null);
     
     if (initialResponse) {
       setIsAnswered(true);
@@ -193,6 +226,28 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     }
   };
 
+  const handleRunCode = async () => {
+    const codeExercise = exercise as LongFormExercise;
+    if (exercise.type !== 'long_form' || !codeExercise.language) return;
+
+    setIsSimulating(true);
+    setSimulationResult(null);
+    try {
+      const result = await simulateCodeExecution({
+        code: longFormAnswer,
+        language: codeExercise.language,
+      });
+      setSimulationResult(result);
+      toast({ title: "Simulation Complete", description: "The AI has simulated the execution of your code." });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Simulation Failed', description: 'The AI could not simulate the code execution.' });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+
   const renderAnswerArea = () => {
     switch (exercise.type) {
         case 'mcq':
@@ -222,7 +277,12 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         case 'long_form':
             const lfExercise = exercise as LongFormExercise;
             if (lfExercise.category === 'code') {
-                 return <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />;
+                 return (
+                    <div className="space-y-4">
+                        <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />
+                        <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
+                    </div>
+                 );
             }
              if (lfExercise.category === 'math') {
                  return <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />;
@@ -263,10 +323,17 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         </ScrollArea>
         
         <div className="flex-shrink-0 border-t p-4 flex justify-end gap-2 bg-background">
+            {exercise.type === 'long_form' && exercise.category === 'code' && !isAnswered && (
+              <Button onClick={handleRunCode} variant="outline" disabled={isSimulating || !longFormAnswer.trim()}>
+                {isSimulating ? <Loader2 className="animate-spin" /> : <Play />}
+                Run Code
+              </Button>
+            )}
+
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading} size="lg">
+                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading || isSimulating} size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (
