@@ -96,10 +96,16 @@ export default function SignupPage() {
       }
     } catch (error: any) {
       console.error("Google signup error:", error);
+      let description = "An unknown error occurred.";
+       if (error.code === 'auth/account-exists-with-different-credential') {
+        description = "An account with this email already exists. Please sign in using the original method you used."
+      } else {
+        description = error.message || description;
+      }
       toast({
         variant: "destructive",
         title: "Google Sign-Up Failed",
-        description: error.message || "An unknown error occurred.",
+        description,
       });
       setIsLoading(false);
     }

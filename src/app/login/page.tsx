@@ -66,17 +66,21 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Sign-in with Google is a "sign-in or sign-up" operation.
       let userProfile = await getUser(user.uid);
       if (!userProfile) {
         await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');
         userProfile = await getUser(user.uid);
+         toast({
+          title: "Account Created & Logged In",
+          description: `Welcome to AdaptEd, ${userProfile?.name}!`,
+        });
+      } else {
+         toast({
+          title: "Login Successful",
+          description: `Welcome back, ${userProfile?.name}!`,
+        });
       }
 
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${userProfile?.name}!`,
-      });
 
       if (userProfile?.role === 'admin') {
         router.push("/admin/dashboard");
@@ -85,10 +89,16 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Google login error:", error);
+      let description = "An unknown error occurred.";
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        description = "An account with this email already exists. Please sign in using the original method you used."
+      } else {
+        description = error.message || description;
+      }
       toast({
         variant: "destructive",
         title: "Google Login Failed",
-        description: error.message || "An unknown error occurred.",
+        description,
       });
       setIsLoading(false);
     }
