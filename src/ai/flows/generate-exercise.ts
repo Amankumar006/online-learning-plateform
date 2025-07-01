@@ -30,6 +30,7 @@ const McqQuestionSchema = z.object({
     correctAnswer: z.string().describe("The correct answer from the options."),
     explanation: z.string().describe("An explanation of why the answer is correct."),
     hint: z.string().describe("A hint for the student."),
+    tags: z.array(z.string()).describe("A list of 3-4 relevant string tags for the question (e.g., 'python', 'arrays', 'loops')."),
 });
 
 const TrueFalseQuestionSchema = z.object({
@@ -40,6 +41,7 @@ const TrueFalseQuestionSchema = z.object({
     correctAnswer: z.boolean().describe("Whether the statement is true or false."),
     explanation: z.string().describe("An explanation of why the answer is correct."),
     hint: z.string().describe("A hint for the student."),
+    tags: z.array(z.string()).describe("A list of 3-4 relevant string tags for the question (e.g., 'python', 'arrays', 'loops')."),
 });
 
 const LongFormQuestionSchema = z.object({
@@ -50,12 +52,13 @@ const LongFormQuestionSchema = z.object({
     language: z.string().optional().describe("The programming language for 'code' category questions, e.g., 'javascript'."),
     evaluationCriteria: z.string().describe("The criteria the AI will use to evaluate the student's answer."),
     hint: z.string().describe("A hint for the student."),
+    tags: z.array(z.string()).describe("A list of 3-4 relevant string tags for the question (e.g., 'python', 'arrays', 'loops')."),
 });
 
 const GeneratedExerciseSchema = z.discriminatedUnion("type", [McqQuestionSchema, TrueFalseQuestionSchema, LongFormQuestionSchema]);
 export type GeneratedExercise = z.infer<typeof GeneratedExerciseSchema>;
 
-const GenerateExerciseOutputSchema = z.object({
+export const GenerateExerciseOutputSchema = z.object({
     exercises: z.array(GeneratedExerciseSchema).describe("An array of generated exercises based on the specified counts.")
 });
 
@@ -72,13 +75,13 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert curriculum developer creating adaptive exercises for an AI learning platform.
 Based on the following lesson content, generate a precise set of exercises based on these requirements:
 {{#if mcqCount}}
-- **{{mcqCount}}** Multiple-Choice ('mcq') questions. Each with: a question, 4 options, the correct answer, an explanation, and a hint.
+- **{{mcqCount}}** Multiple-Choice ('mcq') questions. Each with: a question, 4 options, the correct answer, an explanation, a hint, and 3-4 relevant string tags.
 {{/if}}
 {{#if trueFalseCount}}
-- **{{trueFalseCount}}** True/False ('true_false') questions. Each with: a statement, the correct boolean answer, an explanation, and a hint.
+- **{{trueFalseCount}}** True/False ('true_false') questions. Each with: a statement, the correct boolean answer, an explanation, a hint, and 3-4 relevant string tags.
 {{/if}}
 {{#if longFormCount}}
-- **{{longFormCount}}** Long-Form ('long_form') questions. Each with: a question that requires a detailed, multi-step answer, evaluation criteria for an AI to grade it later, and a hint. If the category is 'code', also provide the programming 'language'.
+- **{{longFormCount}}** Long-Form ('long_form') questions. Each with: a question that requires a detailed, multi-step answer, evaluation criteria for an AI to grade it later, a hint, and 3-4 relevant string tags. If the category is 'code', also provide the programming 'language'.
 {{/if}}
 
 Assign a difficulty from 1 (easy) to 3 (hard) for each exercise.

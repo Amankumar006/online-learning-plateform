@@ -81,6 +81,10 @@ export interface BaseExercise {
     explanation?: string;
     hint?: string;
     category?: 'code' | 'math' | 'general';
+    isCustom?: boolean;
+    userId?: string;
+    tags?: string[];
+    createdAt?: number;
 }
 
 export interface McqExercise extends BaseExercise {
@@ -328,6 +332,19 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
     }
 }
 
+export async function getCustomExercisesForUser(userId: string): Promise<Exercise[]> {
+    const q = query(collection(db, "exercises"), where("userId", "==", userId), where("isCustom", "==", true));
+    const querySnapshot = await getDocs(q);
+    const exercisesList = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
+            data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
+        }
+        return { id: doc.id, ...data } as Exercise;
+    });
+    return exercisesList;
+}
+
 export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
     try {
         const [exercisesSnapshot, lessonsSnapshot] = await Promise.all([
@@ -536,4 +553,15 @@ export async function getUserResponsesForLesson(userId: string, lessonId: string
         console.error("Error fetching user responses for lesson: ", error);
         return [];
     }
+}
+
+export async function getAllUserResponses(userId: string): Promise<Map<string, UserExerciseResponse>> {
+    const q = query(collection(db, "exerciseResponses"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    const responsesMap = new Map<string, UserExerciseResponse>();
+    querySnapshot.docs.forEach(doc => {
+        const data = doc.data() as Omit<UserExerciseResponse, 'id'>;
+        responsesMap.set(data.exerciseId, { id: doc.id, ...data });
+    });
+    return responsesMap;
 }

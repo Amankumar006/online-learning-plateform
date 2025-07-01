@@ -9,3 +9,4 @@ import '@/ai/flows/generate-lesson-image.ts';
 import '@/ai/flows/grade-long-form-answer.ts';
 import '@/ai/tools/lesson-tools.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
+import '@/ai/flows/generate-custom-exercise.ts';

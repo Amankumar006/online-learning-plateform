@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Home, LineChart, BookOpenCheck } from "lucide-react";
+import { BookOpen, Home, LineChart, BookOpenCheck, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,6 +49,7 @@ export default function DashboardLayout({
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Home /> },
     { href: "/dashboard/lessons", label: "Lessons", icon: <BookOpen /> },
+    { href: "/dashboard/practice", label: "Practice", icon: <WandSparkles /> },
     { href: "/dashboard/progress", label: "Progress", icon: <LineChart /> },
   ];
   
@@ -115,7 +116,7 @@ export default function DashboardLayout({
       </main>
       
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
-        <div className="grid h-16 grid-cols-3">
+        <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => (
             <Link
               key={item.href}
