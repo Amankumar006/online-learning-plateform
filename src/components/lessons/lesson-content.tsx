@@ -208,6 +208,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   const audioRef = useRef<HTMLAudioElement>(null);
   
   const [selectedVoice, setSelectedVoice] = useState('Algenib');
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [audioPlayerState, setAudioPlayerState] = useState<{
     isGenerating: boolean;
     isPlaying: boolean;
@@ -301,6 +302,13 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     }
   }, [audioPlayerState.isPlaying, audioPlayerState.audioUrl]);
 
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+        audio.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
 
   const handleComplete = async () => {
     setIsCompleting(true);
@@ -390,6 +398,8 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
             currentSectionTitle={currentSectionTitle}
             onPlayPause={handlePlayPause}
             onStop={handleStop}
+            playbackRate={playbackRate}
+            onPlaybackRateChange={setPlaybackRate}
         />
 
         {lesson.image && (

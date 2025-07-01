@@ -3,6 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, Square, Loader2 } from "lucide-react";
 
 interface LessonPlayerProps {
@@ -11,6 +12,8 @@ interface LessonPlayerProps {
   currentSectionTitle: string | null;
   onPlayPause: () => void;
   onStop: () => void;
+  playbackRate: number;
+  onPlaybackRateChange: (rate: number) => void;
 }
 
 export default function LessonPlayer({
@@ -19,6 +22,8 @@ export default function LessonPlayer({
   currentSectionTitle,
   onPlayPause,
   onStop,
+  playbackRate,
+  onPlaybackRateChange,
 }: LessonPlayerProps) {
   if (currentSectionTitle === null && !isGenerating) {
     return null; // Don't render if nothing has been played yet
@@ -26,7 +31,7 @@ export default function LessonPlayer({
 
   return (
     <Card className="mb-6 sticky top-20 z-30 bg-background/80 backdrop-blur-sm shadow-lg">
-      <CardContent className="p-3 flex items-center justify-between">
+      <CardContent className="p-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 overflow-hidden">
             <Button variant="secondary" size="icon" onClick={onPlayPause} disabled={isGenerating} className="shrink-0">
                 {isGenerating ? <Loader2 className="animate-spin"/> : (isPlaying ? <Pause /> : <Play />)}
@@ -38,10 +43,27 @@ export default function LessonPlayer({
                 </span>
             </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onStop} className="shrink-0">
-            <Square />
-            <span className="sr-only">Stop</span>
-        </Button>
+        <div className="flex items-center gap-2">
+            <Select
+                value={String(playbackRate)}
+                onValueChange={(value) => onPlaybackRateChange(Number(value))}
+            >
+                <SelectTrigger className="w-[90px] h-9 text-xs">
+                    <SelectValue placeholder="Speed" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="0.75">0.75x</SelectItem>
+                    <SelectItem value="1">1x (Normal)</SelectItem>
+                    <SelectItem value="1.25">1.25x</SelectItem>
+                    <SelectItem value="1.5">1.5x</SelectItem>
+                    <SelectItem value="2">2x</SelectItem>
+                </SelectContent>
+            </Select>
+            <Button variant="ghost" size="icon" onClick={onStop} className="shrink-0">
+                <Square />
+                <span className="sr-only">Stop</span>
+            </Button>
+        </div>
       </CardContent>
     </Card>
   );
