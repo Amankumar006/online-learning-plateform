@@ -21,6 +21,9 @@ export type { GeneratedExercise };
 
 export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<GeneratedExercise> {
   const result = await generateCustomExerciseFlow(input);
+  if (!result) {
+    throw new Error("The AI returned data in an unsupported format. Please try rephrasing your prompt.");
+  }
   return result;
 }
 
@@ -57,6 +60,6 @@ const generateCustomExerciseFlow = ai.defineFlow(
      if (output && output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
         output.correctAnswer = output.options[0];
      }
-    return output!;
+    return output; // Return output directly, which can be null
   }
 );
