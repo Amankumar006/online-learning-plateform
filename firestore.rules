@@ -1,59 +1,53 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isStudent(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'student';
-    }
-    function isAdmin(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
-    }
-
-    // Users collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
+      // Any authenticated user can read a user profile.
+      allow get: if request.auth != null;
+
+      // Only admins can list all users.
+      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Admins can update any field. Users can update their own profile, but cannot change their role.
+      allow update: if request.auth != null &&
+                      ( (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+                        (request.auth.uid == userId && request.resource.data.role == resource.data.role) );
     }
 
-    // Lessons collection
     match /lessons/{lessonId} {
+      // Anyone logged in can read lessons.
       allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin(request.auth.uid);
+
+      // Only admins can write/delete lessons.
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Exercises collection
     match /exercises/{exerciseId} {
-      // Any authenticated user can read exercises
+      // Anyone logged in can read exercises.
       allow read: if request.auth != null;
-
-      // Create is allowed if:
-      // 1. User is an admin creating a standard lesson exercise.
-      // OR
-      // 2. User is authenticated and creating their own custom exercise.
-      allow create: if (isAdmin(request.auth.uid) && request.resource.data.isCustom == false) ||
-                      (request.auth != null && request.resource.data.userId == request.auth.uid && request.resource.data.isCustom == true);
-
-      // Only admins can update exercises.
-      allow update: if isAdmin(request.auth.uid);
       
-      // Delete is allowed if:
-      // 1. User is an admin.
-      // OR
-      // 2. User is deleting their own custom exercise.
-      allow delete: if isAdmin(request.auth.uid) || 
-                      (resource.data.userId == request.auth.uid && resource.data.isCustom == true);
+      // Admins can update exercises.
+      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Admins can delete any exercise. Students can delete their own custom exercises.
+      allow delete: if request.auth != null && 
+                      ( get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+                        (resource.data.isCustom == true && resource.data.userId == request.auth.uid) );
+
+      // Admins can create non-custom exercises. Students can create custom exercises for themselves.
+      allow create: if request.auth != null &&
+                      ( (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && request.resource.data.isCustom == false) ||
+                        (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid) );
     }
 
-    // Exercise Responses collection
     match /exerciseResponses/{responseId} {
-      // A user can only read their own responses.
-      allow get: if request.auth.uid == resource.data.userId;
-      allow list: if request.query.where.userId == request.auth.uid;
-      
-      // A user can only create or update their own responses.
-      allow create, update: if request.auth.uid == request.resource.data.userId;
+      // A user can read/write their own response.
+      // For 'list' operations, Firestore enforces that the client query must guarantee this rule is met
+      // (e.g., by including `where("userId", "==", request.auth.uid)`).
+      allow read, write: if request.auth.uid == resource.data.userId || request.auth.uid == request.resource.data.userId;
     }
   }
 }
