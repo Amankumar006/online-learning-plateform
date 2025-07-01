@@ -96,6 +96,7 @@ export default function PracticePage() {
             const result = await generateCustomExercise({ prompt });
             await createExercise({
                 ...result,
+                lessonId: 'custom',
                 correctAnswer: String(result.correctAnswer),
                 isCustom: true,
                 userId: user.uid,
