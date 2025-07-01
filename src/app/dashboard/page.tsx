@@ -87,17 +87,31 @@ export default function DashboardPage() {
             
             const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
             const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
-
-            generateStudyTopics({ currentProgress: progressSummary, learningGoals: goals })
-              .then(result => {
-                  setSuggestedTopics(result.suggestedTopics);
-              })
-              .catch(err => {
-                  console.error("Failed to generate study topics:", err);
-              })
-              .finally(() => {
-                  setIsGeneratingTopics(false);
-              });
+            
+            const uncompletedLessonTitles = lessonsData
+                .filter(l => !progress.completedLessonIds?.includes(l.id))
+                .map(l => l.title);
+            
+            if (uncompletedLessonTitles.length > 0) {
+                 generateStudyTopics({ 
+                    currentProgress: progressSummary, 
+                    learningGoals: goals,
+                    availableLessons: uncompletedLessonTitles
+                 })
+                  .then(result => {
+                      setSuggestedTopics(result.suggestedTopics);
+                  })
+                  .catch(err => {
+                      console.error("Failed to generate study topics:", err);
+                       setSuggestedTopics([]);
+                  })
+                  .finally(() => {
+                      setIsGeneratingTopics(false);
+                  });
+            } else {
+                setSuggestedTopics([]);
+                setIsGeneratingTopics(false);
+            }
 
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error);
@@ -123,17 +137,9 @@ export default function DashboardPage() {
   const lastCompletedLesson = recentlyCompleted.length > 0 ? recentlyCompleted[0] : null;
 
   const findLessonForTopic = (topic: string): Lesson | null => {
-      if (!lessons || !userProgress) return null;
-      const uncompletedLessons = lessons.filter(l => !completedLessonIds.includes(l.id));
-      
-      const lowerTopic = topic.toLowerCase();
-      // Try to find a lesson where the title is a good match for the topic
-      const foundLesson = uncompletedLessons.find(l => 
-          l.title.toLowerCase().includes(lowerTopic) || 
-          lowerTopic.includes(l.title.toLowerCase())
-      );
-      
-      return foundLesson || null;
+      if (!lessons) return null;
+      // The AI now returns an exact lesson title, so we can do a direct find.
+      return lessons.find(l => l.title === topic) || null;
   }
 
   if (isLoading) {
@@ -269,4 +275,3 @@ export default function DashboardPage() {
     </div>
   );
 }
- 
