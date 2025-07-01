@@ -104,14 +104,21 @@ export interface LongFormExercise extends BaseExercise {
     evaluationCriteria: string;
 }
 
-export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise;
+export interface FillInTheBlanksExercise extends Omit<BaseExercise, 'question'> {
+    type: 'fill_in_the_blanks';
+    questionParts: string[];
+    correctAnswers: string[];
+}
+
+
+export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise | FillInTheBlanksExercise;
 
 export interface UserExerciseResponse {
   id: string; // doc id
   userId: string;
   lessonId: string;
   exerciseId: string;
-  submittedAnswer: string | boolean;
+  submittedAnswer: string | boolean | string[];
   isCorrect: boolean;
   score: number;
   feedback?: string;
@@ -359,9 +366,16 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
 
         const exerciseList = exercisesSnapshot.docs.map(doc => {
             const data = doc.data() as Omit<Exercise, 'id'>;
+            
+            // To accommodate FillInTheBlanksExercise which has no `question` prop
+            const questionText = data.type === 'fill_in_the_blanks' 
+                ? (data as FillInTheBlanksExercise).questionParts.join('___') 
+                : (data as BaseExercise).question;
+
             return {
                 id: doc.id,
                 ...data,
+                question: questionText,
                 lessonTitle: lessonsMap.get(data.lessonId) || 'Unknown Lesson'
             } as ExerciseWithLessonTitle;
         });
@@ -374,7 +388,7 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
 }
 
 
-export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promise<string> {
+export async function createExercise(exerciseData: Omit<Exercise, 'id' | 'question'>): Promise<string> {
     try {
         const docRef = await addDoc(collection(db, "exercises"), exerciseData);
         return docRef.id;
@@ -485,7 +499,7 @@ export async function saveExerciseAttempt(
     userId: string,
     lessonId: string,
     exerciseId: string,
-    submittedAnswer: string | boolean,
+    submittedAnswer: string | boolean | string[],
     isCorrect: boolean,
     score: number,
     feedback?: string

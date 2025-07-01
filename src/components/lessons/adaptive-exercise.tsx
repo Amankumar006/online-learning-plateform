@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse } from "@/lib/data";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse, FillInTheBlanksExercise } from "@/lib/data";
 import { saveExerciseAttempt, getUserProgress, updateUserExerciseIndex, getUserResponsesForLesson } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "./code-editor";
 import MathEditor from "./math-editor";
+import { Input } from "../ui/input";
 
 export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId:string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -24,8 +25,10 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
   
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
+  const [fibAnswers, setFibAnswers] = useState<string[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [fibCorrectness, setFibCorrectness] = useState<boolean[]>([]);
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
   const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
@@ -73,6 +76,13 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     setIsCorrect(null);
     setFeedback(null);
     
+    // Initialize state specific to exercise type
+    if (currentExercise.type === 'fill_in_the_blanks') {
+        const blankCount = currentExercise.correctAnswers.length;
+        setFibAnswers(Array(blankCount).fill(""));
+        setFibCorrectness(Array(blankCount).fill(false));
+    }
+
     // Check for a previous response and set state accordingly
     const previousResponse = userResponses.get(currentExercise.id);
     if (previousResponse) {
@@ -90,57 +100,76 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
             }
         } else if (currentExercise.type === 'true_false') {
             setSelectedAnswer(previousResponse.submittedAnswer ? 'True' : 'False');
+        } else if (currentExercise.type === 'fill_in_the_blanks') {
+            const submitted = previousResponse.submittedAnswer as string[];
+            setFibAnswers(submitted);
+            const correctness = submitted.map((ans, i) => ans.trim().toLowerCase() === currentExercise.correctAnswers[i].trim().toLowerCase());
+            setFibCorrectness(correctness);
         } else { // MCQ
             setSelectedAnswer(previousResponse.submittedAnswer as string);
         }
     }
   }, [currentExerciseIndex, isLoading, userResponses, currentExercise]);
 
+  const handleFibAnswerChange = (index: number, value: string) => {
+    const newAnswers = [...fibAnswers];
+    newAnswers[index] = value;
+    setFibAnswers(newAnswers);
+  };
+
   const handleAnswerSubmit = async () => {
     if (!currentExercise) return;
     
     let correct = false;
     let score = 0;
-    let submittedAnswer: string | boolean = selectedAnswer!;
+    let submittedAnswer: string | boolean | string[] = selectedAnswer!;
     let aiFeedback: GradeLongFormAnswerOutput | null = null;
 
-    if (currentExercise.type === 'long_form') {
-        submittedAnswer = longFormAnswer;
-        setIsGrading(true);
-        try {
-            const result = await gradeLongFormAnswer({
-                question: currentExercise.question,
-                evaluationCriteria: currentExercise.evaluationCriteria,
-                studentAnswer: longFormAnswer,
-            });
-            aiFeedback = result;
-            setFeedback(result);
-            correct = result.isCorrect;
-            score = result.score;
-            toast({
-                title: "Answer Graded!",
-                description: "Your detailed feedback is available below.",
-            });
-        } catch (error) {
-            console.error("Failed to grade answer:", error);
-            toast({ variant: "destructive", title: "AI Error", description: "Could not get feedback from the AI." });
-            setIsGrading(false);
-            return;
-        } finally {
-            setIsGrading(false);
-        }
-    } else {
-        if (!selectedAnswer) return;
-        switch (currentExercise.type) {
-            case 'mcq':
-                correct = selectedAnswer === currentExercise.correctAnswer;
-                break;
-            case 'true_false':
-                submittedAnswer = selectedAnswer === 'True';
-                correct = (currentExercise.correctAnswer === submittedAnswer);
-                break;
-        }
-        score = correct ? 100 : 0;
+    switch (currentExercise.type) {
+        case 'mcq':
+            if (!selectedAnswer) return;
+            correct = selectedAnswer === currentExercise.correctAnswer;
+            score = correct ? 100 : 0;
+            break;
+        case 'true_false':
+            if (!selectedAnswer) return;
+            submittedAnswer = selectedAnswer === 'True';
+            correct = (currentExercise.correctAnswer === submittedAnswer);
+            score = correct ? 100 : 0;
+            break;
+        case 'long_form':
+            submittedAnswer = longFormAnswer;
+            setIsGrading(true);
+            try {
+                const result = await gradeLongFormAnswer({
+                    question: currentExercise.question,
+                    evaluationCriteria: currentExercise.evaluationCriteria,
+                    studentAnswer: longFormAnswer,
+                });
+                aiFeedback = result;
+                setFeedback(result);
+                correct = result.isCorrect;
+                score = result.score;
+                toast({
+                    title: "Answer Graded!",
+                    description: "Your detailed feedback is available below.",
+                });
+            } catch (error) {
+                console.error("Failed to grade answer:", error);
+                toast({ variant: "destructive", title: "AI Error", description: "Could not get feedback from the AI." });
+                setIsGrading(false);
+                return;
+            } finally {
+                setIsGrading(false);
+            }
+            break;
+        case 'fill_in_the_blanks':
+            submittedAnswer = fibAnswers;
+            const correctnessArray = fibAnswers.map((ans, i) => ans.trim().toLowerCase() === currentExercise.correctAnswers[i].trim().toLowerCase());
+            setFibCorrectness(correctnessArray);
+            correct = correctnessArray.every(c => c);
+            score = correct ? 100 : 0;
+            break;
     }
     
     setIsAnswered(true);
@@ -291,6 +320,26 @@ $$"
                      <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
                 </div>
             );
+        case 'fill_in_the_blanks':
+            const fib = currentExercise as FillInTheBlanksExercise;
+            return (
+                <div className="flex flex-wrap items-center gap-2 text-lg">
+                    {fib.questionParts.map((part, index) => (
+                        <React.Fragment key={index}>
+                            <span>{part}</span>
+                            {index < fib.correctAnswers.length && (
+                                <Input
+                                    type="text"
+                                    value={fibAnswers[index] || ''}
+                                    onChange={(e) => handleFibAnswerChange(index, e.target.value)}
+                                    disabled={isAnswered}
+                                    className={cn("w-32 inline-block", isAnswered && (fibCorrectness[index] ? "border-primary ring-2 ring-primary" : "border-destructive ring-2 ring-destructive"))}
+                                />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+            );
         default:
             return <p>Unsupported exercise type.</p>;
     }
@@ -345,7 +394,7 @@ $$"
         </p>
       </div>
         <>
-            <p className="text-lg mb-6">{currentExercise.question}</p>
+            <p className="text-lg mb-6">{currentExercise.type !== 'fill_in_the_blanks' && currentExercise.question}</p>
             {renderExercise()}
             
             <div className="flex items-center gap-4 mt-4">
@@ -407,7 +456,7 @@ $$"
 
             <div className="mt-6 flex justify-end">
               {!isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading}>
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type === 'mcq' && !selectedAnswer) || (currentExercise.type === 'true_false' && !selectedAnswer) || (currentExercise.type === 'long_form' && !longFormAnswer) || (currentExercise.type === 'fill_in_the_blanks' && fibAnswers.some(a => a === ''))}>
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit'}
                 </Button>
               ) : (

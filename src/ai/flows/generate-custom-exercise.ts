@@ -36,7 +36,7 @@ Based on the user's request, generate a single, high-quality exercise.
 
 **Instructions:**
 1.  **Analyze the Request:** Understand the core topic, desired difficulty, and programming language (if any) from the user's prompt.
-2.  **Choose the Best Type:** Decide if the question is best suited as a Multiple-Choice ('mcq'), True/False ('true_false'), or Long-Form ('long_form') question.
+2.  **Choose the Best Type:** Decide if the question is best suited as a Multiple-Choice ('mcq'), True/False ('true_false'), Long-Form ('long_form'), or Fill-in-the-Blanks ('fill_in_the_blanks') question.
 3.  **Generate Full Content:** Create all the necessary fields for the chosen type (question, options, answer, explanation, criteria, hint, etc.).
 4.  **Categorize:** Assign a category: 'code', 'math', or 'general'.
 5.  **Set Difficulty:** Assign a difficulty from 1 (easy) to 3 (hard).
