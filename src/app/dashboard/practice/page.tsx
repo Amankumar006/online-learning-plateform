@@ -8,15 +8,14 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { createExercise, getCustomExercisesForUser, getAllUserResponses, UserExerciseResponse, Exercise, deleteExercise } from '@/lib/data';
 import { generateCustomExercise, GeneratedExercise } from '@/ai/flows/generate-custom-exercise';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles, ListChecks, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Sparkles, ListChecks, Trash2, Pencil, BrainCircuit, Save } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import SingleExerciseSolver from '@/components/practice/single-exercise-solver';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function PracticePageSkeleton() {
     return (
@@ -47,15 +46,16 @@ function PracticePageSkeleton() {
     );
 }
 
-
 export default function PracticePage() {
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [prompt, setPrompt] = useState('');
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [responses, setResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
     const [solvingExercise, setSolvingExercise] = useState<Exercise | null>(null);
+    const [previewExercise, setPreviewExercise] = useState<GeneratedExercise | null>(null);
 
     const router = useRouter();
     const { toast } = useToast();
@@ -89,22 +89,14 @@ export default function PracticePage() {
         return () => unsubscribe();
     }, [router]);
 
-    const handleGenerate = async () => {
+    const handleGeneratePreview = async () => {
         if (!prompt.trim() || !user) return;
         setIsGenerating(true);
+        setPreviewExercise(null);
         try {
             const result = await generateCustomExercise({ prompt });
-            await createExercise({
-                ...result,
-                lessonId: 'custom',
-                correctAnswer: String(result.correctAnswer),
-                isCustom: true,
-                userId: user.uid,
-                createdAt: Date.now()
-            });
-            toast({ title: "Exercise Generated!", description: "Your new custom exercise is ready to be solved." });
-            setPrompt('');
-            fetchData(user.uid); // Refresh list
+            setPreviewExercise(result);
+            toast({ title: "Exercise Preview Generated!", description: "Review the exercise below and save it if you like it." });
         } catch (e) {
             console.error(e);
             toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to generate exercise. Please try a different prompt.' });
@@ -112,6 +104,33 @@ export default function PracticePage() {
             setIsGenerating(false);
         }
     };
+    
+    const handleSaveExercise = async () => {
+        if (!previewExercise || !user) return;
+        setIsSaving(true);
+         try {
+            await createExercise({
+                ...previewExercise,
+                lessonId: 'custom',
+                correctAnswer: String(previewExercise.correctAnswer),
+                isCustom: true,
+                userId: user.uid,
+                createdAt: Date.now()
+            });
+            toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
+            setPreviewExercise(null);
+            fetchData(user.uid); // Refresh list
+        } catch (e) {
+            console.error(e);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save the exercise.' });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+    
+    const handleDiscardPreview = () => {
+        setPreviewExercise(null);
+    }
 
     const handleDiscard = async (exerciseId: string) => {
         if (!user) return;
@@ -131,6 +150,15 @@ export default function PracticePage() {
     }
     
     if (isLoading) return <PracticePageSkeleton />;
+    
+    const getDifficultyBadge = (level: number) => {
+        switch (level) {
+            case 1: return <Badge variant="secondary">Easy</Badge>;
+            case 2: return <Badge variant="outline">Medium</Badge>;
+            case 3: return <Badge variant="default">Hard</Badge>;
+            default: return <Badge variant="secondary">N/A</Badge>;
+        }
+    }
 
     const pendingExercises = exercises.filter(ex => !responses.has(ex.id));
     const completedExercises = exercises.filter(ex => responses.has(ex.id));
@@ -142,7 +170,7 @@ export default function PracticePage() {
                 <CardTitle className="flex items-center gap-2 text-2xl font-headline">
                     <Sparkles className="text-primary"/> Generate Custom Exercise
                 </CardTitle>
-                <CardDescription>Describe the type of exercise you want. It will be saved for you to solve.</CardDescription>
+                <CardDescription>Describe the type of exercise you want. The AI will generate a preview for you to review and save.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <Textarea 
@@ -152,12 +180,56 @@ export default function PracticePage() {
                     rows={4}
                     disabled={isGenerating}
                 />
-                <Button onClick={handleGenerate} disabled={isGenerating || !prompt.trim()}>
+                <Button onClick={handleGeneratePreview} disabled={isGenerating || !prompt.trim()}>
                     {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    Generate & Save Exercise
+                    Generate Exercise
                 </Button>
             </CardContent>
         </Card>
+
+        {isGenerating && (
+            <div className="flex items-center justify-center p-8 space-x-2 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p>Generating your exercise...</p>
+            </div>
+        )}
+
+        {previewExercise && (
+             <Card className="border-primary bg-primary/5 animate-in fade-in-0">
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                         <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <BrainCircuit className="h-6 w-6" /> Generated Preview
+                            </CardTitle>
+                            <CardDescription>Review the generated exercise. Save it to add it to your list.</CardDescription>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                            {getDifficultyBadge(previewExercise.difficulty)}
+                            <Badge variant="default" className="capitalize">{previewExercise.type.replace('_', ' ')}</Badge>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="font-semibold mb-4">{previewExercise.question}</p>
+                    {previewExercise.type === 'mcq' && (
+                        <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                            {previewExercise.options.map(opt => <li key={opt} className={previewExercise.correctAnswer === opt ? 'font-semibold text-primary' : ''}>{opt}</li>)}
+                        </ul>
+                    )}
+                    {previewExercise.type === 'true_false' && (
+                        <p className="text-sm text-muted-foreground">Correct Answer: <span className="font-semibold text-primary">{String(previewExercise.correctAnswer)}</span></p>
+                    )}
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={handleDiscardPreview}>Discard</Button>
+                    <Button onClick={handleSaveExercise} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                        Save Exercise
+                    </Button>
+                </CardFooter>
+            </Card>
+        )}
 
         <div>
             <h2 className="text-xl font-bold font-headline flex items-center gap-2 mb-4">
@@ -172,10 +244,10 @@ export default function PracticePage() {
                             <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div className="flex-1 space-y-1">
                                     <p className="font-semibold">{ex.question}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                    <div className="text-sm text-muted-foreground">
                                         Difficulty: {ex.difficulty}/3 | Category: <span className="capitalize">{ex.category}</span>
                                         {ex.category === 'code' && ` (${(ex as any).language})`}
-                                    </p>
+                                    </div>
                                      <div className="flex flex-wrap gap-1 pt-1">
                                         {ex.tags?.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                                     </div>
@@ -184,8 +256,9 @@ export default function PracticePage() {
                                     <Button onClick={() => setSolvingExercise(ex)} className="flex-1 sm:flex-none">
                                         <Pencil className="mr-2"/>Solve
                                     </Button>
-                                    <Button variant="destructive" onClick={() => handleDiscard(ex.id)} className="flex-1 sm:flex-none">
-                                        <Trash2 className="mr-2"/>Discard
+                                    <Button variant="destructive" size="icon" onClick={() => handleDiscard(ex.id)}>
+                                        <Trash2 className="h-4 w-4"/>
+                                        <span className="sr-only">Discard</span>
                                     </Button>
                                 </div>
                             </CardContent>

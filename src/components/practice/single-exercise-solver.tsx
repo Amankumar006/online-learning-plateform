@@ -10,12 +10,13 @@ import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { Loader2, CheckCircle, XCircle, Code, FunctionSquare } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Code, FunctionSquare, Lightbulb } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
 import MathEditor from "@/components/lessons/math-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SingleExerciseSolverProps {
     exercise: Exercise;
@@ -147,6 +148,21 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved }: Sin
         </div>
         <div className="space-y-4">
             {renderExercise()}
+            
+            {exercise.hint && !isAnswered && (
+                 <div className="mt-4">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="sm"><Lightbulb className="mr-2 h-4 w-4" />Show Hint</Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{exercise.hint}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
+            )}
 
             {isAnswered && (
                  <div className="mt-4 space-y-4">
