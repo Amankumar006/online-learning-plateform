@@ -5,12 +5,12 @@
  *
  * - generateCustomExercise - A function that generates a single exercise.
  * - GenerateCustomExerciseInput - The input type for the function.
- * - GeneratedExercise - The output type (reused from generate-exercise flow).
+ * - GeneratedExercise - The output type (reused from schemas).
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { GeneratedExercise, GenerateExerciseOutputSchema } from '@/ai/schemas/exercise-schemas';
+import { GeneratedExercise, GeneratedExerciseSchema } from '@/ai/schemas/exercise-schemas';
 
 const GenerateCustomExerciseInputSchema = z.object({
   prompt: z.string().describe("The user's request for a custom exercise, e.g., 'a python question about lists'"),
@@ -18,8 +18,6 @@ const GenerateCustomExerciseInputSchema = z.object({
 export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseInputSchema>;
 export type { GeneratedExercise };
 
-// We expect the AI to generate a single exercise, so we'll grab the first from the array.
-const GenerateCustomExerciseOutputSchema = GenerateExerciseOutputSchema.transform(output => output.exercises[0]);
 
 export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<GeneratedExercise> {
   const result = await generateCustomExerciseFlow(input);
@@ -29,7 +27,7 @@ export async function generateCustomExercise(input: GenerateCustomExerciseInput)
 const prompt = ai.definePrompt({
   name: 'generateCustomExercisePrompt',
   input: {schema: GenerateCustomExerciseInputSchema},
-  output: {schema: GenerateCustomExerciseOutputSchema},
+  output: {schema: GeneratedExerciseSchema},
   prompt: `You are an expert curriculum developer. A user wants you to create a custom exercise for them.
 Based on the user's request, generate a single, high-quality exercise.
 
@@ -44,7 +42,7 @@ Based on the user's request, generate a single, high-quality exercise.
 **User's Request:**
 "{{{prompt}}}"
 
-Return your response as a JSON object containing an 'exercises' array with exactly one exercise object inside.
+Return your response as a single JSON object that conforms to the exercise schema. Do not wrap it in any other object or array.
 `,
 });
 
@@ -52,7 +50,7 @@ const generateCustomExerciseFlow = ai.defineFlow(
   {
     name: 'generateCustomExerciseFlow',
     inputSchema: GenerateCustomExerciseInputSchema,
-    outputSchema: GenerateCustomExerciseOutputSchema,
+    outputSchema: GeneratedExerciseSchema,
   },
   async input => {
     const {output} = await prompt(input);
