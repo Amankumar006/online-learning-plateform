@@ -12,16 +12,52 @@ import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy } from "
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface LessonContentProps {
-  lesson: Lesson;
-  userId: string;
-  userProgress: UserProgress | null;
-  onLessonComplete: () => void;
-}
+const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
+    const [copied, setCopied] = React.useState(false);
 
-const parseTextWithMath = (text: string) => {
-    const parts = text.split(/(\${1,2}[^$]+\${1,2})/g);
-    return parts.filter(part => part).map((part, index) => {
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => {
+            setCopied(false);
+        }, 2000);
+    };
+
+    return (
+        <div className="my-6">
+            <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
+                <div className="flex items-center gap-2">
+                     <Code className="h-5 w-5" />
+                     <span className="text-sm font-semibold">{language || 'code'}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleCopy}>
+                    {copied ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                    <span className="sr-only">Copy code</span>
+                </Button>
+            </div>
+            <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
+                <pre><code className={`language-${language}`}>{code}</code></pre>
+            </div>
+        </div>
+    );
+};
+
+const FormattedText = ({ text }: { text: string }) => {
+    const parts = text.split(/(```[\s\S]*?```|\*\*.*?\*\*|`.*?`|\$\$.*?\$\$|\$.*?\$)/g);
+    return <>{parts.filter(Boolean).map((part, index) => {
+        if (part.startsWith('```')) {
+            const content = part.slice(3, -3);
+            const firstLineBreak = content.indexOf('\n');
+            const language = content.substring(0, firstLineBreak).trim();
+            const code = content.substring(firstLineBreak + 1);
+            return <CodeBlockDisplay key={index} language={language} code={code} />;
+        }
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
+        }
         if (part.startsWith('$$') && part.endsWith('$$')) {
             return <BlockMath key={index}>{part.slice(2, -2)}</BlockMath>;
         }
@@ -29,8 +65,9 @@ const parseTextWithMath = (text: string) => {
             return <InlineMath key={index}>{part.slice(1, -1)}</InlineMath>;
         }
         return <React.Fragment key={index}>{part}</React.Fragment>;
-    });
+    })}</>;
 };
+
 
 const FormattedParagraph = ({ text }: { text: string }) => {
   const keyWordStyleMap = {
@@ -57,44 +94,30 @@ const FormattedParagraph = ({ text }: { text: string }) => {
             <CardTitle className="text-lg font-headline">{title}</CardTitle>
           </CardHeader>
           <CardContent className="pt-2 text-sm md:text-base prose-p:my-2">
-             {parseTextWithMath(content)}
+             <FormattedText text={content} />
           </CardContent>
         </Card>
       );
     }
   }
-  
-  return <p>{parseTextWithMath(text)}</p>;
-};
 
-const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
-    const [copied, setCopied] = React.useState(false);
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(code);
-        setCopied(true);
-        setTimeout(() => {
-            setCopied(false);
-        }, 2000);
-    };
-
+  const listSegments = text.split(/\s\*\s/g);
+  if (listSegments.length > 1) {
+    const intro = listSegments[0].trim();
+    const listItems = listSegments.slice(1);
     return (
-        <div className="my-6">
-            <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
-                <div className="flex items-center gap-2">
-                     <Code className="h-5 w-5" />
-                     <span className="text-sm font-semibold">{language}</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleCopy}>
-                    {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    <span className="sr-only">Copy code</span>
-                </Button>
-            </div>
-            <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
-                <pre><code className={`language-${language}`}>{code}</code></pre>
-            </div>
-        </div>
+      <div className="prose-p:my-2">
+        {intro && <p><FormattedText text={intro} /></p>}
+        <ul className="list-disc pl-5 my-4 space-y-2">
+          {listItems.map((item, index) => (
+            <li key={index}><FormattedText text={item.trim()} /></li>
+          ))}
+        </ul>
+      </div>
     );
+  }
+  
+  return <p><FormattedText text={text} /></p>;
 };
 
 
@@ -126,6 +149,13 @@ const BlockRenderer = ({ block }: { block: Block }) => {
             return null;
     }
 };
+
+interface LessonContentProps {
+  lesson: Lesson;
+  userId: string;
+  userProgress: UserProgress | null;
+  onLessonComplete: () => void;
+}
 
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
