@@ -19,6 +19,7 @@ import MathEditor from "@/components/lessons/math-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import ImageUploader from "./image-uploader";
 
 interface SingleExerciseSolverProps {
     exercise: Exercise;
@@ -129,6 +130,7 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
 export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
+  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
@@ -140,6 +142,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   useEffect(() => {
     setSelectedAnswer(null);
     setLongFormAnswer("");
+    setImageDataUri(null);
     setIsAnswered(false);
     setIsCorrect(null);
     setFeedback(null);
@@ -174,6 +177,14 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     let aiFeedback: GradeLongFormAnswerOutput | null = null;
 
     if (exercise.type === 'long_form') {
+        if (!longFormAnswer && !imageDataUri) {
+            toast({
+                variant: "destructive",
+                title: "No Answer",
+                description: "Please provide a typed answer or upload an image of your work.",
+            });
+            return;
+        }
         submittedAnswer = longFormAnswer;
         setIsGrading(true);
         try {
@@ -181,6 +192,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 question: exercise.question,
                 evaluationCriteria: exercise.evaluationCriteria,
                 studentAnswer: longFormAnswer,
+                imageDataUri: imageDataUri || undefined,
             });
             aiFeedback = result;
             setFeedback(result);
@@ -280,18 +292,23 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             );
         case 'long_form':
             const lfExercise = exercise as LongFormExercise;
+            let mainInput;
             if (lfExercise.category === 'code') {
-                 return (
-                    <div className="space-y-4">
-                        <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />
-                        <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
-                    </div>
-                 );
+                 mainInput = <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />;
+            } else if (lfExercise.category === 'math') {
+                 mainInput = <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />;
+            } else {
+                mainInput = <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />;
             }
-             if (lfExercise.category === 'math') {
-                 return <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />;
-            }
-            return <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={10} disabled={isAnswered || isGrading} />;
+
+            return (
+                <div className="space-y-6">
+                    {mainInput}
+                    {lfExercise.category === 'code' && <ConsoleOutput result={simulationResult} isLoading={isSimulating} />}
+                    <Separator />
+                    <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
+                </div>
+            );
         default:
             return <p>Unsupported exercise type.</p>;
     }
@@ -337,7 +354,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading || isSimulating} size="lg">
+                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer && !imageDataUri) || isGrading || isSimulating} size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (
