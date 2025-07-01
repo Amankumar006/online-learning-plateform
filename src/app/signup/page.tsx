@@ -77,7 +77,7 @@ export default function SignupPage() {
 
       if (!userProfile) {
         await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');
-        userProfile = await getUser(user.uid);
+        userProfile = await getUser(user.uid); // Re-fetch the profile after creation
          toast({
             title: "Account Created",
             description: "Welcome to AdaptEd AI!",

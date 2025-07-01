@@ -66,6 +66,7 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
+      // Sign-in with Google is a "sign-in or sign-up" operation.
       let userProfile = await getUser(user.uid);
       if (!userProfile) {
         await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');

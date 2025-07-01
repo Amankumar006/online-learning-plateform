@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { History, Sparkles, ArrowRight, CheckCircle } from "lucide-react";
+import { History, Sparkles, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -119,12 +119,8 @@ export default function DashboardPage() {
         } finally {
             setIsLoading(false);
         }
-      } else {
-        setUser(null);
-        setUserProfile(null);
-        setIsLoading(false);
-        setIsGeneratingTopics(false);
       }
+      // No else block needed, layout handles redirection
     });
 
     return () => unsubscribe();
@@ -138,7 +134,6 @@ export default function DashboardPage() {
 
   const findLessonForTopic = (topic: string): Lesson | null => {
       if (!lessons) return null;
-      // The AI now returns an exact lesson title, so we can do a direct find.
       return lessons.find(l => l.title === topic) || null;
   }
 
@@ -147,15 +142,8 @@ export default function DashboardPage() {
   }
 
   if (!user || !userProfile) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <p className="text-lg font-semibold mb-2">You need to be logged in to view your dashboard.</p>
-        <p className="text-muted-foreground mb-4">Please log in to continue.</p>
-        <Button asChild>
-          <Link href="/login">Go to Login</Link>
-        </Button>
-      </div>
-    )
+    // This state is briefly visible before the layout redirects.
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -275,5 +263,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

@@ -51,8 +51,6 @@ export default function LessonsPage() {
             if (currentUser) {
                 const progressData = await getUserProgress(currentUser.uid);
                 setUserProgress(progressData);
-            } else {
-                setUserProgress(null);
             }
         } catch (error) {
             console.error("Failed to load data", error);

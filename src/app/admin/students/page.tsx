@@ -58,6 +58,8 @@ export default function AdminStudentsPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+        // The layout now protects this page, so we can assume a user is logged in.
+        // We still need the user object for some client-side logic.
         setCurrentUser(user);
     });
 

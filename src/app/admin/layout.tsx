@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Users,
   BrainCircuit,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,14 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { getUser } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+function AdminLoader() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -36,22 +45,32 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string } | null>(
+  const [userProfile, setUserProfile] = useState<{ name?: string, role?: string } | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
         const profile = await getUser(currentUser.uid);
-        setUserProfile(profile);
+        if (profile?.role === 'admin') {
+          setUser(currentUser);
+          setUserProfile(profile);
+        } else {
+          // Not an admin, redirect to student dashboard
+          router.push('/dashboard');
+          return;
+        }
       } else {
-        setUserProfile(null);
+        // Not logged in, redirect to login
+        router.push('/login');
+        return;
       }
+      setIsLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
@@ -68,6 +87,10 @@ export default function AdminLayout({
       .join("")
       .toUpperCase();
   };
+
+  if (isLoading) {
+    return <AdminLoader />;
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col">

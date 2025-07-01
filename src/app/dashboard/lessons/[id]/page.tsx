@@ -52,7 +52,6 @@ export default function LessonPage() {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   const fetchUserProgress = async (uid: string) => {
     const progress = await getUserProgress(uid);
@@ -84,26 +83,23 @@ export default function LessonPage() {
         } finally {
             setIsLoading(false);
         }
-      } else {
-        router.push('/login');
       }
+      // The layout now handles redirection if the user is not logged in.
     });
 
     return () => unsubscribe();
-  }, [id, router]);
+  }, [id]);
 
   if (isLoading) {
     return <LessonPageSkeleton />;
   }
 
   if (!user || !lesson) {
+    // This case might be hit briefly before layout redirection or if data fetch fails.
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
-        <p className="text-lg font-semibold mb-2">Could not load lesson.</p>
-        <p className="text-muted-foreground mb-4">Please make sure you are logged in and the lesson exists.</p>
-        <Button asChild>
-          <Link href="/dashboard">Go to Dashboard</Link>
-        </Button>
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-lg font-semibold">Loading Lesson...</p>
       </div>
     );
   }

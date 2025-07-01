@@ -7,8 +7,6 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Zap, Activity, Clock, TrendingUp } from "lucide-react";
 import SubjectActivityChart from "@/components/progress/SubjectActivityChart";
@@ -57,21 +55,18 @@ function ProgressSkeleton() {
 }
 
 export default function ProgressPage() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
+        setIsLoading(true);
         const progress = await getUserProgress(currentUser.uid);
         setUserProgress(progress);
-      } else {
-        setUser(null);
-        setUserProgress(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
+      // The layout now handles redirection if the user is not logged in.
     });
 
     return () => unsubscribe();
@@ -81,14 +76,11 @@ export default function ProgressPage() {
     return <ProgressSkeleton />;
   }
 
-  if (!user || !userProgress) {
+  if (!userProgress) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
-            <p className="text-lg font-semibold mb-2">You need to be logged in to view your progress.</p>
-            <p className="text-muted-foreground mb-4">Please log in to continue.</p>
-            <Button asChild>
-            <Link href="/login">Go to Login</Link>
-            </Button>
+            <p className="text-lg font-semibold mb-2">No progress data found.</p>
+            <p className="text-muted-foreground mb-4">Complete some lessons and exercises to see your progress here.</p>
       </div>
     )
   }

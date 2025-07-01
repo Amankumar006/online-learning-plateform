@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUser, updateUserProfile, User } from '@/lib/data';
@@ -48,7 +47,6 @@ function ProfileSkeleton() {
 }
 
 export default function ProfilePage() {
-    const router = useRouter();
     const { toast } = useToast();
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [userProfile, setUserProfile] = useState<User | null>(null);
@@ -63,14 +61,13 @@ export default function ProfilePage() {
                 const profile = await getUser(currentUser.uid);
                 setUserProfile(profile);
                 setName(profile?.name || '');
-            } else {
-                router.push('/login');
+                setIsLoading(false);
             }
-            setIsLoading(false);
+            // The layout now handles redirection if the user is not logged in.
         });
 
         return () => unsubscribe();
-    }, [router]);
+    }, []);
     
     const getInitials = (nameStr?: string) => {
         if (!nameStr) return "U";
@@ -95,7 +92,6 @@ export default function ProfilePage() {
                 title: 'Success!',
                 description: 'Your profile has been updated.',
             });
-            router.refresh();
         } catch (error) {
             console.error(error);
             toast({

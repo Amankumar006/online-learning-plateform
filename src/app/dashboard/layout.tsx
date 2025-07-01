@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Home, LineChart, BookOpenCheck, WandSparkles } from "lucide-react";
+import { BookOpen, Home, LineChart, BookOpenCheck, WandSparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +22,14 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { getUser } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+function DashboardLoader() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
+}
+
 
 export default function DashboardLayout({
   children,
@@ -32,19 +40,21 @@ export default function DashboardLayout({
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<{name?: string} | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
+        setUser(currentUser);
         const profile = await getUser(currentUser.uid);
         setUserProfile(profile);
+        setIsLoading(false);
       } else {
-        setUserProfile(null);
+        router.push('/login');
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Home /> },
@@ -56,6 +66,10 @@ export default function DashboardLayout({
   const getInitials = (name?: string) => {
     if (!name) return "U";
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
+  
+  if (isLoading) {
+    return <DashboardLoader />;
   }
 
   return (

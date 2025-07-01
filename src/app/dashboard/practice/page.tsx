@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { createExercise, getCustomExercisesForUser, getAllUserResponses, UserExerciseResponse, Exercise, deleteExercise } from '@/lib/data';
 import { generateCustomExercise, GeneratedExercise } from '@/ai/flows/generate-custom-exercise';
@@ -57,7 +56,6 @@ export default function PracticePage() {
     const [solvingExercise, setSolvingExercise] = useState<Exercise | null>(null);
     const [previewExercise, setPreviewExercise] = useState<GeneratedExercise | null>(null);
 
-    const router = useRouter();
     const { toast } = useToast();
 
     const fetchData = async (uid: string) => {
@@ -82,12 +80,11 @@ export default function PracticePage() {
             if (currentUser) {
                 setUser(currentUser);
                 fetchData(currentUser.uid);
-            } else {
-                router.push('/login');
             }
+            // The layout now handles redirection if the user is not logged in.
         });
         return () => unsubscribe();
-    }, [router]);
+    }, []);
 
     const handleGeneratePreview = async () => {
         if (!prompt.trim() || !user) return;
@@ -119,6 +116,7 @@ export default function PracticePage() {
             });
             toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
             setPreviewExercise(null);
+            setPrompt("");
             fetchData(user.uid); // Refresh list
         } catch (e) {
             console.error(e);
@@ -149,7 +147,7 @@ export default function PracticePage() {
         if (user) fetchData(user.uid);
     }
     
-    if (isLoading) return <PracticePageSkeleton />;
+    if (isLoading || !user) return <PracticePageSkeleton />;
     
     const getDifficultyBadge = (level: number) => {
         switch (level) {
