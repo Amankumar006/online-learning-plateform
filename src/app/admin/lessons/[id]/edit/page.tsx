@@ -114,9 +114,9 @@ export default function EditLessonPage() {
         setImage(publicUrl);
 
         toast({ title: "Success!", description: "New lesson image generated and uploaded." });
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
-        toast({ variant: "destructive", title: "AI/Upload Error", description: "Failed to generate or upload the image." });
+        toast({ variant: "destructive", title: "AI/Upload Error", description: error.message || "Failed to generate or upload the image." });
     } finally {
         setIsGeneratingImage(false);
         setIsUploadingImage(false);

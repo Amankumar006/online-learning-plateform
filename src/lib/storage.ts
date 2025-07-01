@@ -22,8 +22,9 @@ export async function uploadImageFromDataUrl(dataUrl: string, fileName: string):
         const downloadURL = await getDownloadURL(snapshot.ref);
         return downloadURL;
 
-    } catch (error) {
-        console.error("Error uploading image:", error);
-        throw new Error("Failed to upload image.");
+    } catch (error: any) {
+        console.error("Firebase Storage upload error:", error);
+        const errorMessage = error.code ? `Firebase Storage Error: ${error.code}` : "Failed to upload image due to an unknown error.";
+        throw new Error(errorMessage);
     }
 }
