@@ -222,13 +222,13 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         
         <div className="flex-shrink-0 border-t p-4 flex justify-end gap-2 bg-background">
             {initialResponse ? (
-                <Button onClick={onSolved} size="lg">Close</Button>
+                <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
                 <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading} size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (
-                <Button onClick={onSolved} size="lg">Finish & Close</Button>
+                <Button onClick={onSolved} size="lg">Finish & Return</Button>
             )}
         </div>
     </div>

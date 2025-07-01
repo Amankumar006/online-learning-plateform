@@ -2,20 +2,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createExercise, getCustomExercisesForUser, getAllUserResponses, UserExerciseResponse, Exercise, deleteExercise } from '@/lib/data';
-import { generateCustomExercise } from '@/ai/flows/generate-custom-exercise';
+import { generateCustomExercise, GeneratedExercise } from '@/ai/flows/generate-custom-exercise';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, CheckCircle, BrainCircuit } from 'lucide-react';
+import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, BrainCircuit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import SingleExerciseSolver from '@/components/practice/single-exercise-solver';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 
 function PracticePageSkeleton() {
     return (
@@ -53,8 +52,7 @@ export default function PracticePage() {
     const [prompt, setPrompt] = useState('');
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [responses, setResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
-    const [solvingExercise, setSolvingExercise] = useState<Exercise | null>(null);
-    const [reviewingResponse, setReviewingResponse] = useState<UserExerciseResponse | null>(null);
+    const [previewExercise, setPreviewExercise] = useState<GeneratedExercise | null>(null);
 
     const { toast } = useToast();
 
@@ -85,31 +83,47 @@ export default function PracticePage() {
         return () => unsubscribe();
     }, []);
 
-    const handleGenerateAndSave = async () => {
+    const handleGenerate = async () => {
         if (!prompt.trim() || !user) return;
         setIsGenerating(true);
+        setPreviewExercise(null);
         try {
             const generatedExercise = await generateCustomExercise({ prompt });
+            setPreviewExercise(generatedExercise);
+        } catch (e: any) {
+            console.error(e);
+            toast({ variant: 'destructive', title: 'AI Error', description: e.message || 'Failed to generate exercise.' });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!previewExercise || !user) return;
+        try {
             await createExercise({
-                ...generatedExercise,
+                ...previewExercise,
                 lessonId: 'custom',
-                correctAnswer: String(generatedExercise.correctAnswer),
+                correctAnswer: String(previewExercise.correctAnswer),
                 isCustom: true,
                 userId: user.uid,
                 createdAt: Date.now()
             });
             toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
             setPrompt("");
-            fetchData(user.uid);
+            setPreviewExercise(null);
+            fetchData(user.uid); // Refresh list
         } catch (e: any) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'AI Error', description: e.message || 'Failed to generate and save exercise.' });
-        } finally {
-            setIsGenerating(false);
+             console.error(e);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save exercise.' });
         }
     };
     
-    const handleDiscard = async (exerciseId: string) => {
+    const handleDiscardGenerated = () => {
+        setPreviewExercise(null);
+    };
+
+    const handleDiscardSaved = async (exerciseId: string) => {
         if (!user) return;
         try {
             await deleteExercise(exerciseId);
@@ -120,12 +134,6 @@ export default function PracticePage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to discard the exercise.' });
         }
     };
-
-    const handleSolved = () => {
-        setSolvingExercise(null);
-        setReviewingResponse(null);
-        if (user) fetchData(user.uid);
-    }
     
     if (isLoading || !user) return <PracticePageSkeleton />;
     
@@ -148,7 +156,7 @@ export default function PracticePage() {
                 <CardTitle className="flex items-center gap-3 text-2xl font-headline">
                     <BrainCircuit className="text-primary h-7 w-7"/> Generate Custom Exercise
                 </CardTitle>
-                <CardDescription>Describe the type of exercise you want. The AI will generate and save a new exercise to your pending list.</CardDescription>
+                <CardDescription>Describe the type of exercise you want. The AI will generate a new exercise for you to review.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <Textarea 
@@ -158,11 +166,35 @@ export default function PracticePage() {
                     rows={4}
                     disabled={isGenerating}
                 />
-                 <Button onClick={handleGenerateAndSave} disabled={isGenerating || !prompt.trim()} size="lg">
+                 <Button onClick={handleGenerate} disabled={isGenerating || !prompt.trim()} size="lg">
                     {isGenerating ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
-                    Generate & Save Exercise
+                    Generate Exercise
                 </Button>
             </CardContent>
+            {isGenerating && (
+                <CardFooter>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="animate-spin h-4 w-4" /> The AI is thinking... please wait.</p>
+                </CardFooter>
+            )}
+            {previewExercise && (
+                 <CardFooter className="flex flex-col items-start gap-4 border-t pt-6">
+                    <h3 className="text-lg font-semibold">AI Generated Preview</h3>
+                     <Card className="w-full bg-secondary/30">
+                        <CardContent className="p-4 space-y-3">
+                           <p className="font-semibold">{previewExercise.question}</p>
+                           <div className="flex flex-wrap gap-2">
+                                {previewExercise.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                                {getDifficultyBadge(previewExercise.difficulty)}
+                                {previewExercise.type && <Badge variant="secondary" className="capitalize">{previewExercise.type.replace('_', ' ')}</Badge>}
+                           </div>
+                        </CardContent>
+                    </Card>
+                    <div className="flex gap-2">
+                        <Button onClick={handleSave}>Save to My Exercises</Button>
+                        <Button variant="outline" onClick={handleDiscardGenerated}>Discard</Button>
+                    </div>
+                </CardFooter>
+            )}
         </Card>
 
 
@@ -191,18 +223,15 @@ export default function PracticePage() {
                                         <span>Created: {ex.createdAt ? format(new Date(ex.createdAt), 'dd MMM, yyyy') : 'N/A'}</span>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button size="sm" onClick={() => { setReviewingResponse(null); setSolvingExercise(ex); }}><Pencil className="mr-2 h-4 w-4"/>Solve</Button>
-                                        <Button size="sm" variant="outline" onClick={() => handleDiscard(ex.id)}><Trash2 className="mr-2 h-4 w-4"/>Discard</Button>
+                                        <Button size="sm" asChild><Link href={`/dashboard/practice/${ex.id}`}><Pencil className="mr-2 h-4 w-4"/>Solve</Link></Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleDiscardSaved(ex.id)}><Trash2 className="mr-2 h-4 w-4"/>Discard</Button>
                                     </div>
                                 </CardFooter>
                             </Card>
                         ))}
                     </div>
                 ) : (
-                    <Alert>
-                        <AlertTitle>No pending exercises!</AlertTitle>
-                        <AlertDescription>Your custom-generated exercises will appear here. Try creating one above.</AlertDescription>
-                    </Alert>
+                    <Alert><AlertTitle>No pending exercises!</AlertTitle></Alert>
                 )}
             </section>
 
@@ -228,7 +257,7 @@ export default function PracticePage() {
                                             <span>Completed: {response?.submittedAt ? format(new Date(response.submittedAt), 'dd MMM, yyyy') : 'N/A'}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                             <Button size="sm" variant="secondary" onClick={() => { if (response) { setReviewingResponse(response); setSolvingExercise(ex); } }}><Eye className="mr-2 h-4 w-4"/>View</Button>
+                                             <Button size="sm" variant="secondary" asChild><Link href={`/dashboard/practice/${ex.id}`}><Eye className="mr-2 h-4 w-4"/>View</Link></Button>
                                         </div>
                                     </CardFooter>
                                 </Card>
@@ -236,30 +265,10 @@ export default function PracticePage() {
                         })}
                     </div>
                 ) : (
-                    <Alert>
-                        <AlertTitle>No completed exercises yet.</AlertTitle>
-                        <AlertDescription>Once you solve a custom exercise, it will show up here.</AlertDescription>
-                    </Alert>
+                    <Alert><AlertTitle>No completed exercises yet.</AlertTitle></Alert>
                 )}
             </section>
         </div>
-
-        <Dialog open={!!solvingExercise} onOpenChange={(open) => !open && handleSolved()}>
-            <DialogContent className="max-w-6xl w-full h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-2">
-                    <DialogTitle className="text-2xl font-headline">Practice Arena</DialogTitle>
-                    <DialogDescription>Solve your custom-generated exercise in this focused workspace.</DialogDescription>
-                </DialogHeader>
-                {solvingExercise && user && (
-                    <SingleExerciseSolver 
-                        exercise={solvingExercise}
-                        userId={user.uid}
-                        onSolved={handleSolved}
-                        initialResponse={reviewingResponse}
-                    />
-                )}
-            </DialogContent>
-        </Dialog>
       </div>
     );
 }

@@ -399,7 +399,7 @@ export async function deleteExercise(exerciseId: string): Promise<void> {
         await deleteDoc(doc(db, 'exercises', exerciseId));
     } catch (error) {
         console.error("Error deleting exercise: ", error);
-        throw new Error("Failed to delete exercise");
+        throw new Error("Failed to delete lesson");
     }
 }
 
@@ -564,4 +564,18 @@ export async function getAllUserResponses(userId: string): Promise<Map<string, U
         responsesMap.set(data.exerciseId, { id: doc.id, ...data });
     });
     return responsesMap;
+}
+
+export async function getUserResponseForExercise(userId: string, exerciseId: string): Promise<UserExerciseResponse | null> {
+    const responseRef = doc(db, 'exerciseResponses', `${userId}_${exerciseId}`);
+    try {
+        const responseSnap = await getDoc(responseRef);
+        if (responseSnap.exists()) {
+            return { id: responseSnap.id, ...responseSnap.data() } as UserExerciseResponse;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error fetching user response for exercise:", error);
+        return null;
+    }
 }
