@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { Loader2, Lightbulb, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -247,6 +247,36 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
                 </RadioGroup>
             );
         case 'long_form':
+            const lfExercise = currentExercise as LongFormExercise;
+            if (lfExercise.category === 'code') {
+                 return (
+                    <div className="rounded-lg bg-card-foreground p-4">
+                        <Textarea
+                            value={longFormAnswer}
+                            onChange={(e) => setLongFormAnswer(e.target.value)}
+                            placeholder="Write your code here..."
+                            rows={8}
+                            disabled={isAnswered || isGrading}
+                            className="bg-transparent text-background font-mono border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
+                    </div>
+                );
+            }
+             if (lfExercise.category === 'math') {
+                 return (
+                    <div>
+                         <Textarea
+                            value={longFormAnswer}
+                            onChange={(e) => setLongFormAnswer(e.target.value)}
+                            placeholder="Enter your mathematical formula or explanation here... You can use LaTeX for equations like $E=mc^2$."
+                            rows={8}
+                            disabled={isAnswered || isGrading}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
+                    </div>
+                );
+            }
             return (
                 <div>
                     <Textarea
@@ -296,7 +326,16 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
   return (
     <div className="animate-in fade-in-0 zoom-in-95">
       <div className="mb-4">
-        <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
+        <div className="flex items-center justify-between">
+            <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
+            {currentExercise.category && (
+                <Badge variant="secondary" className="capitalize">
+                    {currentExercise.category === 'code' && <Code className="mr-1.5 h-3 w-3" />}
+                    {currentExercise.category === 'math' && <FunctionSquare className="mr-1.5 h-3 w-3" />}
+                    {currentExercise.category}
+                </Badge>
+            )}
+        </div>
         <p className="text-sm text-muted-foreground flex items-center gap-1">
           Difficulty: {Array.from({ length: 3 }).map((_, i) => (
             <span key={i} className={cn(i < currentExercise.difficulty ? 'text-accent' : 'text-muted-foreground/50')}>⭐</span>

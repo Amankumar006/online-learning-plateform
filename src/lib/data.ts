@@ -80,6 +80,7 @@ export interface BaseExercise {
     question: string;
     explanation?: string;
     hint?: string;
+    category?: 'code' | 'math' | 'general';
 }
 
 export interface McqExercise extends BaseExercise {
