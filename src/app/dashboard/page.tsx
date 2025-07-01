@@ -2,15 +2,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { History, Sparkles, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowRight, Book, ChartLine, MessageSquare, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 
 function DashboardSkeleton() {
@@ -21,41 +20,34 @@ function DashboardSkeleton() {
           <Skeleton className="h-5 w-1/2" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-              <Card>
-                  <CardHeader><Skeleton className="h-6 w-48" /></CardHeader>
-                  <CardContent><Skeleton className="h-5 w-1/2" /></CardContent>
-              </Card>
-              <Card>
-                  <CardHeader><Skeleton className="h-6 w-56" /></CardHeader>
-                  <CardContent className="space-y-4">
-                      {[...Array(3)].map((_, i) => (
-                          <div key={i} className="p-4 border-b border-border">
-                              <Skeleton className="h-5 w-3/4 mb-2" />
-                              <Skeleton className="h-4 w-1/2" />
-                          </div>
-                      ))}
-                  </CardContent>
-              </Card>
-          </div>
-          <div className="lg:col-span-1">
-              <Card>
-                  <CardHeader>
-                      <Skeleton className="h-6 w-40 mb-2" />
-                      <Skeleton className="h-4 w-full" />
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-2/3" />
-                      </div>
-                      <Skeleton className="h-10 w-full" />
-                  </CardContent>
-              </Card>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Next Lesson Card */}
+        <div className="lg:col-span-2 md:col-span-2 rounded-xl p-6 space-y-4 bg-muted/50">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+
+        {/* AI Recommendations */}
+        <div className="rounded-xl p-6 space-y-3 bg-muted/50">
+           <Skeleton className="h-5 w-40" />
+           <Skeleton className="h-5 w-full mt-4" />
+           <Skeleton className="h-5 w-5/6" />
+           <Skeleton className="h-5 w-full" />
+        </div>
+
+        {/* Track Progress */}
+        <div className="rounded-xl p-6 flex flex-col items-center justify-center bg-muted/50">
+            <Skeleton className="h-24 w-24 rounded-full" />
+            <Skeleton className="h-5 w-24 mt-4" />
+        </div>
       </div>
+       <div className="mt-8">
+            <Skeleton className="h-8 w-48 mb-4" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                 {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+            </div>
+       </div>
     </>
   );
 }
@@ -120,7 +112,6 @@ export default function DashboardPage() {
             setIsLoading(false);
         }
       }
-      // No else block needed, layout handles redirection
     });
 
     return () => unsubscribe();
@@ -136,13 +127,15 @@ export default function DashboardPage() {
       if (!lessons) return null;
       return lessons.find(l => l.title === topic) || null;
   }
+  
+  const nextLesson = findLessonForTopic(suggestedTopics[0]) || lessons.find(l => !completedLessonIds.includes(l.id)) || lastCompletedLesson;
+
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
   if (!user || !userProfile) {
-    // This state is briefly visible before the layout redirects.
     return <DashboardSkeleton />;
   }
 
@@ -153,113 +146,115 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Ready to continue your personalized learning journey? Let's achieve your goals together.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-              <History className="w-6 h-6 text-primary"/>
-              <CardTitle className="font-headline text-xl">Continue Where You Left Off</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lastCompletedLesson ? (
-                <>
-                  <p className="text-muted-foreground">Your last completed lesson was:</p>
-                  <p className="text-lg font-semibold text-primary mt-1">{lastCompletedLesson.title}</p>
-                   <Button variant="link" asChild className="p-0 h-auto mt-2">
-                     <Link href={`/dashboard/lessons/${lastCompletedLesson.id}`}>Review Lesson <ArrowRight className="w-4 h-4 ml-1" /></Link>
-                   </Button>
-                </>
-              ) : (
-                <>
-                 <p className="text-muted-foreground">You haven't completed any lessons yet. Start your first one!</p>
-                 <Button variant="secondary" asChild className="mt-4">
-                    <Link href="/dashboard/lessons">Browse Lessons</Link>
-                 </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-              <CheckCircle className="w-6 h-6 text-primary"/>
-              <CardTitle className="font-headline text-xl">Recently Completed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="mb-4">A look at the lessons you've recently finished.</CardDescription>
-              <div className="space-y-2">
-                {recentlyCompleted.length > 0 ? (
-                  recentlyCompleted.map((item) => (
-                    <div key={item.id} className="border-b border-border/50 last:border-b-0 py-4">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-semibold">{item.title}</h4>
-                        <Badge variant="outline" className="border-primary text-primary">
-                          <CheckCircle className="mr-1.5 h-3 w-3" />
-                          Completed
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{item.subject}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No completed lessons yet. Finish a lesson to see it here!</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-1">
-          <Card className="sticky top-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="lg:col-span-2 md:col-span-2 bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300">
             <CardHeader>
-              <CardTitle className="font-headline text-xl flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Your Learning Path
-              </CardTitle>
-              <CardDescription>AI-powered suggestions based on your progress.</CardDescription>
+                <CardTitle className="font-headline text-xl">Your Next Lesson</CardTitle>
             </CardHeader>
             <CardContent>
-              {isGeneratingTopics ? (
-                <div className="space-y-3 py-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                </div>
-              ) : suggestedTopics.length > 0 ? (
-                  <ul className="space-y-3">
-                    {suggestedTopics.map((topic, index) => {
-                       const lesson = findLessonForTopic(topic);
-                       return (
-                          <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-secondary/50 transition-colors">
-                              <Sparkles className="w-4 h-4 mt-1 text-accent shrink-0" />
-                              {lesson ? (
-                                <Link href={`/dashboard/lessons/${lesson.id}`} className="flex-1 text-sm font-medium text-foreground hover:text-primary">
-                                    {topic}
-                                    <span className="block text-xs text-muted-foreground">{lesson.subject}</span>
-                                </Link>
-                              ) : (
-                                <span className="flex-1 text-sm text-muted-foreground">{topic}</span>
-                              )}
-                          </li>
-                       );
-                    })}
-                  </ul>
-              ) : (
-                <div className="text-center py-6">
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Could not generate suggestions. Complete more lessons to get personalized recommendations!
-                    </p>
-                 </div>
-              )}
-               <Button variant="secondary" className="w-full mt-6" asChild>
-                <Link href="/dashboard/lessons">
-                    Browse All Lessons <ArrowRight className="w-4 h-4 ml-2" />
-                </Link>
-              </Button>
+                {nextLesson ? (
+                    <div>
+                        <p className="text-2xl font-semibold text-primary">{nextLesson.title}</p>
+                        <p className="text-muted-foreground mb-4">{nextLesson.subject}</p>
+                        <div className="w-full h-24 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center mb-4">
+                            <ChartLine className="w-12 h-12 text-primary/50" />
+                        </div>
+                        <Button asChild className="w-full">
+                            <Link href={`/dashboard/lessons/${nextLesson.id}`}>
+                                {completedLessonIds.includes(nextLesson.id) ? 'Review Lesson' : 'Start Lesson'}
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Link>
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="text-center py-10">
+                        <p className="text-muted-foreground mb-4">No new lessons to suggest. Why not review one you've completed?</p>
+                        <Button asChild variant="secondary">
+                            <Link href="/dashboard/lessons">Browse All Lessons</Link>
+                        </Button>
+                    </div>
+                )}
             </CardContent>
-          </Card>
-        </div>
+        </Card>
+
+        <Card className="bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300">
+             <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
+                <MessageSquare className="w-6 h-6 text-primary"/>
+                <CardTitle className="font-headline text-lg">AI Recommendations</CardTitle>
+            </CardHeader>
+            <CardContent>
+                 {isGeneratingTopics ? (
+                    <div className="space-y-3 py-4">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-full" />
+                    </div>
+                 ) : suggestedTopics.length > 1 ? (
+                    <ul className="space-y-2 text-sm">
+                        {suggestedTopics.slice(1, 4).map((topic, index) => {
+                            const lesson = findLessonForTopic(topic);
+                            return (
+                               <li key={index} className="flex items-start gap-3 p-2 rounded-md hover:bg-secondary/50 transition-colors">
+                                  <Sparkles className="w-4 h-4 mt-1 text-accent shrink-0" />
+                                  {lesson ? (
+                                    <Link href={`/dashboard/lessons/${lesson.id}`} className="flex-1 font-medium text-foreground hover:text-primary">
+                                        {topic}
+                                    </Link>
+                                  ) : (
+                                    <span className="flex-1 text-muted-foreground">{topic}</span>
+                                  )}
+                              </li>
+                           );
+                        })}
+                    </ul>
+                 ) : (
+                    <p className="text-sm text-muted-foreground py-4">No other recommendations right now. Keep learning to get more!</p>
+                 )}
+            </CardContent>
+        </Card>
+        
+        <Card className="bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 flex flex-col">
+             <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
+                <Target className="w-6 h-6 text-primary"/>
+                <CardTitle className="font-headline text-lg">Track Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col items-center justify-center">
+                <div className="relative w-28 h-28">
+                    <svg className="w-full h-full" viewBox="0 0 36 36">
+                        <path className="stroke-current text-secondary/50" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
+                        <path className="stroke-current text-primary" strokeDasharray={`${userProgress?.mastery || 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">{userProgress?.mastery || 0}%</div>
+                </div>
+                 <Button variant="link" asChild className="mt-4">
+                     <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
+                 </Button>
+            </CardContent>
+        </Card>
       </div>
+
+      {recentlyCompleted.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold font-headline mb-4">Recently Completed</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {recentlyCompleted.map((lesson) => (
+                    <Link key={lesson.id} href={`/dashboard/lessons/${lesson.id}`}>
+                        <Card className="h-full bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:scale-105">
+                            <CardContent className="p-4 flex items-center gap-4">
+                                <div className="p-3 bg-primary/20 rounded-lg">
+                                    <Book className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold">{lesson.title}</p>
+                                    <p className="text-sm text-muted-foreground">{lesson.subject}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                ))}
+            </div>
+          </div>
+      )}
     </div>
   );
 }
