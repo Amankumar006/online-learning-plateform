@@ -1,11 +1,12 @@
 
 "use client";
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlockMath, InlineMath } from 'react-katex';
+import { Button } from '@/components/ui/button';
 
 interface MathEditorProps {
     value: string;
@@ -38,26 +39,82 @@ const FormattedMath = ({ text }: { text: string }) => {
     );
 };
 
+const mathSymbols = [
+    { display: 'π', latex: '\\pi ' },
+    { display: 'θ', latex: '\\theta ' },
+    { display: '∞', latex: '\\infty ' },
+    { display: '≤', latex: '\\le ' },
+    { display: '≥', latex: '\\ge ' },
+    { display: '≠', latex: '\\neq ' },
+    { display: '∫', latex: '\\int ' },
+    { display: '∑', latex: '\\sum ' },
+    { display: '√x', latex: '\\sqrt{}', offset: -1 },
+    { display: 'x²', latex: '^{}', offset: -1 },
+    { display: 'xₙ', latex: '_{}', offset: -1 },
+    { display: 'a/b', latex: '\\frac{}{}', offset: -3 },
+];
 
 const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const insertSymbol = (latex: string, offset = 0) => {
+        if (!textareaRef.current) return;
+
+        const start = textareaRef.current.selectionStart;
+        const end = textareaRef.current.selectionEnd;
+        const text = textareaRef.current.value;
+
+        const newValue = text.substring(0, start) + latex + text.substring(end);
+        onValueChange(newValue);
+
+        setTimeout(() => {
+            if (textareaRef.current) {
+                const newCursorPos = start + latex.length + offset;
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            }
+        }, 0);
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Textarea
-                value={value}
-                onChange={(e) => onValueChange(e.target.value)}
-                placeholder={placeholder}
-                rows={10}
-                disabled={disabled}
-                className="font-mono text-sm min-h-[240px]"
-            />
+             <div className="flex flex-col gap-2">
+                 <div className="p-2 border rounded-md flex flex-wrap gap-1 justify-center bg-muted/50">
+                    {mathSymbols.map((symbol) => (
+                        <Button
+                            key={symbol.display}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="font-mono h-8 px-2"
+                            onClick={() => insertSymbol(symbol.latex, symbol.offset)}
+                            disabled={disabled}
+                        >
+                            {symbol.display}
+                        </Button>
+                    ))}
+                </div>
+                <Textarea
+                    ref={textareaRef}
+                    value={value}
+                    onChange={(e) => onValueChange(e.target.value)}
+                    placeholder={placeholder}
+                    rows={10}
+                    disabled={disabled}
+                    className="font-mono text-sm min-h-[200px] flex-grow"
+                />
+            </div>
             <Card>
+                 <CardHeader className="py-2 px-4 border-b">
+                    <CardTitle className="text-base font-medium">Live Preview</CardTitle>
+                </CardHeader>
                 <CardContent className="p-4">
-                    <ScrollArea className="h-[220px]">
+                    <ScrollArea className="h-[244px]">
                        {value ? (
                            <FormattedMath text={value} />
                        ) : (
-                           <div className="text-muted-foreground text-center pt-20">
-                               Live preview of your equations will appear here.
+                           <div className="text-muted-foreground text-center flex items-center justify-center h-[244px]">
+                               <p>Your rendered equations will appear here.</p>
                            </div>
                        )}
                     </ScrollArea>
