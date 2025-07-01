@@ -56,6 +56,11 @@ export interface UserProgress {
   totalExercisesCorrect?: number;
   timeSpent?: number; // in seconds
   weeklyActivity?: { week: string; skillsMastered: number; timeSpent: number }[];
+  exerciseProgress?: {
+      [lessonId: string]: {
+          currentExerciseIndex: number;
+      }
+  };
 }
 
 
@@ -166,6 +171,7 @@ export async function createUserInFirestore(uid: string, email: string, name: st
                 totalExercisesCorrect: 0,
                 timeSpent: 0,
                 weeklyActivity: [],
+                exerciseProgress: {},
             }
         });
     } catch (error) {
@@ -244,7 +250,35 @@ export async function getUserProgress(userId: string): Promise<UserProgress> {
         subjectsMastery: [],
         completedLessonIds: [],
         timeSpent: 0,
+        exerciseProgress: {},
     };
+}
+
+export async function updateUserExerciseIndex(userId: string, lessonId: string, index: number) {
+    const userRef = doc(db, 'users', userId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) {
+                throw "User document does not exist!";
+            }
+            const progress = userDoc.data().progress || {};
+            
+            const newExerciseProgress = {
+                ...(progress.exerciseProgress || {}),
+                [lessonId]: {
+                    currentExerciseIndex: index
+                }
+            };
+            
+            transaction.update(userRef, { 
+                'progress.exerciseProgress': newExerciseProgress
+            });
+        });
+    } catch (e) {
+        console.error("Transaction failed: ", e);
+        throw new Error("Failed to save exercise progress.");
+    }
 }
 
 export async function getExercise(id: string): Promise<Exercise | null> {

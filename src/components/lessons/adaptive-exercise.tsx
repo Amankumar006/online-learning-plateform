@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise } from "@/lib/data";
-import { saveExerciseResult } from "@/lib/data";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserProgress } from "@/lib/data";
+import { saveExerciseResult, getUserProgress, updateUserExerciseIndex } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,22 +18,43 @@ import { Badge } from "@/components/ui/badge";
 
 export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId:string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
-  const [difficulty, setDifficulty] = useState(1);
   const [key, setKey] = useState(0);
   const { toast } = useToast();
 
-  const currentExercise = exercises.length > 0 ? exercises[currentExerciseIndex] : undefined;
+  const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
+  const totalExercises = exercises.length;
 
   useEffect(() => {
-    // This effect can be used to load an exercise based on adaptive difficulty in the future
-    // For now, we'll just cycle through them.
-  }, [difficulty, exercises]);
+    if (!userId || !lessonId) {
+      setIsLoading(false);
+      return;
+    };
+    const loadProgress = async () => {
+      setIsLoading(true);
+      try {
+        const progress = await getUserProgress(userId);
+        if (progress.exerciseProgress && progress.exerciseProgress[lessonId]) {
+          const savedIndex = progress.exerciseProgress[lessonId].currentExerciseIndex;
+          setCurrentExerciseIndex(savedIndex);
+        }
+      } catch (error) {
+        console.error("Failed to load user progress:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadProgress();
+  }, [userId, lessonId]);
+  
+  const currentExercise = exercises[currentExerciseIndex];
 
   const handleAnswerSubmit = async () => {
     if (!currentExercise) return;
@@ -97,26 +118,52 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
             description: "Could not save your progress. Please try again.",
         });
     }
-
-    if (correct) {
-      setDifficulty(prev => Math.min(prev + 1, 3));
-    } else {
-      setDifficulty(prev => Math.max(prev - 1, 1));
-    }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (!lessonId) return;
+    
+    const nextIndex = currentExerciseIndex + 1;
+    
+    try {
+      await updateUserExerciseIndex(userId, lessonId, nextIndex);
+    } catch (error) {
+       console.error("Failed to save progress:", error);
+       toast({ variant: "destructive", title: "Save Error", description: "Your progress could not be saved." });
+       return;
+    }
+    
+    // Reset state for the next question
     setIsAnswered(false);
     setIsCorrect(null);
     setSelectedAnswer(null);
     setLongFormAnswer("");
     setFeedback(null);
-    setCurrentExerciseIndex(prevIndex => (prevIndex + 1) % exercises.length);
-    setKey(prevKey => prevKey + 1);
+    setKey(prev => prev + 1);
+    
+    setCurrentExerciseIndex(nextIndex);
+    
+    if (nextIndex >= totalExercises) {
+      toast({ title: "Lesson Practice Complete!", description: "You've finished all the exercises for this lesson. Great job!" });
+    }
+  };
+
+  const handlePracticeAgain = async () => {
+      if (!lessonId) return;
+      try {
+          await updateUserExerciseIndex(userId, lessonId, 0);
+          setCurrentExerciseIndex(0);
+          setKey(k => k + 1);
+          setIsAnswered(false);
+          setIsCorrect(null);
+      } catch (error) {
+          console.error("Failed to reset progress:", error);
+          toast({ variant: "destructive", title: "Error", description: "Could not reset progress." });
+      }
   };
   
   const renderExercise = () => {
-    if (!currentExercise) return <p>Loading exercise...</p>;
+    if (!currentExercise) return null;
 
     switch (currentExercise.type) {
         case 'mcq':
@@ -161,7 +208,15 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     }
   };
 
-  if (!exercises || exercises.length === 0) {
+  if (isLoading) {
+    return (
+        <div className="p-6 flex justify-center items-center min-h-[300px]">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
+  }
+
+  if (!exercises || totalExercises === 0) {
     return (
       <div className="p-6 text-center">
         <p>No exercises available for this lesson yet.</p>
@@ -169,10 +224,23 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     );
   }
 
+  if (currentExerciseIndex >= totalExercises) {
+    return (
+        <div className="p-6 text-center min-h-[300px] flex flex-col justify-center items-center">
+            <CheckCircle className="h-12 w-12 text-primary mb-4" />
+            <h3 className="text-xl font-semibold">Practice Complete!</h3>
+            <p className="text-muted-foreground mt-2 mb-4">You've answered all the questions for this lesson.</p>
+            <Button onClick={handlePracticeAgain}>
+                Practice Again
+            </Button>
+        </div>
+    )
+  }
+
   return (
     <div key={key} className="animate-in fade-in-0 zoom-in-95">
       <div className="mb-4">
-        <h3 className="font-headline text-xl font-semibold">Practice Question</h3>
+        <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
         <p className="text-sm text-muted-foreground flex items-center gap-1">
           Difficulty: {Array.from({ length: 3 }).map((_, i) => (
             <span key={i} className={cn(i < currentExercise.difficulty ? 'text-accent' : 'text-muted-foreground/50')}>⭐</span>
