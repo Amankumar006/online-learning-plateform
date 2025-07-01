@@ -422,7 +422,7 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
              <VideoBlockDisplay url={lesson.videoUrl} />
         )}
 
-        <audio ref={audioRef} src={audioPlayerState.audioUrl || ""} onEnded={handleAudioEnded} />
+        <audio ref={audioRef} src={audioPlayerState.audioUrl || undefined} onEnded={handleAudioEnded} />
 
         <div className="mt-8 pt-6 border-t">
           {isCompleted ? (
