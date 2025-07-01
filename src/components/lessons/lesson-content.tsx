@@ -8,7 +8,7 @@ import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,20 +67,35 @@ const FormattedParagraph = ({ text }: { text: string }) => {
   return <p>{parseTextWithMath(text)}</p>;
 };
 
-const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => (
-    <div className="my-6">
-        <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
-            <div className="flex items-center gap-2">
-                 <Code className="h-5 w-5" />
-                 <span className="text-sm font-semibold">{language}</span>
+const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
+    const [copied, setCopied] = React.useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => {
+            setCopied(false);
+        }, 2000);
+    };
+
+    return (
+        <div className="my-6">
+            <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
+                <div className="flex items-center gap-2">
+                     <Code className="h-5 w-5" />
+                     <span className="text-sm font-semibold">{language}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleCopy}>
+                    {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span className="sr-only">Copy code</span>
+                </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(code)}>Copy</Button>
+            <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
+                <pre><code className={`language-${language}`}>{code}</code></pre>
+            </div>
         </div>
-        <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
-            <pre><code className={`language-${language}`}>{code}</code></pre>
-        </div>
-    </div>
-);
+    );
+};
 
 
 const VideoBlockDisplay = ({ url }: { url: string }) => (
