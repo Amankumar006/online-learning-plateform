@@ -20,6 +20,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 interface SingleExerciseSolverProps {
     exercise: Exercise;
@@ -99,29 +101,24 @@ const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
 );
 
 const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
-  if (!isLoading && !result) {
-    return null; 
-  }
-
   const hasOutput = result?.stdout && result.stdout.length > 0;
   const hasError = result?.stderr && result.stderr.length > 0;
 
   return (
-    <div className="space-y-2">
-       <h4 className="font-semibold text-sm flex items-center gap-2"><Terminal className="h-4 w-4" /> Simulated Console Output</h4>
-        <div className="p-4 bg-black rounded-md text-sm text-white font-mono min-h-[100px] whitespace-pre-wrap">
-            {isLoading ? (
-                 <div className="flex items-center gap-2">
-                    <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
-                 </div>
-            ) : (
-                <>
-                    {hasOutput && <pre>{result.stdout}</pre>}
-                    {hasError && <pre className="text-red-400">{result.stderr}</pre>}
-                    {!hasOutput && !hasError && <p className="text-gray-400">Execution finished with no output.</p>}
-                </>
-            )}
-        </div>
+    <div className="p-4 bg-black rounded-md text-sm text-white font-mono min-h-[200px] whitespace-pre-wrap">
+        {isLoading ? (
+             <div className="flex items-center gap-2">
+                <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
+             </div>
+        ) : result ? (
+            <>
+                {hasOutput && <pre>{result.stdout}</pre>}
+                {hasError && <pre className="text-red-400">{result.stderr}</pre>}
+                {!hasOutput && !hasError && <p className="text-gray-400">Execution finished with no output.</p>}
+            </>
+        ) : (
+             <div className="text-gray-400">Click "Run Code" to see the output here.</div>
+        )}
     </div>
   );
 };
@@ -137,6 +134,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
+  const [activeTab, setActiveTab] = useState("solution");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -147,6 +145,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     setIsCorrect(null);
     setFeedback(null);
     setSimulationResult(null);
+    setActiveTab("solution");
     
     if (initialResponse) {
       setIsAnswered(true);
@@ -248,6 +247,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
 
     setIsSimulating(true);
     setSimulationResult(null);
+    setActiveTab("console");
     try {
       const result = await simulateCodeExecution({
         code: longFormAnswer,
@@ -292,21 +292,40 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             );
         case 'long_form':
             const lfExercise = exercise as LongFormExercise;
-            let mainInput;
+            let mainInput, imageUploader = null;
+            
             if (lfExercise.category === 'code') {
-                 mainInput = <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />;
+                 mainInput = (
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="solution">Solution</TabsTrigger>
+                            <TabsTrigger value="console">Console</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="solution" className="mt-4">
+                            <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />
+                        </TabsContent>
+                        <TabsContent value="console" className="mt-4">
+                            <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
+                        </TabsContent>
+                    </Tabs>
+                );
             } else if (lfExercise.category === 'math') {
                  mainInput = <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />;
             } else {
                 mainInput = <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />;
             }
+            
+            imageUploader = (
+                <>
+                  <Separator />
+                  <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
+                </>
+            );
 
             return (
                 <div className="space-y-6">
                     {mainInput}
-                    {lfExercise.category === 'code' && <ConsoleOutput result={simulationResult} isLoading={isSimulating} />}
-                    <Separator />
-                    <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
+                    {imageUploader}
                 </div>
             );
         default:
@@ -364,3 +383,5 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     </div>
   );
 }
+
+    
