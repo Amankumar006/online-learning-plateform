@@ -99,7 +99,8 @@ export default function NewExercisePage() {
         const exerciseData: Omit<Exercise, 'id'> = {
             lessonId: selectedLessonId,
             ...ex,
-            correctAnswer: String(ex.correctAnswer) // Ensure boolean is converted to string for consistency in DB
+            correctAnswer: String(ex.correctAnswer), // Ensure boolean is converted to string for consistency in DB
+            isCustom: false,
         };
         return createExercise(exerciseData);
       });
