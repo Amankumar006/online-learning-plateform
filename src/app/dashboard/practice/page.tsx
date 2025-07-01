@@ -10,9 +10,9 @@ import { generateCustomExercise, GeneratedExercise } from '@/ai/flows/generate-c
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles, ListChecks, Trash2, Pencil, BrainCircuit, Save } from 'lucide-react';
+import { Loader2, Sparkles, ListChecks, Trash2, Pencil, BrainCircuit, Save, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import SingleExerciseSolver from '@/components/practice/single-exercise-solver';
 
@@ -94,9 +94,9 @@ export default function PracticePage() {
             const result = await generateCustomExercise({ prompt });
             setPreviewExercise(result);
             toast({ title: "Exercise Preview Generated!", description: "Review the exercise below and save it if you like it." });
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to generate exercise. Please try a different prompt.' });
+            toast({ variant: 'destructive', title: 'AI Error', description: e.message || 'Failed to generate exercise. Please try a different prompt.' });
         } finally {
             setIsGenerating(false);
         }
@@ -149,6 +149,15 @@ export default function PracticePage() {
     
     if (isLoading || !user) return <PracticePageSkeleton />;
     
+    const getDifficultyString = (level: number) => {
+        switch (level) {
+            case 1: return 'Beginner';
+            case 2: return 'Intermediate';
+            case 3: return 'Hard';
+            default: return 'N/A';
+        }
+    }
+    
     const getDifficultyBadge = (level: number) => {
         switch (level) {
             case 1: return <Badge variant="secondary">Easy</Badge>;
@@ -179,7 +188,7 @@ export default function PracticePage() {
                     disabled={isGenerating}
                 />
                 <Button onClick={handleGeneratePreview} disabled={isGenerating || !prompt.trim()}>
-                    {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    {isGenerating ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
                     Generate Exercise
                 </Button>
             </CardContent>
@@ -222,7 +231,7 @@ export default function PracticePage() {
                 <CardFooter className="flex justify-end gap-2">
                     <Button variant="ghost" onClick={handleDiscardPreview}>Discard</Button>
                     <Button onClick={handleSaveExercise} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                        {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
                         Save Exercise
                     </Button>
                 </CardFooter>
@@ -238,51 +247,55 @@ export default function PracticePage() {
             {pendingExercises.length > 0 ? (
                 <div className="space-y-4">
                     {pendingExercises.map(ex => (
-                        <Card key={ex.id}>
-                            <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="flex-1 space-y-1">
-                                    <p className="font-semibold">{ex.question}</p>
-                                    <div className="text-sm text-muted-foreground">
-                                        Difficulty: {ex.difficulty}/3 | Category: <span className="capitalize">{ex.category}</span>
-                                        {ex.category === 'code' && ` (${(ex as any).language})`}
-                                    </div>
-                                     <div className="flex flex-wrap gap-1 pt-1">
-                                        {ex.tags?.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
-                                    </div>
+                         <Card key={ex.id}>
+                            <CardContent className="p-4 space-y-4">
+                                <div>
+                                    <h4 className="font-semibold">{ex.question}</h4>
+                                    <p className="text-sm text-muted-foreground capitalize">
+                                        Difficulty: {getDifficultyString(ex.difficulty)} {ex.category === 'code' && `(${(ex as any).language || 'Code'})`}
+                                    </p>
                                 </div>
-                                <div className="flex-shrink-0 flex items-center gap-2 w-full sm:w-auto">
-                                    <Button onClick={() => setSolvingExercise(ex)} className="flex-1 sm:flex-none">
-                                        <Pencil className="mr-2"/>Solve
-                                    </Button>
-                                    <Button variant="destructive" size="icon" onClick={() => handleDiscard(ex.id)}>
-                                        <Trash2 className="h-4 w-4"/>
-                                        <span className="sr-only">Discard</span>
-                                    </Button>
+                                {ex.tags && ex.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center text-xs text-muted-foreground pt-3 border-t">
+                                    <span>Created: {ex.createdAt ? format(new Date(ex.createdAt), 'dd/MM/yyyy') : 'N/A'}</span>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" onClick={() => setSolvingExercise(ex)}><Pencil className="mr-2 h-4 w-4"/>Solve</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handleDiscard(ex.id)}><Trash2 className="mr-2 h-4 w-4"/>Discard</Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
-            ) : <p className="text-muted-foreground">No pending exercises. Generate one above!</p>}
+            ) : <p className="text-muted-foreground text-center py-4">No pending exercises. Generate one above!</p>}
 
             <h3 className="text-lg font-semibold mt-8 mb-2">Recently Completed ({completedExercises.length})</h3>
              {completedExercises.length > 0 ? (
                 <div className="space-y-4">
                     {completedExercises.map(ex => (
-                        <Card key={ex.id} className="opacity-70">
-                             <CardContent className="p-4 flex justify-between items-center gap-4">
-                                <div>
-                                    <p className="font-semibold">{ex.question}</p>
-                                    <p className="text-sm text-muted-foreground">Completed {formatDistanceToNow(responses.get(ex.id)!.submittedAt)} ago</p>
+                        <Card key={ex.id} className="opacity-80">
+                            <CardContent className="p-4">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold">{ex.question}</h4>
+                                        <p className="text-sm text-muted-foreground capitalize">
+                                            Difficulty: {getDifficultyString(ex.difficulty)} ({ex.category})
+                                        </p>
+                                    </div>
+                                    <Badge variant="secondary">
+                                        <CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/>
+                                        Completed
+                                    </Badge>
                                 </div>
-                                <Badge variant={responses.get(ex.id)?.isCorrect ? 'default' : 'destructive'}>
-                                    {responses.get(ex.id)?.isCorrect ? 'Correct' : 'Incorrect'}
-                                </Badge>
                              </CardContent>
                         </Card>
                     ))}
                 </div>
-            ) : <p className="text-muted-foreground">No completed exercises yet.</p>}
+            ) : <p className="text-muted-foreground text-center py-4">No completed exercises yet.</p>}
         </div>
 
         <Dialog open={!!solvingExercise} onOpenChange={(open) => !open && setSolvingExercise(null)}>
@@ -301,4 +314,5 @@ export default function PracticePage() {
         </Dialog>
       </div>
     );
-}
+
+    
