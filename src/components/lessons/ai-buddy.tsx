@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { chatWithAIBuddy } from '@/ai/flows/chat-with-ai-buddy';
-import { Bot, User, Loader2, SendHoriz } from 'lucide-react';
+import { Bot, User, Loader2, SendHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -124,7 +124,7 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
                 disabled={isLoading}
             />
             <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHoriz className="w-4 h-4" />}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
                 <span className="sr-only">Send</span>
             </Button>
         </div>
