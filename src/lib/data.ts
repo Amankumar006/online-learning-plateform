@@ -376,7 +376,7 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
 }
 
 
-export async function saveExerciseResult(userId: string, isCorrect: boolean) {
+export async function saveExerciseResult(userId: string, isCorrect: boolean, score: number) {
     const userRef = doc(db, 'users', userId);
     try {
         await runTransaction(db, async (transaction) => {
@@ -388,7 +388,12 @@ export async function saveExerciseResult(userId: string, isCorrect: boolean) {
             
             const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
             const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-            const newAverageScore = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+            
+            // This needs to be more sophisticated. Let's just track the running total score for now.
+            // A true average would need to store all scores.
+            const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
+            const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
+
             const timePerExercise = 30; // 30 seconds per exercise
             const newTimeSpent = (progress.timeSpent || 0) + timePerExercise;
 

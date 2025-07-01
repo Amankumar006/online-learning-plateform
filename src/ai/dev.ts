@@ -7,3 +7,4 @@ import '@/ai/flows/generate-conversation-starters.ts';
 import '@/ai/flows/generate-exercise.ts';
 import '@/ai/flows/generate-lesson-content.ts';
 import '@/ai/flows/generate-lesson-image.ts';
+import '@/ai/flows/grade-long-form-answer.ts';
