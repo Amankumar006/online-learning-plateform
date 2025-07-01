@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise } from "@/lib/data";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse } from "@/lib/data";
 import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,9 +23,10 @@ interface SingleExerciseSolverProps {
     exercise: Exercise;
     userId: string;
     onSolved: () => void;
+    initialResponse?: UserExerciseResponse | null;
 }
 
-export default function SingleExerciseSolver({ exercise, userId, onSolved }: SingleExerciseSolverProps) {
+export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
   const [isAnswered, setIsAnswered] = useState(false);
@@ -33,6 +34,37 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved }: Sin
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Reset state when exercise changes
+    setSelectedAnswer(null);
+    setLongFormAnswer("");
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setFeedback(null);
+    
+    // If there's an initial response (review mode), populate the state
+    if (initialResponse) {
+      setIsAnswered(true);
+      setIsCorrect(initialResponse.isCorrect);
+
+      if (exercise.type === 'long_form') {
+        setLongFormAnswer(initialResponse.submittedAnswer as string);
+        if (initialResponse.feedback) {
+          setFeedback({
+            isCorrect: initialResponse.isCorrect,
+            score: initialResponse.score,
+            feedback: initialResponse.feedback,
+          });
+        }
+      } else if (exercise.type === 'true_false') {
+        setSelectedAnswer(initialResponse.submittedAnswer ? 'True' : 'False');
+      } else { // mcq
+        setSelectedAnswer(initialResponse.submittedAnswer as string);
+      }
+    }
+  }, [exercise, initialResponse]);
+
 
   const handleAnswerSubmit = async () => {
     let correct = false;
@@ -70,7 +102,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved }: Sin
                 break;
             case 'true_false':
                 submittedAnswer = selectedAnswer === 'True';
-                correct = (exercise.correctAnswer === submittedAnswer);
+                correct = (exercise.correctAnswer as unknown as string === String(submittedAnswer).toLowerCase());
                 break;
         }
         score = correct ? 100 : 0;
@@ -189,12 +221,14 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved }: Sin
         </ScrollArea>
         
         <div className="flex-shrink-0 border-t p-4 flex justify-end gap-2 bg-background">
-            {!isAnswered ? (
-            <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading} size="lg">
-                {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
-            </Button>
+            {initialResponse ? (
+                <Button onClick={onSolved} size="lg">Close</Button>
+            ) : !isAnswered ? (
+                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer) || isGrading} size="lg">
+                    {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
+                </Button>
             ) : (
-            <Button onClick={onSolved} size="lg">Finish & Close</Button>
+                <Button onClick={onSolved} size="lg">Finish & Close</Button>
             )}
         </div>
     </div>
