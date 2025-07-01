@@ -1,5 +1,5 @@
 import { storage } from './firebase';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 /**
  * Uploads a base64 encoded image to Firebase Storage and returns the public URL.
@@ -12,9 +12,10 @@ export async function uploadImageFromDataUrl(dataUrl: string, fileName: string):
         const path = `lesson-images/${fileName}.png`;
         const storageRef = ref(storage, path);
         
-        const base64Data = dataUrl.substring(dataUrl.indexOf(',') + 1);
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
 
-        const snapshot = await uploadString(storageRef, base64Data, 'base64', {
+        const snapshot = await uploadBytes(storageRef, blob, {
             contentType: 'image/png'
         });
         
