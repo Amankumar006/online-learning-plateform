@@ -140,10 +140,10 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved }: Sin
     <div className="animate-in fade-in-0 zoom-in-95 p-1">
         <div className="mb-4">
             <h3 className="font-headline text-lg font-semibold">{exercise.question}</h3>
-            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="capitalize">{exercise.category}</Badge>
                 <Badge variant="outline">Difficulty: {exercise.difficulty}/3</Badge>
-            </p>
+            </div>
         </div>
         <div className="space-y-4">
             {renderExercise()}
