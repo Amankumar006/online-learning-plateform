@@ -8,7 +8,7 @@ import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Headphones } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Headphones, Pause } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
@@ -395,8 +395,8 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
                   <SelectContent>
                       <SelectItem value="Algenib">Voice Algenib</SelectItem>
                       <SelectItem value="Achernar">Voice Achernar</SelectItem>
-                      <SelectItem value="Polaris">Voice Polaris</SelectItem>
-                      <SelectItem value="Regulus">Voice Regulus</SelectItem>
+                      <SelectItem value="Umbriel">Voice Umbriel</SelectItem>
+                      <SelectItem value="Puck">Voice Puck</SelectItem>
                   </SelectContent>
               </Select>
               <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
