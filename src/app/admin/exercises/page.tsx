@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import ExerciseActions from "@/components/admin/ExerciseActions";
 
 function ExercisesSkeleton() {
   return (
@@ -131,14 +132,7 @@ export default function AdminExercisesPage() {
                         {getDifficultyBadge(exercise.difficulty)}
                     </TableCell>
                     <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" disabled>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                        </Button>
-                         <Button variant="ghost" size="icon" disabled>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            <span className="sr-only">Delete</span>
-                        </Button>
+                        <ExerciseActions exerciseId={exercise.id} />
                     </TableCell>
                     </TableRow>
                 ))

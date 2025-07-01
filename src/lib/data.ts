@@ -247,6 +247,27 @@ export async function getUserProgress(userId: string): Promise<UserProgress> {
     };
 }
 
+export async function getExercise(id: string): Promise<Exercise | null> {
+    try {
+        const exerciseRef = doc(db, 'exercises', id);
+        const exerciseSnap = await getDoc(exerciseRef);
+        if (exerciseSnap.exists()) {
+            const data = exerciseSnap.data();
+            // Handle boolean conversion for true/false from string stored in firestore
+            if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
+                data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
+            }
+            return { id: exerciseSnap.id, ...data } as Exercise;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching exercise: ", error);
+        return null;
+    }
+}
+
+
 export async function getExercises(lessonId: string): Promise<Exercise[]> {
     try {
         const q = query(collection(db, "exercises"), where("lessonId", "==", lessonId));
@@ -295,6 +316,25 @@ export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promis
     } catch (error) {
         console.error("Error creating exercise: ", error);
         throw new Error("Failed to create exercise");
+    }
+}
+
+export async function updateExercise(exerciseId: string, exerciseData: Partial<Omit<Exercise, 'id' | 'lessonId'>>): Promise<void> {
+  try {
+    const exerciseRef = doc(db, 'exercises', exerciseId);
+    await updateDoc(exerciseRef, exerciseData);
+  } catch (error) {
+    console.error("Error updating exercise: ", error);
+    throw new Error("Failed to update exercise");
+  }
+}
+
+export async function deleteExercise(exerciseId: string): Promise<void> {
+    try {
+        await deleteDoc(doc(db, 'exercises', exerciseId));
+    } catch (error) {
+        console.error("Error deleting exercise: ", error);
+        throw new Error("Failed to delete exercise");
     }
 }
 
