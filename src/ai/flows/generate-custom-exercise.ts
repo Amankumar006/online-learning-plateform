@@ -10,12 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { GeneratedExercise, GenerateExerciseOutputSchema } from './generate-exercise';
+import { GeneratedExercise, GenerateExerciseOutputSchema } from '@/ai/schemas/exercise-schemas';
 
 const GenerateCustomExerciseInputSchema = z.object({
   prompt: z.string().describe("The user's request for a custom exercise, e.g., 'a python question about lists'"),
 });
 export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseInputSchema>;
+export type { GeneratedExercise };
 
 // We expect the AI to generate a single exercise, so we'll grab the first from the array.
 const GenerateCustomExerciseOutputSchema = GenerateExerciseOutputSchema.transform(output => output.exercises[0]);
