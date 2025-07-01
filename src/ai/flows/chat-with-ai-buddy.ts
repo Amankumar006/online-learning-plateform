@@ -16,12 +16,12 @@ const ChatWithAIBuddyInputSchema = z.object({
   lessonContent: z.string().describe('The content of the lesson the user is currently viewing.'),
   userMessage: z.string().describe('The message sent by the user.'),
 });
-export type ChatWithAIBuddyInput = z.infer<typeof ChatWithAIBuddyInputSchema>;
+type ChatWithAIBuddyInput = z.infer<typeof ChatWithAIBuddyInputSchema>;
 
 const ChatWithAIBuddyOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
 });
-export type ChatWithAIBuddyOutput = z.infer<typeof ChatWithAIBuddyOutputSchema>;
+type ChatWithAIBuddyOutput = z.infer<typeof ChatWithAIBuddyOutputSchema>;
 
 export async function chatWithAIBuddy(input: ChatWithAIBuddyInput): Promise<ChatWithAIBuddyOutput> {
   return chatWithAIBuddyFlow(input);
@@ -30,15 +30,16 @@ export async function chatWithAIBuddy(input: ChatWithAIBuddyInput): Promise<Chat
 const prompt = ai.definePrompt({
     name: 'aiBuddyChatPrompt',
     tools: [summarizeLessonContentTool, generateConversationStartersTool],
-    input: { schema: ChatWithAIBuddyInputSchema },
-    prompt: `You are an AI study buddy. You are friendly, encouraging, and helpful.
+    system: `You are an AI study buddy. You are friendly, encouraging, and helpful.
 The user is currently studying a lesson. Your primary source of information is the provided lesson content.
-Based on the user's message, you can do one of three things:
-1. If the user asks for a summary, to explain something in simpler terms, or a similar request, use the 'summarizeLessonContent' tool.
-2. If the user asks for discussion points, questions to think about, or conversation starters, use the 'generateConversationStarters' tool.
-3. For any other questions, answer them directly using ONLY the provided lesson content. Do not use outside knowledge. If the answer is not in the lesson content, say "I can't find the answer to that in this lesson. Is there another way I can help?".
+You have two tools available:
+- 'summarizeLessonContent': Use this when the user asks for a summary, an explanation in simpler terms, or a similar request.
+- 'generateConversationStarters': Use this when the user asks for discussion points, questions to think about, or conversation starters.
 
-Lesson Content:
+For any other questions, answer them directly using ONLY the provided lesson content. Do not use outside knowledge. If the answer is not in the lesson content, say "I can't find the answer to that in this lesson. Is there another way I can help?".
+Be helpful and conversational. Handle typos gracefully.`,
+    input: { schema: ChatWithAIBuddyInputSchema },
+    prompt: `Lesson Content:
 {{{lessonContent}}}
 
 User's Message:
