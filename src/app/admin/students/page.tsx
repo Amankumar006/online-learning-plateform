@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { getUsers, User } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserActions from "@/components/admin/UserActions";
 
 function StudentsSkeleton() {
   return (
@@ -24,6 +27,7 @@ function StudentsSkeleton() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -37,6 +41,7 @@ function StudentsSkeleton() {
                 </TableCell>
                 <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -49,8 +54,13 @@ function StudentsSkeleton() {
 export default function AdminStudentsPage() {
   const [students, setStudents] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setCurrentUser(user);
+    });
+
     const fetchStudents = async () => {
       setIsLoading(true);
       const usersData = await getUsers();
@@ -58,6 +68,8 @@ export default function AdminStudentsPage() {
       setIsLoading(false);
     };
     fetchStudents();
+
+    return () => unsubscribe();
   }, []);
 
   const breadcrumbItems = [
@@ -96,6 +108,7 @@ export default function AdminStudentsPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -115,11 +128,14 @@ export default function AdminStudentsPage() {
                                 <TableCell>
                                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>
                                 </TableCell>
+                                <TableCell className="text-right">
+                                    <UserActions user={user} currentUserId={currentUser?.uid} />
+                                </TableCell>
                             </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={3} className="text-center">
+                            <TableCell colSpan={4} className="text-center">
                                 No students found.
                             </TableCell>
                         </TableRow>
