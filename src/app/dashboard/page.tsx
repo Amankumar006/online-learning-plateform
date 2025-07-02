@@ -6,23 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Book, Bot, MessageSquare, Sparkles, Target, BookOpen, BrainCircuit } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, Target, BookOpen, BrainCircuit } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
-import { cn } from "@/lib/utils";
 
 function DashboardSkeleton() {
   return (
-    <div className="w-full h-full">
+    <div className="w-full max-w-7xl mx-auto h-full flex items-center justify-center">
       <div className="w-full h-full bg-black/10 dark:bg-black/20 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-white/10 flex flex-col">
         <div className="space-y-2 mb-8">
             <Skeleton className="h-10 w-1/3" />
             <Skeleton className="h-5 w-1/2" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-grow">
           <div className="lg:col-span-2 md:col-span-2 rounded-xl p-6 space-y-4 bg-white/5 backdrop-blur-lg">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-8 w-48" />
@@ -40,11 +39,12 @@ function DashboardSkeleton() {
               <Skeleton className="h-24 w-24 rounded-full" />
               <Skeleton className="h-5 w-24 mt-4" />
           </div>
-        </div>
-        <div className="mt-8 flex-grow">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl bg-white/5" />)}
-              </div>
+        
+          <div className="lg:col-span-4 md:col-span-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-white/5" />)}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full max-w-7xl mx-auto h-full flex items-center justify-center">
       <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10 flex flex-col">
         
         <div className="mb-8">
@@ -170,9 +170,9 @@ export default function DashboardPage() {
                         </Link>
                     ) : (
                         <div className="text-center py-10">
-                            <p className="text-slate-400 mb-4">No new lessons to suggest. Why not review one you've completed?</p>
+                            <p className="text-slate-400 mb-4">You've completed all lessons! Great job!</p>
                             <Button asChild variant="secondary">
-                                <Link href="/dashboard/lessons">Browse All Lessons</Link>
+                                <Link href="/dashboard/lessons">Review Completed Lessons</Link>
                             </Button>
                         </div>
                     )}
