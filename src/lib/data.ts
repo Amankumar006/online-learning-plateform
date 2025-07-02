@@ -440,7 +440,7 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
 }
 
 
-export async function createExercise(exerciseData: Omit<Exercise, 'id' | 'question'>): Promise<string> {
+export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promise<string> {
     try {
         const docRef = await addDoc(collection(db, "exercises"), exerciseData);
         return docRef.id;

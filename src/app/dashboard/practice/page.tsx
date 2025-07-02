@@ -102,14 +102,35 @@ export default function PracticePage() {
     const handleSave = async () => {
         if (!previewExercise || !user) return;
         try {
-            await createExercise({
-                ...previewExercise,
-                lessonId: 'custom',
-                correctAnswer: String(previewExercise.correctAnswer),
-                isCustom: true,
-                userId: user.uid,
-                createdAt: Date.now()
-            });
+            let exerciseData: Omit<Exercise, 'id'>;
+
+            switch (previewExercise.type) {
+                case 'mcq':
+                case 'true_false':
+                    exerciseData = {
+                        ...previewExercise,
+                        correctAnswer: String(previewExercise.correctAnswer),
+                        lessonId: 'custom',
+                        isCustom: true,
+                        userId: user.uid,
+                        createdAt: Date.now()
+                    };
+                    break;
+                case 'long_form':
+                case 'fill_in_the_blanks':
+                    exerciseData = {
+                        ...previewExercise,
+                        lessonId: 'custom',
+                        isCustom: true,
+                        userId: user.uid,
+                        createdAt: Date.now()
+                    };
+                    break;
+                default:
+                    throw new Error("Unsupported exercise type");
+            }
+
+            await createExercise(exerciseData);
             toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
             setPrompt("");
             setPreviewExercise(null);
@@ -189,11 +210,11 @@ export default function PracticePage() {
                     <h3 className="text-lg font-semibold">AI Generated Preview</h3>
                      <Card className="w-full bg-secondary/30">
                         <CardContent className="p-4 space-y-3">
-                           <p className="font-semibold">{previewExercise.question}</p>
+                           <p className="font-semibold">{previewExercise.type !== 'fill_in_the_blanks' ? (previewExercise as any).question : previewExercise.questionParts.join(' ___ ')}</p>
                            <div className="flex flex-wrap gap-2">
                                 {previewExercise.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                                 {getDifficultyBadge(previewExercise.difficulty)}
-                                {previewExercise.type && <Badge variant="secondary" className="capitalize">{previewExercise.type.replace('_', ' ')}</Badge>}
+                                {previewExercise.type && <Badge variant="secondary" className="capitalize">{previewExercise.type.replace(/_/g, ' ')}</Badge>}
                            </div>
                         </CardContent>
                     </Card>
@@ -218,7 +239,7 @@ export default function PracticePage() {
                         {pendingExercises.map(ex => (
                             <Card key={ex.id}>
                                 <CardContent className="p-4 flex flex-col gap-3">
-                                    <p className="font-semibold leading-relaxed">{ex.question}</p>
+                                    <p className="font-semibold leading-relaxed">{ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}</p>
                                     {ex.tags && ex.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-2">
                                             {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
@@ -252,7 +273,7 @@ export default function PracticePage() {
                              return (
                                 <Card key={ex.id} className="opacity-80">
                                      <CardContent className="p-4 flex flex-col gap-3">
-                                        <p className="font-semibold leading-relaxed">{ex.question}</p>
+                                        <p className="font-semibold leading-relaxed">{ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}</p>
                                         {ex.tags && ex.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-2">
                                                 {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}

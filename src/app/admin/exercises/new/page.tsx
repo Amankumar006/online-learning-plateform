@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExercise, getLessons, Lesson, getLesson, Exercise } from "@/lib/data";
+import { createExercise, getLessons, Lesson, getLesson, Exercise, createAnnouncement } from "@/lib/data";
 import { generateExercise, GeneratedExercise } from "@/ai/flows/generate-exercise";
 import { Loader2, Sparkles, Wand2, BrainCircuit } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -108,26 +108,43 @@ export default function NewExercisePage() {
 
     try {
       const exercisePromises = generatedExercises.map(ex => {
-        let exerciseData: Omit<Exercise, 'id' | 'question'>;
-        if (ex.type === 'fill_in_the_blanks') {
-          exerciseData = {
-              ...ex,
-              lessonId: selectedLessonId,
-              isCustom: false,
-          };
-        } else {
-           exerciseData = {
-              ...(ex as any), // Cast to handle the union type
-              lessonId: selectedLessonId,
-              correctAnswer: String((ex as any).correctAnswer), // Ensure boolean is converted to string for consistency in DB
-              isCustom: false,
-           };
+        let exerciseData: Omit<Exercise, 'id'>;
+        switch (ex.type) {
+            case 'mcq':
+            case 'true_false':
+                exerciseData = {
+                    ...ex,
+                    correctAnswer: String(ex.correctAnswer),
+                    lessonId: selectedLessonId,
+                    isCustom: false,
+                };
+                break;
+            case 'long_form':
+            case 'fill_in_the_blanks':
+                exerciseData = {
+                    ...ex,
+                    lessonId: selectedLessonId,
+                    isCustom: false,
+                };
+                break;
+            default:
+                // This should not happen with validated data from the AI
+                throw new Error("Unsupported exercise type");
         }
-        
         return createExercise(exerciseData);
       });
       
       await Promise.all(exercisePromises);
+
+      const lesson = lessons.find(l => l.id === selectedLessonId);
+      if (lesson) {
+          await createAnnouncement({
+              type: 'new_exercise',
+              title: `New Exercises for "${lesson.title}"`,
+              message: `New practice questions are available for one of your lessons.`,
+              link: `/dashboard/lessons/${selectedLessonId}`
+          });
+      }
 
       toast({
         title: "Success!",

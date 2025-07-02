@@ -83,20 +83,27 @@ export default function NewCustomExercisePage() {
 
     setIsSaving(true);
     try {
-        let exerciseData: Omit<Exercise, 'id' | 'question'>;
-        if (previewExercise.type === 'fill_in_the_blanks') {
-          exerciseData = {
-              ...previewExercise,
-              lessonId: selectedLessonId,
-              isCustom: false, // Admin-created exercises are part of the curriculum
-          };
-        } else {
-           exerciseData = {
-              ...(previewExercise as any),
-              lessonId: selectedLessonId,
-              correctAnswer: String((previewExercise as any).correctAnswer),
-              isCustom: false,
-           };
+        let exerciseData: Omit<Exercise, 'id'>;
+        switch (previewExercise.type) {
+            case 'mcq':
+            case 'true_false':
+                exerciseData = {
+                    ...previewExercise,
+                    correctAnswer: String(previewExercise.correctAnswer),
+                    lessonId: selectedLessonId,
+                    isCustom: false,
+                };
+                break;
+            case 'long_form':
+            case 'fill_in_the_blanks':
+                exerciseData = {
+                    ...previewExercise,
+                    lessonId: selectedLessonId,
+                    isCustom: false,
+                };
+                break;
+            default:
+                throw new Error("Unsupported exercise type");
         }
       
         await createExercise(exerciseData);
