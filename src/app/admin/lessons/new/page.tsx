@@ -27,7 +27,13 @@ export default function NewLessonPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  
+  // AI prompt state
   const [aiTopic, setAiTopic] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
+  const [curriculumBoard, setCurriculumBoard] = useState("");
+  const [topicDepth, setTopicDepth] = useState("");
   
   // Form state
   const [title, setTitle] = useState("");
@@ -45,7 +51,13 @@ export default function NewLessonPage() {
     }
     setIsGenerating(true);
     try {
-        const result = await generateLessonContent({ topic: aiTopic });
+        const result = await generateLessonContent({
+             topic: aiTopic,
+             gradeLevel,
+             ageGroup,
+             curriculumBoard,
+             topicDepth
+        });
         setTitle(result.title);
         setSubject(result.subject);
         setDescription(result.description);
@@ -113,6 +125,10 @@ export default function NewLessonPage() {
         difficulty,
         sections,
         tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        gradeLevel,
+        ageGroup,
+        curriculumBoard,
+        topicDepth,
       };
 
       await createLesson(lessonData);
@@ -156,21 +172,60 @@ export default function NewLessonPage() {
               <Sparkles className="h-4 w-4" />
               <AlertTitle>AI Lesson Generator</AlertTitle>
               <AlertDescription className="mb-4">
-                  Enter a topic, and let AI generate the entire lesson structure for you.
+                  Enter a topic and provide educational context, and let AI generate the entire lesson structure for you.
               </AlertDescription>
-              <div className="flex flex-col sm:flex-row gap-4">
-                  <Input 
-                      id="ai-topic" 
-                      value={aiTopic} 
-                      onChange={(e) => setAiTopic(e.target.value)} 
-                      placeholder="e.g., Introduction to Photosynthesis"
-                      className="flex-grow"
-                      disabled={canGenerate}
-                  />
-                  <Button type="button" variant="outline" onClick={handleGenerateLesson} disabled={canGenerate || !aiTopic.trim()} className="shrink-0">
-                      {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                      Generate with AI
-                  </Button>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="ai-topic">Lesson Topic</Label>
+                    <Input 
+                        id="ai-topic" 
+                        value={aiTopic} 
+                        onChange={(e) => setAiTopic(e.target.value)} 
+                        placeholder="e.g., Introduction to Photosynthesis"
+                        className="flex-grow"
+                        disabled={canGenerate}
+                    />
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="gradeLevel">Grade Level</Label>
+                        <Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" disabled={canGenerate}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ageGroup">Age Group</Label>
+                        <Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" disabled={canGenerate}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="curriculumBoard">Curriculum Board</Label>
+                        <Select onValueChange={setCurriculumBoard} value={curriculumBoard} disabled={canGenerate}>
+                            <SelectTrigger><SelectValue placeholder="Select Board" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="CBSE">CBSE</SelectItem>
+                                <SelectItem value="ICSE">ICSE</SelectItem>
+                                <SelectItem value="NCERT">NCERT</SelectItem>
+                                <SelectItem value="State Board">State Board</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="topicDepth">Topic Depth</Label>
+                        <Select onValueChange={setTopicDepth} value={topicDepth} disabled={canGenerate}>
+                            <SelectTrigger><SelectValue placeholder="Select Depth" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Introductory">Introductory</SelectItem>
+                                <SelectItem value="Detailed">Detailed</SelectItem>
+                                <SelectItem value="Comprehensive">Comprehensive</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <div className="flex justify-end">
+                    <Button type="button" variant="outline" onClick={handleGenerateLesson} disabled={canGenerate || !aiTopic.trim()} className="shrink-0">
+                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Generate with AI
+                    </Button>
+                </div>
               </div>
             </Alert>
 

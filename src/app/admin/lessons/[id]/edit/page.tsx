@@ -57,6 +57,7 @@ export default function EditLessonPage() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
+  // Form state
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -64,6 +65,11 @@ export default function EditLessonPage() {
   const [difficulty, setDifficulty] = useState<"Beginner" | "Intermediate" | "Advanced">("Beginner");
   const [tags, setTags] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
+  // New educational context state
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
+  const [curriculumBoard, setCurriculumBoard] = useState("");
+  const [topicDepth, setTopicDepth] = useState("");
   
   useEffect(() => {
     if (!lessonId) return;
@@ -81,6 +87,11 @@ export default function EditLessonPage() {
           setDifficulty(lessonData.difficulty);
           setTags(lessonData.tags?.join(', ') || "");
           setSections(lessonData.sections || []);
+          // Set new fields
+          setGradeLevel(lessonData.gradeLevel || "");
+          setAgeGroup(lessonData.ageGroup || "");
+          setCurriculumBoard(lessonData.curriculumBoard || "");
+          setTopicDepth(lessonData.topicDepth || "");
         } else {
             toast({ variant: "destructive", title: "Error", description: "Lesson not found." });
             router.push('/admin/lessons');
@@ -147,6 +158,10 @@ export default function EditLessonPage() {
         difficulty,
         sections,
         tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        gradeLevel,
+        ageGroup,
+        curriculumBoard,
+        topicDepth,
       };
 
       await updateLesson(lessonId, lessonData);
@@ -209,6 +224,44 @@ export default function EditLessonPage() {
               <Label htmlFor="description">Short Description</Label>
               <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the lesson." required />
             </div>
+
+             <div className="pt-6 border-t space-y-4">
+                <h3 className="text-lg font-medium">Educational Context</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="gradeLevel">Grade Level</Label>
+                        <Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ageGroup">Age Group</Label>
+                        <Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="curriculumBoard">Curriculum Board</Label>
+                        <Select onValueChange={setCurriculumBoard} value={curriculumBoard}>
+                            <SelectTrigger><SelectValue placeholder="Select Board" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="CBSE">CBSE</SelectItem>
+                                <SelectItem value="ICSE">ICSE</SelectItem>
+                                <SelectItem value="NCERT">NCERT</SelectItem>
+                                <SelectItem value="State Board">State Board</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="topicDepth">Topic Depth</Label>
+                        <Select onValueChange={setTopicDepth} value={topicDepth}>
+                            <SelectTrigger><SelectValue placeholder="Select Depth" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Introductory">Introductory</SelectItem>
+                                <SelectItem value="Detailed">Detailed</SelectItem>
+                                <SelectItem value="Comprehensive">Comprehensive</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+             </div>
             
             <div className="space-y-4 rounded-lg border p-4">
                 <Label className="text-base font-medium">Lesson Content</Label>

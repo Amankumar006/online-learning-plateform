@@ -14,6 +14,11 @@ import { GeneratedExercise, GeneratedExerciseSchema } from '@/ai/schemas/exercis
 
 const GenerateCustomExerciseInputSchema = z.object({
   prompt: z.string().describe("The user's request for a custom exercise, e.g., 'a python question about lists'"),
+  gradeLevel: z.string().optional().describe('The grade level for the students (e.g., "10th", "12th").'),
+  ageGroup: z.string().optional().describe('The age group of the students (e.g., "15-17 years old").'),
+  curriculumBoard: z.string().optional().describe('The curriculum board (e.g., "CBSE", "ICSE", "NCERT", "State Board").'),
+  difficulty: z.number().min(1).max(3).optional().describe('The desired difficulty from 1 (easy) to 3 (hard).'),
+  questionType: z.enum(['mcq', 'true_false', 'long_form', 'fill_in_the_blanks', 'any']).optional().describe("The preferred question type. 'any' lets the AI decide."),
 });
 export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseInputSchema>;
 export type { GeneratedExercise };
@@ -31,19 +36,26 @@ const prompt = ai.definePrompt({
   name: 'generateCustomExercisePrompt',
   input: {schema: GenerateCustomExerciseInputSchema},
   output: {schema: GeneratedExerciseSchema},
-  prompt: `You are an expert curriculum developer. A user wants you to create a custom exercise for them.
-Based on the user's request, generate a single, high-quality exercise.
+  prompt: `You are an expert curriculum developer. An admin wants you to create a single custom exercise based on their prompt and structured context.
+
+**Admin's Request:**
+"{{{prompt}}}"
+
+**Structured Context:**
+{{#if gradeLevel}}- Grade Level: {{gradeLevel}}{{/if}}
+{{#if ageGroup}}- Age Group: {{ageGroup}}{{/if}}
+{{#if curriculumBoard}}- Curriculum Board: {{curriculumBoard}} (Align the question style, terminology, and complexity with this board's standards.){{/if}}
+{{#if difficulty}}- Difficulty: {{difficulty}} (1=easy, 2=medium, 3=hard){{/if}}
+{{#if questionType}}- Preferred Question Type: {{questionType}} (if 'any', choose the best fit for the prompt){{/if}}
+
 
 **Instructions:**
-1.  **Analyze the Request:** Understand the core topic, desired difficulty, and programming language (if any) from the user's prompt.
-2.  **Choose the Best Type:** Decide if the question is best suited as a Multiple-Choice ('mcq'), True/False ('true_false'), Long-Form ('long_form'), or Fill-in-the-Blanks ('fill_in_the_blanks') question.
-3.  **Generate Full Content:** Create all the necessary fields for the chosen type (question, options, answer, explanation, criteria, hint, etc.).
-4.  **Categorize:** Assign a category: 'code', 'math', or 'general'.
-5.  **Set Difficulty:** Assign a difficulty from 1 (easy) to 3 (hard).
+1.  **Analyze Request and Context:** Understand the core topic, desired difficulty, grade level, and curriculum standards from all provided information.
+2.  **Choose the Best Type:** If a 'questionType' is specified and is not 'any', you MUST generate that type. If it's 'any' or not provided, choose the most suitable type based on the prompt.
+3.  **Generate Full Content:** Create all the necessary fields for the chosen type (question, options, answer, explanation, criteria, hint, etc.). Ensure the content is age-appropriate and aligns with the specified curriculum.
+4.  **Set Difficulty:** If a difficulty level is provided in the context, use it. Otherwise, infer a difficulty level (1-3) from the prompt.
+5.  **Categorize:** Assign a category: 'code', 'math', or 'general'.
 6.  **Add Tags:** Generate 3-4 relevant string tags (e.g., 'python', 'arrays', 'loops').
-
-**User's Request:**
-"{{{prompt}}}"
 
 Return your response as a single JSON object that conforms to the exercise schema. Do not wrap it in any other object or array.
 `,

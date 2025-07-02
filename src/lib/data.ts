@@ -44,6 +44,11 @@ export interface Lesson {
   // Old structure for backward compatibility
   content?: ContentBlock[] | string;
   videoUrl?: string;
+  // New fields for educational context
+  gradeLevel?: string;
+  ageGroup?: string;
+  curriculumBoard?: string;
+  topicDepth?: string;
 }
 
 export interface UserProgress {

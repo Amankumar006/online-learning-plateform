@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import ExerciseActions from "@/components/admin/ExerciseActions";
@@ -95,19 +95,27 @@ export default function AdminExercisesPage() {
         <Breadcrumb items={breadcrumbItems} />
         <Card>
         <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
                 <div>
                     <CardTitle>Manage Exercises</CardTitle>
                     <CardDescription>
                         Here you can create, edit, and delete exercises.
                     </CardDescription>
                 </div>
-                <Button asChild>
-                    <Link href="/admin/exercises/new">
-                        <PlusCircle className="mr-2"/>
-                        Create Exercise Set
-                    </Link>
-                </Button>
+                <div className="flex gap-2">
+                    <Button asChild variant="outline">
+                        <Link href="/admin/exercises/new-custom">
+                            <Sparkles className="mr-2"/>
+                            Create Custom Exercise
+                        </Link>
+                    </Button>
+                    <Button asChild>
+                        <Link href="/admin/exercises/new">
+                            <PlusCircle className="mr-2"/>
+                            Create Exercise Set
+                        </Link>
+                    </Button>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
