@@ -58,6 +58,18 @@ export default function DashboardNav() {
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
 
+  // Find the most specific active item
+  const getActiveItem = () => {
+    const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
+    if (matchingItems.length === 0) return null;
+
+    // Find the item with the longest href, which is the most specific match
+    return matchingItems.reduce((best, current) => {
+        return current.href.length > best.href.length ? current : best;
+    });
+  };
+  const activeItem = getActiveItem();
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -82,9 +94,12 @@ export default function DashboardNav() {
   }, []);
   
   useEffect(() => {
-    if (isLoading || !navContainerRef.current) return;
+    if (isLoading || !navContainerRef.current || !activeItem) {
+        setHighlighterStyle({ opacity: 0 });
+        return;
+    };
 
-    const activeIndex = navItems.findIndex((item) => pathname.startsWith(item.href));
+    const activeIndex = navItems.findIndex((item) => item.href === activeItem.href);
     const activeLinkEl = navContainerRef.current.children[activeIndex] as HTMLElement | undefined;
 
     if (activeLinkEl) {
@@ -96,7 +111,7 @@ export default function DashboardNav() {
     } else {
       setHighlighterStyle({ opacity: 0 });
     }
-  }, [pathname, isLoading]);
+  }, [pathname, isLoading, activeItem]);
 
   const handlePopoverOpenChange = async (open: boolean) => {
       setIsPopoverOpen(open);
@@ -150,7 +165,7 @@ export default function DashboardNav() {
                 asChild
                 className={cn(
                   "relative z-10 rounded-full transition-colors",
-                  pathname.startsWith(item.href)
+                  activeItem?.href === item.href
                     ? "text-primary-foreground"
                     : "text-muted-foreground hover:text-primary-foreground"
                 )}
@@ -235,7 +250,7 @@ export default function DashboardNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 rounded-lg text-sm font-medium transition-colors",
-                pathname.startsWith(item.href)
+                activeItem?.href === item.href
                   ? "bg-muted text-primary"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-primary"
               )}
