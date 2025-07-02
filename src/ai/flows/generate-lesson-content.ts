@@ -31,15 +31,9 @@ const CodeBlockSchema = z.object({
     code: z.string().describe("The code snippet."),
 });
 
-const VideoBlockSchema = z.object({
-    type: z.enum(['video']),
-    url: z.string().describe("A relevant YouTube embed URL."),
-});
-
 const BlockSchema = z.discriminatedUnion("type", [
     TextBlockSchema,
     CodeBlockSchema,
-    VideoBlockSchema
 ]);
 
 const SectionSchema = z.object({
@@ -91,7 +85,6 @@ The lesson MUST be tailored to the following student profile:
     - Supported block types are:
         1.  \`{ "type": "text", "content": "..." }\`: For paragraphs. Use Markdown for formatting and LaTeX for equations (e.g., $ax^2+bx+c=0$). Start a text block's content with '**Example:**' or '**Question:**' to have it be specially highlighted.
         2.  \`{ "type": "code", "language": "...", "code": "..." }\`: For code snippets.
-        3.  \`{ "type": "video", "url": "..." }\`: For embedding videos. Provide a relevant YouTube embed URL.
 
 **Content Guidelines:**
 - Begin with a warm, friendly introduction.

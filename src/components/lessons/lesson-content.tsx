@@ -8,7 +8,7 @@ import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Video, Copy, Headphones, Pause } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Headphones, Pause } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
@@ -150,31 +150,12 @@ const TextContentRenderer = ({ text }: { text: string }) => {
   return <>{renderedSegments}</>;
 };
 
-
-const VideoBlockDisplay = ({ url }: { url: string }) => (
-    <div className="my-8" >
-        <h3 className="text-xl font-semibold mb-4 font-headline flex items-center gap-2"><Video /> Watch a video lesson</h3>
-        <div className="aspect-video">
-            <iframe
-                className="w-full h-full rounded-lg"
-                src={url}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-            ></iframe>
-        </div>
-    </div>
-);
-
 const BlockRenderer = ({ block }: { block: Block }) => {
     switch (block.type) {
         case 'text':
             return <TextContentRenderer text={block.content} />;
         case 'code':
             return <CodeBlockDisplay language={block.language} code={block.code} />;
-        case 'video':
-            return <VideoBlockDisplay url={block.url} />;
         default:
             return null;
     }
@@ -369,7 +350,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     if (Array.isArray(lesson.content)) {
         return lesson.content.map((block, index) => {
             if (block.type === 'paragraph') return <TextContentRenderer key={index} text={block.value} />;
-            if (block.type === 'video') return <VideoBlockDisplay key={index} url={block.value} />;
             return null;
         });
     }
@@ -434,10 +414,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
         <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
             {renderContent()}
         </div>
-
-        {lesson.videoUrl && !lesson.sections && (
-             <VideoBlockDisplay url={lesson.videoUrl} />
-        )}
 
         <audio ref={audioRef} src={audioPlayerState.audioUrl || undefined} onEnded={handleAudioEnded} />
 

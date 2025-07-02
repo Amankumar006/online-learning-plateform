@@ -19,11 +19,8 @@ export interface CodeBlock {
     language: string;
     code: string;
 }
-export interface VideoBlock {
-    type: 'video';
-    url: string;
-}
-export type Block = TextBlock | CodeBlock | VideoBlock;
+
+export type Block = TextBlock | CodeBlock;
 
 export interface Section {
     title: string;
