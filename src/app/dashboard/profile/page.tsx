@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { getUser, User } from '@/lib/data';
+import { getUser, User, updateUserProfile } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 function ProfileSkeleton() {
     return (
@@ -72,6 +73,7 @@ export default function ProfilePage() {
     const [name, setName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSendingVerification, setIsSendingVerification] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -92,6 +94,28 @@ export default function ProfilePage() {
         if (!nameStr) return "U";
         return nameStr.split(' ').map((n) => n[0]).join('').toUpperCase();
     };
+    
+    const handleResendVerification = async () => {
+        if (!user) return;
+        setIsSendingVerification(true);
+        try {
+            await sendEmailVerification(user);
+            toast({
+                title: "Verification Email Sent",
+                description: "Please check your inbox."
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to send verification email."
+            });
+        } finally {
+            setIsSendingVerification(false);
+        }
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -167,8 +191,25 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
-                            <Input id="email" value={userProfile.email || ''} disabled />
+                             <div className="flex items-center gap-4">
+                                <Input id="email" value={userProfile.email || ''} disabled className="flex-grow" />
+                                {user?.emailVerified ? (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">Verified</Badge>
+                                ) : (
+                                    <Badge variant="destructive" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300">Not Verified</Badge>
+                                )}
+                            </div>
                         </div>
+
+                         {!user?.emailVerified && (
+                            <div className="p-4 border rounded-md bg-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <p className="text-sm text-muted-foreground text-center sm:text-left">Your email address is not verified. Please check your inbox for a verification link.</p>
+                                <Button type="button" variant="outline" onClick={handleResendVerification} disabled={isSendingVerification} className="w-full sm:w-auto">
+                                    {isSendingVerification && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Resend Email
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                     <CardFooter className="border-t px-6 py-4">
                         <Button type="submit" disabled={isSaving} className="ml-auto">

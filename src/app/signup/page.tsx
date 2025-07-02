@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, sendEmailVerification } from "firebase/auth";
 import { createUserInFirestore, getUser } from "@/lib/data";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -54,11 +54,12 @@ export default function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
+      await sendEmailVerification(user);
       await createUserInFirestore(user.uid, user.email!, name);
 
       toast({
         title: "Account Created",
-        description: "Welcome to AdaptEd AI!",
+        description: "A verification email has been sent. Please check your inbox.",
       });
 
       router.push("/dashboard");
