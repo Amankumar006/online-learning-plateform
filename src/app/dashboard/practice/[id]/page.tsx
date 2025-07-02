@@ -10,12 +10,10 @@ import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function SolverPageSkeleton() {
     return (
         <div className="space-y-4">
-            <Breadcrumb items={[{ href: "/dashboard", label: "Dashboard" }, { href: "/dashboard/practice", label: "Practice" }, { href: "#", label: "..." }]} />
             <div className="border rounded-lg h-[calc(100vh-14rem)] flex flex-col p-6 space-y-6">
                 {/* Question Skeleton */}
                 <div className="space-y-3">
@@ -92,12 +90,6 @@ export default function SolveExercisePage() {
         router.push('/dashboard/practice');
     };
     
-    const breadcrumbItems = [
-        { href: "/dashboard", label: "Dashboard" },
-        { href: "/dashboard/practice", label: "Practice" },
-        { href: `/dashboard/practice/${exerciseId}`, label: exercise ? (response ? "Review Exercise" : "Solve Exercise") : "..." },
-    ];
-
     if (isLoading) {
         return <SolverPageSkeleton />;
     }
@@ -115,7 +107,6 @@ export default function SolveExercisePage() {
 
     return (
         <div className="space-y-4">
-             <Breadcrumb items={breadcrumbItems} />
              <div className="flex flex-col h-full bg-card rounded-lg border">
                  <SingleExerciseSolver
                     exercise={exercise}

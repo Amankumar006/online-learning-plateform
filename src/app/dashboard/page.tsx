@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
@@ -13,37 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { LogoutButton } from "@/components/auth/LogoutButton";
 
 function DashboardSkeleton() {
   return (
     <div className="w-full h-full p-4 sm:p-6 flex flex-col">
-      <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10 flex flex-col">
-        {/* Header Skeleton */}
-        <header className="flex items-center justify-between pb-4 border-b border-slate-100/10 mb-6">
-            <div className="flex items-center gap-6">
-                <Skeleton className="h-6 w-32" />
-                <div className="hidden md:flex items-center gap-4">
-                     <Skeleton className="h-5 w-20" />
-                     <Skeleton className="h-5 w-20" />
-                     <Skeleton className="h-5 w-20" />
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                 <Skeleton className="h-8 w-8 rounded-full" />
-            </div>
-        </header>
-
+      <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-6 rounded-2xl border border-slate-100/10 flex flex-col">
         {/* Main Grid Skeleton */}
         <div className="flex-grow">
             <div className="mb-8 space-y-2">
@@ -83,7 +57,6 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -147,18 +120,6 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, []);
 
-  const navItems = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/lessons", label: "Lessons" },
-    { href: "/dashboard/practice", label: "Practice" },
-    { href: "/dashboard/progress", label: "Progress" },
-  ];
-
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  }
-
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
@@ -201,8 +162,8 @@ export default function DashboardPage() {
   const overallProgress = userProgress?.mastery || 0;
 
   return (
-    <div className="w-full h-full p-4 sm:p-6 flex flex-col">
-      <div className="relative w-full h-full bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden">
+    <div className="w-full h-full flex flex-col">
+      <div className="relative w-full flex-grow bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden p-6">
         
         {/* Background Decorative SVG */}
         <div className="absolute inset-0 z-0 opacity-50">
@@ -236,53 +197,7 @@ export default function DashboardPage() {
         
         {/* Main Content */}
         <div className="relative z-10 flex flex-col h-full">
-            <header className="flex items-center justify-between p-4 border-b border-slate-100/10 mb-6 flex-shrink-0">
-                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
-                    <BookOpenCheck className="h-6 w-6 text-primary" />
-                    <span className="font-bold font-headline">AdaptEd AI</span>
-                </Link>
-                <div className="flex items-center gap-6">
-                     <nav className="hidden md:flex items-center gap-4 text-sm">
-                        {navItems.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                "transition-colors hover:text-white",
-                                (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href))
-                                ? "text-white font-semibold"
-                                : "text-slate-400"
-                            )}
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
-                    </nav>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src="https://placehold.co/32x32.png" alt={userProfile?.name || "User"} />
-                                    <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>
-                                </Avatar>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>{userProfile?.name || "My Account"}</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
-                            <DropdownMenuItem>Support</DropdownMenuItem>
-                            <DropdownMenuItem>
-                               <ThemeToggle />
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <LogoutButton />
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </header>
-
-            <div className="flex-grow overflow-y-auto px-6 pb-6">
+            <div className="flex-grow overflow-y-auto">
                 <div className="mb-8">
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-headline">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
                     <p className="text-slate-400 text-md">Let's continue your learning journey.</p>

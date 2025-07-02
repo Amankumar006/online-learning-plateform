@@ -7,7 +7,6 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Zap, Activity, Clock, TrendingUp } from "lucide-react";
 import SubjectActivityChart from "@/components/progress/SubjectActivityChart";
 import WeeklyActivityChart from "@/components/progress/WeeklyActivityChart";
@@ -84,25 +83,17 @@ export default function ProgressPage() {
       </div>
     )
   }
-
-  const breadcrumbItems = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/progress", label: "Progress" },
-  ];
   
   const timeSpentHours = userProgress.timeSpent ? (userProgress.timeSpent / 3600).toFixed(1) : "0.0";
 
   return (
     <div className="space-y-6">
-        <div>
-            <Breadcrumb items={breadcrumbItems} />
-            <div className="flex items-center gap-2">
-                 <TrendingUp className="h-8 w-8 text-primary" />
-                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Your Learning Progress</h1>
-                    <p className="text-muted-foreground">Visualize your achievements and track your journey towards mastery.</p>
-                 </div>
-            </div>
+        <div className="flex items-center gap-2">
+             <TrendingUp className="h-8 w-8 text-primary" />
+             <div>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">Your Learning Progress</h1>
+                <p className="text-muted-foreground">Visualize your achievements and track your journey towards mastery.</p>
+             </div>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -103,7 +103,7 @@ export default function AdminLayout({
           <span className="font-bold">Admin Panel</span>
         </Link>
 
-        <div className="flex items-center gap-4 md:gap-5">
+        <div className="flex items-center gap-2 md:gap-4">
           <nav className="hidden flex-row items-center gap-5 text-sm md:flex lg:gap-6">
             {navItems.map((item) => (
               <Link
@@ -120,6 +120,7 @@ export default function AdminLayout({
               </Link>
             ))}
           </nav>
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -142,9 +143,6 @@ export default function AdminLayout({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
-              <DropdownMenuItem>
-                <ThemeToggle />
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <LogoutButton />
             </DropdownMenuContent>

@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -103,19 +102,9 @@ export default function ProfilePage() {
             setIsSaving(false);
         }
     };
-
-    const breadcrumbItems = [
-        { href: "/dashboard", label: "Dashboard" },
-        { href: "/dashboard/profile", label: "Profile" },
-    ];
     
     if (isLoading) {
-        return (
-            <div>
-                <Breadcrumb items={breadcrumbItems} />
-                <ProfileSkeleton />
-            </div>
-        );
+        return <ProfileSkeleton />;
     }
     
     if (!userProfile) {
@@ -124,7 +113,6 @@ export default function ProfilePage() {
 
     return (
         <div>
-            <Breadcrumb items={breadcrumbItems} />
             <form onSubmit={handleSubmit}>
                 <Card>
                     <CardHeader>

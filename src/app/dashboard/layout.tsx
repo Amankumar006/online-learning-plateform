@@ -1,11 +1,12 @@
 
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import DashboardNav from "@/components/dashboard/DashboardNav";
 
 function DashboardLoader() {
   return (
@@ -41,7 +42,8 @@ export default function DashboardLayout({
   
   return (
     <div className="flex min-h-screen w-full flex-col font-body">
-      <main className="flex-1 flex flex-col">
+      <DashboardNav />
+      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8">
         {children}
       </main>
     </div>
