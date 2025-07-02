@@ -1,12 +1,16 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
-import { format, startOfWeek } from 'date-fns';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp } from 'firebase/firestore';
+import { format, startOfWeek, subDays } from 'date-fns';
+import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
+import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
+import { uploadImageFromDataUrl } from './storage';
+
 
 // Old structure
 export interface ContentBlock {
-  type: 'paragraph' | 'video';
+  type: 'paragraph';
   value: string;
 }
 
@@ -41,7 +45,6 @@ export interface Lesson {
   sections?: Section[];
   // Old structure for backward compatibility
   content?: ContentBlock[] | string;
-  videoUrl?: string;
   // New fields for educational context
   gradeLevel?: string;
   ageGroup?: string;
@@ -73,6 +76,7 @@ export interface User {
   name?: string;
   role: 'student' | 'admin';
   progress: UserProgress;
+  lastLessonRequestAt?: number;
 }
 
 // New Exercise Data Structure
@@ -126,6 +130,19 @@ export interface UserExerciseResponse {
   score: number;
   feedback?: string;
   submittedAt: number; // using timestamp for sorting
+}
+
+export interface LessonRequest {
+    id: string;
+    userId: string;
+    userName: string;
+    title: string;
+    subject: string;
+    description: string;
+    learningFormat: string;
+    notes?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: Timestamp;
 }
 
 
@@ -189,6 +206,7 @@ export async function createUserInFirestore(uid: string, email: string, name: st
             email,
             name,
             role: 'student', // Default role for new signups
+            lastLessonRequestAt: null,
             progress: {
                 completedLessons: 0,
                 averageScore: 0,
@@ -610,4 +628,85 @@ export async function getUserResponseForExercise(userId: string, exerciseId: str
         console.error("Error fetching user response for exercise:", error);
         return null;
     }
+}
+
+// Lesson Request Functions
+export async function createLessonRequest(userId: string, userName: string, requestData: Omit<LessonRequest, 'id' | 'userId' | 'userName' | 'status' | 'createdAt'>): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const requestRef = collection(db, 'lessonRequests');
+
+    await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) {
+            throw new Error("User not found.");
+        }
+
+        const userData = userDoc.data() as User;
+        const lastRequestTimestamp = userData.lastLessonRequestAt || 0;
+        const oneWeekAgo = subDays(new Date(), 7).getTime();
+
+        if (lastRequestTimestamp > oneWeekAgo) {
+            throw new Error("You can only submit one lesson request per week.");
+        }
+
+        // Add the new lesson request
+        transaction.set(doc(requestRef), {
+            ...requestData,
+            userId,
+            userName,
+            status: 'pending',
+            createdAt: Timestamp.now(),
+        });
+
+        // Update the user's last request timestamp
+        transaction.update(userRef, { lastLessonRequestAt: Date.now() });
+    });
+}
+
+export async function getPendingLessonRequests(): Promise<LessonRequest[]> {
+    try {
+        const q = query(collection(db, "lessonRequests"), where("status", "==", "pending"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LessonRequest));
+    } catch (error) {
+        console.error("Error fetching pending lesson requests:", error);
+        return [];
+    }
+}
+
+export async function approveLessonRequest(requestId: string): Promise<void> {
+    const requestRef = doc(db, 'lessonRequests', requestId);
+    
+    await runTransaction(db, async (transaction) => {
+        const requestDoc = await transaction.get(requestRef);
+        if (!requestDoc.exists() || requestDoc.data().status !== 'pending') {
+            throw new Error("Request not found or already processed.");
+        }
+        
+        const requestData = requestDoc.data() as Omit<LessonRequest, 'id'>;
+
+        // 1. Generate Lesson Content with AI
+        const lessonContent = await generateLessonContent({
+            topic: requestData.title,
+            subject: requestData.subject,
+            topicDepth: "Detailed", // Can be customized further
+        });
+
+        // 2. Generate Lesson Image with AI
+        const imagePrompt = `A high-quality, educational illustration for a lesson on "${lessonContent.title}" in the subject of ${lessonContent.subject}.`;
+        const generatedImage = await generateLessonImage({ prompt: imagePrompt });
+
+        // 3. Upload Image to Storage
+        const fileName = `lesson_${Date.now()}`;
+        const imageUrl = await uploadImageFromDataUrl(generatedImage.imageUrl, fileName);
+
+        // 4. Create Lesson in Firestore
+        await createLesson({
+            ...lessonContent,
+            image: imageUrl,
+        });
+
+        // 5. Update Request Status
+        transaction.update(requestRef, { status: 'approved' });
+    });
 }

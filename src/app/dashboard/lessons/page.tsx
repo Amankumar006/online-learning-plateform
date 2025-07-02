@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
+import { getLessons, Lesson, getUserProgress, UserProgress, getUser, User } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,7 +11,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, PlusCircle } from "lucide-react";
+import LessonRequestForm from "@/components/dashboard/LessonRequestForm";
 
 function LessonsSkeleton() {
   return (
@@ -38,22 +39,38 @@ function LessonsSkeleton() {
 export default function LessonsPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
+  
+  const refreshUserData = async (uid: string) => {
+    const profile = await getUser(uid);
+    setUserProfile(profile);
+  };
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         setIsLoading(true);
-        try {
-            const lessonsData = await getLessons();
-            setLessons(lessonsData);
+        if (currentUser) {
+            setUser(currentUser);
+            try {
+                const [lessonsData, progressData, profileData] = await Promise.all([
+                    getLessons(),
+                    getUserProgress(currentUser.uid),
+                    getUser(currentUser.uid),
+                ]);
 
-            if (currentUser) {
-                const progressData = await getUserProgress(currentUser.uid);
+                setLessons(lessonsData);
                 setUserProgress(progressData);
+                setUserProfile(profileData);
+
+            } catch (error) {
+                console.error("Failed to load data", error);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Failed to load data", error);
-        } finally {
+        } else {
             setIsLoading(false);
         }
     });
@@ -63,9 +80,19 @@ export default function LessonsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold font-headline">All Lessons</h1>
-        <p className="text-lg text-muted-foreground">Browse our library of lessons to continue your learning journey.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold font-headline">All Lessons</h1>
+          <p className="text-lg text-muted-foreground">Browse our library of lessons to continue your learning journey.</p>
+        </div>
+        {userProfile && user && (
+            <LessonRequestForm 
+                userId={user.uid} 
+                userName={userProfile.name || "Anonymous User"}
+                lastRequestAt={userProfile.lastLessonRequestAt}
+                onSuccess={() => refreshUserData(user.uid)}
+            />
+        )}
       </div>
       {isLoading ? (
         <LessonsSkeleton />
