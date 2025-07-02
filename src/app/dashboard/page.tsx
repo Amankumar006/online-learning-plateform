@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, Target, BookOpen, BrainCircuit, Users, BookOpenCheck, User as UserIcon } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -162,7 +162,32 @@ export default function DashboardPage() {
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
+  
+  const subjects = lessons.reduce((acc, lesson) => {
+    const subject = lesson.subject || 'General';
+    if (!acc[subject]) {
+        acc[subject] = 0;
+    }
+    acc[subject]++;
+    return acc;
+  }, {} as Record<string, number>);
 
+  const subjectIcons: Record<string, React.ReactNode> = {
+    'Science': <FlaskConical className="w-6 h-6 text-red-400" />,
+    'History': <Landmark className="w-6 h-6 text-yellow-400" />,
+    'Mathematics': <Calculator className="w-6 h-6 text-blue-400" />,
+    'Computer Science': <Terminal className="w-6 h-6 text-green-400" />,
+    'Web Development': <Code className="w-6 h-6 text-purple-400" />,
+    'Biology': <Leaf className="w-6 h-6 text-teal-400" />,
+    'default': <BookOpen className="w-6 h-6 text-gray-400" />
+  };
+
+  const getSubjectIcon = (subject: string) => {
+    return subjectIcons[subject] || subjectIcons.default;
+  };
+
+  const subjectEntries = Object.entries(subjects);
+  
   const nextLesson = findLessonForTopic(suggestedTopics[0]) || lessons.find(l => !userProgress?.completedLessonIds?.includes(l.id));
 
   if (isLoading) {
@@ -350,28 +375,19 @@ export default function DashboardPage() {
 
                 <div className="mt-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Link href={`/dashboard/lessons`} className="block group">
-                            <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
-                                <div className="p-3 bg-red-500/20 rounded-lg">
-                                    <BookOpen className="w-6 h-6 text-red-400" />
+                        {subjectEntries.map(([subject, count]) => (
+                             <Link href={`/dashboard/lessons`} key={subject} className="block group">
+                                <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
+                                    <div className="p-3 bg-slate-700/50 rounded-lg">
+                                        {getSubjectIcon(subject)}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-white">{subject}</p>
+                                        <p className="text-sm text-slate-400">{count} Lessons</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-semibold text-white">Science</p>
-                                    <p className="text-sm text-slate-400">12 Lessons</p>
-                                </div>
-                            </div>
-                        </Link>
-                        <Link href={`/dashboard/lessons`} className="block group">
-                            <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
-                                <div className="p-3 bg-blue-500/20 rounded-lg">
-                                    <BrainCircuit className="w-6 h-6 text-blue-400" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-white">History</p>
-                                    <p className="text-sm text-slate-400">8 Lessons</p>
-                                </div>
-                            </div>
-                        </Link>
+                            </Link>
+                        ))}
                     </div>
                 </div>
             </div>
