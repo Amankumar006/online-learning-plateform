@@ -73,14 +73,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6 z-50">
+    <div className="flex min-h-screen w-full flex-col font-body">
+      <header className="sticky top-0 flex h-16 items-center justify-between border-b border-slate-300/10 bg-background/80 backdrop-blur-lg px-4 md:px-6 z-50">
         <Link
             href="/dashboard"
             className="flex items-center gap-2 text-lg font-semibold md:text-base"
         >
             <BookOpenCheck className="h-6 w-6 text-primary" />
-            <span className="font-bold">AdaptEd AI</span>
+            <span className="font-bold font-headline">AdaptEd AI</span>
         </Link>
         
         <div className="flex items-center gap-4 md:gap-5">
@@ -125,11 +125,11 @@ export default function DashboardLayout({
             </DropdownMenu>
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 pb-20 md:pb-8">
+      <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-8 pb-20 md:pb-8">
         {children}
       </main>
       
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-300/10 bg-background/80 backdrop-blur-lg md:hidden">
         <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => (
             <Link
