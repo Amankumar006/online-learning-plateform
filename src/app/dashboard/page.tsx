@@ -2,53 +2,78 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, Target, BookOpen, BrainCircuit, Users } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, Target, BookOpen, BrainCircuit, Users, BookOpenCheck, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 function DashboardSkeleton() {
   return (
     <div className="w-full h-full p-4 sm:p-6 flex flex-col">
       <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10 flex flex-col">
         {/* Header Skeleton */}
-        <div className="flex justify-between items-center mb-8">
-            <div className="space-y-2">
+        <header className="flex items-center justify-between pb-4 border-b border-slate-100/10 mb-6">
+            <div className="flex items-center gap-6">
+                <Skeleton className="h-6 w-32" />
+                <div className="hidden md:flex items-center gap-4">
+                     <Skeleton className="h-5 w-20" />
+                     <Skeleton className="h-5 w-20" />
+                     <Skeleton className="h-5 w-20" />
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                 <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+        </header>
+
+        {/* Main Grid Skeleton */}
+        <div className="flex-grow">
+            <div className="mb-8 space-y-2">
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-4 w-64" />
             </div>
-            <Skeleton className="h-8 w-8 rounded-full" />
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-grow">
+              <div className="lg:col-span-2 md:col-span-2 rounded-xl p-6 space-y-4 bg-white/5 backdrop-blur-lg">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-24 w-full" />
+              </div>
 
-        {/* Main Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-grow">
-          <div className="lg:col-span-2 md:col-span-2 rounded-xl p-6 space-y-4 bg-white/5 backdrop-blur-lg">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-24 w-full" />
-          </div>
+              <div className="rounded-xl p-6 space-y-3 bg-white/5 backdrop-blur-lg">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-5 w-full mt-4" />
+                <Skeleton className="h-5 w-5/6" />
+              </div>
 
-          <div className="rounded-xl p-6 space-y-3 bg-white/5 backdrop-blur-lg">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-5 w-full mt-4" />
-            <Skeleton className="h-5 w-5/6" />
-          </div>
-
-          <div className="rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 backdrop-blur-lg">
-              <Skeleton className="h-24 w-24 rounded-full" />
-              <Skeleton className="h-5 w-24 mt-4" />
-          </div>
-        
-          {/* Bottom Row Skeleton */}
-          <div className="lg:col-span-4 md:col-span-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-white/5" />)}
+              <div className="rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 backdrop-blur-lg">
+                  <Skeleton className="h-24 w-24 rounded-full" />
+                  <Skeleton className="h-5 w-24 mt-4" />
+              </div>
+            
+              {/* Bottom Row Skeleton */}
+              <div className="lg:col-span-4 md:col-span-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-white/5" />)}
+                </div>
+              </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
@@ -57,6 +82,8 @@ function DashboardSkeleton() {
 
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -120,6 +147,18 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, []);
 
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/lessons", label: "Lessons" },
+    { href: "/dashboard/practice", label: "Practice" },
+    { href: "/dashboard/progress", label: "Progress" },
+  ];
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
+
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
@@ -138,7 +177,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full h-full p-4 sm:p-6 flex flex-col">
-      <div className="relative w-full h-full bg-slate-900/60 backdrop-blur-xl p-6 rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden">
+      <div className="relative w-full h-full bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden">
         
         {/* Background Decorative SVG */}
         <div className="absolute inset-0 z-0 opacity-50">
@@ -172,125 +211,170 @@ export default function DashboardPage() {
         
         {/* Main Content */}
         <div className="relative z-10 flex flex-col h-full">
-            <div className="flex justify-between items-center mb-8">
-                <div>
+            <header className="flex items-center justify-between p-4 border-b border-slate-100/10 mb-6 flex-shrink-0">
+                <div className="flex items-center gap-6">
+                    <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
+                        <BookOpenCheck className="h-6 w-6 text-primary" />
+                        <span className="font-bold font-headline">AdaptEd AI</span>
+                    </Link>
+                     <nav className="hidden md:flex items-center gap-4 text-sm">
+                        {navItems.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className={cn(
+                                "transition-colors hover:text-white",
+                                (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href))
+                                ? "text-white font-semibold"
+                                : "text-slate-400"
+                            )}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                    </nav>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src="https://placehold.co/32x32.png" alt={userProfile?.name || "User"} />
+                                    <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>{userProfile?.name || "My Account"}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Settings</DropdownMenuItem>
+                            <DropdownMenuItem>Support</DropdownMenuItem>
+                            <DropdownMenuItem>
+                               <ThemeToggle />
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <LogoutButton />
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </header>
+
+            <div className="flex-grow overflow-y-auto px-6 pb-6">
+                <div className="mb-8">
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-headline">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
                     <p className="text-slate-400 text-md">Let's continue your learning journey.</p>
                 </div>
-                 <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                    <Link href="/dashboard/profile"><Users /></Link>
-                 </Button>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                
-                {/* Your Next Lesson */}
-                <Card className="lg:col-span-2 md:col-span-2 rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                    <h3 className="font-semibold text-slate-300 mb-2">Your Next Lesson</h3>
-                    {nextLesson ? (
-                        <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
-                            <div className="relative w-full h-24 mt-2">
-                                <svg className="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
-                                    <defs>
-                                        <linearGradient id="lesson-chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3"/>
-                                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0"/>
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" fill="url(#lesson-chart-gradient)" />
-                                    <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" stroke="hsl(var(--primary))" fill="none" strokeWidth="2" strokeLinecap="round"/>
-                                </svg>
-                                <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-400/30 to-rose-400/30 text-white font-semibold px-4 py-2 rounded-lg text-lg">
-                                    {nextLesson.subject}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    
+                    {/* Your Next Lesson */}
+                    <Card className="lg:col-span-2 md:col-span-2 rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                        <h3 className="font-semibold text-slate-300 mb-2">Your Next Lesson</h3>
+                        {nextLesson ? (
+                            <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
+                                <div className="relative w-full h-24 mt-2">
+                                    <svg className="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
+                                        <defs>
+                                            <linearGradient id="lesson-chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3"/>
+                                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" fill="url(#lesson-chart-gradient)" />
+                                        <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" stroke="hsl(var(--primary))" fill="none" strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                    <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-400/30 to-rose-400/30 text-white font-semibold px-4 py-2 rounded-lg text-lg">
+                                        {nextLesson.subject}
+                                    </div>
                                 </div>
+                                <div className="flex justify-between items-end mt-4">
+                                    <p className="text-xl font-bold text-white">{nextLesson.title}</p>
+                                    <ArrowRight className="w-6 h-6 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </Link>
+                        ) : (
+                            <div className="flex-grow flex flex-col items-center justify-center h-full">
+                                <p className="text-slate-400 mb-4">You've completed all lessons! Great job!</p>
+                                <Button asChild variant="secondary">
+                                    <Link href="/dashboard/lessons">Review Completed Lessons</Link>
+                                </Button>
                             </div>
-                            <div className="flex justify-between items-end mt-4">
-                                <p className="text-xl font-bold text-white">{nextLesson.title}</p>
-                                <ArrowRight className="w-6 h-6 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                        )}
+                    </Card>
+
+                    {/* AI Recommendation */}
+                    <Card className="rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6">
+                        <h3 className="font-semibold text-slate-300 mb-4">AI Recommendation</h3>
+                        {isGeneratingTopics ? (
+                            <div className="space-y-4 py-4">
+                                <Skeleton className="h-4 w-full bg-slate-700/50" />
+                                <Skeleton className="h-4 w-5/6 bg-slate-700/50" />
+                                <Skeleton className="h-4 w-full bg-slate-700/50" />
                             </div>
-                        </Link>
-                    ) : (
-                        <div className="flex-grow flex flex-col items-center justify-center h-full">
-                            <p className="text-slate-400 mb-4">You've completed all lessons! Great job!</p>
-                            <Button asChild variant="secondary">
-                                <Link href="/dashboard/lessons">Review Completed Lessons</Link>
+                        ) : suggestedTopics.length > 1 ? (
+                            <div className="space-y-3">
+                                {suggestedTopics.slice(1, 4).map((topic, index) => {
+                                    const lesson = findLessonForTopic(topic);
+                                    return (
+                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-2 rounded-md hover:bg-slate-700/50 transition-colors font-medium text-slate-300 hover:text-white">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1.5 bg-purple-500/20 rounded-md"><MessageSquare className="w-4 h-4 text-purple-400" /></div>
+                                            <span>{topic}</span>
+                                        </div>
+                                    </Link>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-center">
+                                <p className="text-sm text-slate-400 py-4">No other recommendations right now. Explore all lessons!</p>
+                            </div>
+                        )}
+                    </Card>
+                    
+                    {/* Track Progress */}
+                    <Card className="rounded-xl bg-gradient-to-b from-teal-500/30 to-blue-500/30 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                        <h3 className="font-semibold text-slate-100 mb-2">Track Progress</h3>
+                        <div className="flex-grow flex flex-col items-center justify-center">
+                            <div className="relative w-32 h-32">
+                                <svg className="w-full h-full" viewBox="0 0 36 36">
+                                    <path className="stroke-current text-white/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
+                                    <path className="stroke-current text-teal-300" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white">{overallProgress}%</div>
+                            </div>
+                            <Button variant="link" asChild className="mt-2 text-slate-300 hover:text-white">
+                                <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
                             </Button>
                         </div>
-                    )}
-                </Card>
+                    </Card>
+                </div>
 
-                {/* AI Recommendation */}
-                <Card className="rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6">
-                    <h3 className="font-semibold text-slate-300 mb-4">AI Recommendation</h3>
-                    {isGeneratingTopics ? (
-                        <div className="space-y-4 py-4">
-                            <Skeleton className="h-4 w-full bg-slate-700/50" />
-                            <Skeleton className="h-4 w-5/6 bg-slate-700/50" />
-                            <Skeleton className="h-4 w-full bg-slate-700/50" />
-                        </div>
-                    ) : suggestedTopics.length > 1 ? (
-                        <div className="space-y-3">
-                             {suggestedTopics.slice(1, 4).map((topic, index) => {
-                                const lesson = findLessonForTopic(topic);
-                                return (
-                                <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-2 rounded-md hover:bg-slate-700/50 transition-colors font-medium text-slate-300 hover:text-white">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-1.5 bg-purple-500/20 rounded-md"><MessageSquare className="w-4 h-4 text-purple-400" /></div>
-                                        <span>{topic}</span>
-                                    </div>
-                                </Link>
-                                );
-                             })}
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-center">
-                            <p className="text-sm text-slate-400 py-4">No other recommendations right now. Explore all lessons!</p>
-                        </div>
-                    )}
-                </Card>
-                
-                {/* Track Progress */}
-                <Card className="rounded-xl bg-gradient-to-b from-teal-500/30 to-blue-500/30 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                    <h3 className="font-semibold text-slate-100 mb-2">Track Progress</h3>
-                    <div className="flex-grow flex flex-col items-center justify-center">
-                        <div className="relative w-32 h-32">
-                            <svg className="w-full h-full" viewBox="0 0 36 36">
-                                <path className="stroke-current text-white/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
-                                <path className="stroke-current text-teal-300" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white">{overallProgress}%</div>
-                        </div>
-                        <Button variant="link" asChild className="mt-2 text-slate-300 hover:text-white">
-                            <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
-                        </Button>
+                <div className="mt-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Link href={`/dashboard/lessons`} className="block group">
+                            <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
+                                <div className="p-3 bg-red-500/20 rounded-lg">
+                                    <BookOpen className="w-6 h-6 text-red-400" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-white">Science</p>
+                                    <p className="text-sm text-slate-400">12 Lessons</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href={`/dashboard/lessons`} className="block group">
+                            <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
+                                <div className="p-3 bg-blue-500/20 rounded-lg">
+                                    <BrainCircuit className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-white">History</p>
+                                    <p className="text-sm text-slate-400">8 Lessons</p>
+                                </div>
+                            </div>
+                        </Link>
                     </div>
-                </Card>
-            </div>
-
-            <div className="mt-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Link href={`/dashboard/lessons`} className="block group">
-                        <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
-                            <div className="p-3 bg-red-500/20 rounded-lg">
-                                <BookOpen className="w-6 h-6 text-red-400" />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-white">Science</p>
-                                <p className="text-sm text-slate-400">12 Lessons</p>
-                            </div>
-                        </div>
-                    </Link>
-                    <Link href={`/dashboard/lessons`} className="block group">
-                        <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
-                            <div className="p-3 bg-blue-500/20 rounded-lg">
-                                <BrainCircuit className="w-6 h-6 text-blue-400" />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-white">History</p>
-                                <p className="text-sm text-slate-400">8 Lessons</p>
-                            </div>
-                        </div>
-                    </Link>
                 </div>
             </div>
         </div>
