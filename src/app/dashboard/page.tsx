@@ -212,11 +212,11 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="relative z-10 flex flex-col h-full">
             <header className="flex items-center justify-between p-4 border-b border-slate-100/10 mb-6 flex-shrink-0">
+                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
+                    <BookOpenCheck className="h-6 w-6 text-primary" />
+                    <span className="font-bold font-headline">AdaptEd AI</span>
+                </Link>
                 <div className="flex items-center gap-6">
-                    <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
-                        <BookOpenCheck className="h-6 w-6 text-primary" />
-                        <span className="font-bold font-headline">AdaptEd AI</span>
-                    </Link>
                      <nav className="hidden md:flex items-center gap-4 text-sm">
                         {navItems.map((item) => (
                           <Link
@@ -233,8 +233,6 @@ export default function DashboardPage() {
                           </Link>
                         ))}
                     </nav>
-                </div>
-                 <div className="flex items-center gap-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="rounded-full">
