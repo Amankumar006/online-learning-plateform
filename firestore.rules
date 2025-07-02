@@ -3,44 +3,59 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Users can read and update their own profile information.
-    // They can also create their own user document upon signup.
-    match /users/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
+  
+    // Helper function to check for admin role
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // All authenticated users can read lessons.
-    // Writes are currently permissive and rely on client-side admin checks.
-    // For production, you would lock this down further with custom claims for admins.
+    // Users collection
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow user to update their own name, progress, and timestamps.
+      // Allow admin to update any user's role.
+      allow update: if request.auth != null && (
+        (request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'lastLessonRequestAt', 'lastCheckedAnnouncementsAt', 'progress'])) ||
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      );
+    }
+
+    // Lessons collection
     match /lessons/{lessonId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
-    
-    // For exercises, allow reading of all.
-    // For custom exercises, only allow users to manage their own.
+
+    // Exercises collection
     match /exercises/{exerciseId} {
       allow read: if request.auth != null;
-      
-      // Allow creation if it's a non-custom exercise OR if it's a custom one and the userId matches.
-      allow create: if request.auth != null && 
-                     (request.resource.data.isCustom == false || 
-                      (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid));
-      
-      // Allow update/delete if it's non-custom (for admin) OR it's the user's own custom exercise.
-      allow update, delete: if request.auth != null &&
-                             (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.isCustom == false || 
-                              get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid);
+      allow create: if 
+        (isAdmin() && request.resource.data.isCustom == false) ||
+        (request.auth.uid == request.resource.data.userId && request.resource.data.isCustom == true);
+      allow update: if isAdmin();
+      allow delete: if
+        isAdmin() ||
+        (request.auth.uid == resource.data.userId && resource.data.isCustom == true);
     }
     
-    // Users can create, read, and update their own exercise responses.
+    // User responses to exercises
     match /exerciseResponses/{responseId} {
-      // Allow write if the user ID in the document matches the authenticated user.
-      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Allow read if the user ID in the document matches the authenticated user.
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Lesson Requests collection
+    match /lessonRequests/{requestId} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if isAdmin();
+    }
+
+    // Announcements collection
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
   }
 }
