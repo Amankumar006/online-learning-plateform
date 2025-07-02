@@ -10,6 +10,7 @@ import {
   BrainCircuit,
   TrendingUp,
   Loader2,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,14 +21,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { getUser } from "@/lib/data";
+import { getUser, Announcement, getRecentAnnouncements, markAnnouncementsAsRead } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { formatDistanceToNow } from 'date-fns';
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -40,8 +48,12 @@ export default function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name?: string, lastCheckedAnnouncementsAt?: any } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
+  const [hasUnread, setHasUnread] = React.useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
@@ -52,6 +64,17 @@ export default function DashboardNav() {
         setUser(currentUser);
         const profile = await getUser(currentUser.uid);
         setUserProfile(profile);
+
+        const recentAnnouncements = await getRecentAnnouncements();
+        setAnnouncements(recentAnnouncements);
+
+        if (profile?.lastCheckedAnnouncementsAt && recentAnnouncements.length > 0) {
+          const lastChecked = profile.lastCheckedAnnouncementsAt.toMillis();
+          const isAnyNew = recentAnnouncements.some(a => a.createdAt.toMillis() > lastChecked);
+          setHasUnread(isAnyNew);
+        } else if (recentAnnouncements.length > 0) {
+          setHasUnread(true);
+        }
       }
       setIsLoading(false);
     });
@@ -61,7 +84,7 @@ export default function DashboardNav() {
   useEffect(() => {
     if (isLoading || !navContainerRef.current) return;
 
-    const activeIndex = navItems.findIndex((item) => pathname === item.href);
+    const activeIndex = navItems.findIndex((item) => pathname.startsWith(item.href));
     const activeLinkEl = navContainerRef.current.children[activeIndex] as HTMLElement | undefined;
 
     if (activeLinkEl) {
@@ -74,6 +97,18 @@ export default function DashboardNav() {
       setHighlighterStyle({ opacity: 0 });
     }
   }, [pathname, isLoading]);
+
+  const handlePopoverOpenChange = async (open: boolean) => {
+      setIsPopoverOpen(open);
+      if (open && hasUnread && user) {
+          try {
+              await markAnnouncementsAsRead(user.uid);
+              setHasUnread(false);
+          } catch (error) {
+              console.error("Failed to mark announcements as read:", error);
+          }
+      }
+  };
 
 
   const getInitials = (name?: string) => {
@@ -103,7 +138,7 @@ export default function DashboardNav() {
       <div className="flex items-center gap-2">
         <div className="relative hidden items-center rounded-full bg-secondary/50 p-1 md:flex">
           <div
-            className="absolute h-[calc(100%-8px)] rounded-full bg-secondary transition-all duration-300 ease-in-out"
+            className="absolute h-[calc(100%-8px)] rounded-full bg-primary transition-all duration-300 ease-in-out"
             style={highlighterStyle}
           />
           <div ref={navContainerRef} className="flex items-center gap-1">
@@ -115,7 +150,7 @@ export default function DashboardNav() {
                 asChild
                 className={cn(
                   "relative z-10 rounded-full transition-colors",
-                  pathname === item.href
+                  pathname.startsWith(item.href)
                     ? "text-primary-foreground"
                     : "text-muted-foreground hover:text-primary-foreground"
                 )}
@@ -127,6 +162,45 @@ export default function DashboardNav() {
         </div>
         
         <ThemeToggle />
+
+        <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative rounded-full">
+                    <Bell className="h-5 w-5" />
+                    {hasUnread && (
+                        <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+                    )}
+                    <span className="sr-only">Notifications</span>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0">
+                <div className="p-3 border-b">
+                    <h4 className="font-medium text-sm">Notifications</h4>
+                </div>
+                <ScrollArea className="h-80">
+                    <div className="p-2">
+                        {announcements.length > 0 ? (
+                            announcements.map(announcement => (
+                                <Link
+                                    key={announcement.id}
+                                    href={announcement.link || '#'}
+                                    className="block p-3 mb-1 rounded-lg hover:bg-muted"
+                                    onClick={() => setIsPopoverOpen(false)}
+                                >
+                                    <p className="font-semibold text-sm mb-1">{announcement.title}</p>
+                                    <p className="text-xs text-muted-foreground mb-2">{announcement.message}</p>
+                                    <p className="text-xs text-muted-foreground">{formatDistanceToNow(announcement.createdAt.toDate(), { addSuffix: true })}</p>
+                                </Link>
+                            ))
+                        ) : (
+                            <div className="text-center text-muted-foreground p-8">
+                                <p>No notifications yet.</p>
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </PopoverContent>
+        </Popover>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -162,7 +236,7 @@ export default function DashboardNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 rounded-lg text-sm font-medium transition-colors",
-                pathname === item.href
+                pathname.startsWith(item.href)
                   ? "bg-muted text-primary"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-primary"
               )}

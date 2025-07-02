@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { format, startOfWeek, subDays } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -77,6 +77,7 @@ export interface User {
   role: 'student' | 'admin';
   progress: UserProgress;
   lastLessonRequestAt?: number;
+  lastCheckedAnnouncementsAt?: Timestamp;
 }
 
 // New Exercise Data Structure
@@ -150,6 +151,16 @@ export interface ExerciseWithLessonTitle extends Exercise {
     lessonTitle: string;
 }
 
+export interface Announcement {
+    id: string;
+    type: 'new_lesson' | 'new_exercise' | 'update';
+    title: string;
+    message: string;
+    link?: string;
+    createdAt: Timestamp;
+}
+
+
 export async function getUser(userId: string): Promise<User | null> {
     try {
         const userRef = doc(db, 'users', userId);
@@ -207,6 +218,7 @@ export async function createUserInFirestore(uid: string, email: string, name: st
             name,
             role: 'student', // Default role for new signups
             lastLessonRequestAt: null,
+            lastCheckedAnnouncementsAt: Timestamp.now(),
             progress: {
                 completedLessons: 0,
                 averageScore: 0,
@@ -226,9 +238,26 @@ export async function createUserInFirestore(uid: string, email: string, name: st
     }
 }
 
+export async function createAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
+    try {
+        await addDoc(collection(db, "announcements"), {
+            ...announcementData,
+            createdAt: Timestamp.now()
+        });
+    } catch (error) {
+        console.error("Error creating announcement: ", error);
+    }
+}
+
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, "lessons"), lessonData);
+    await createAnnouncement({
+        type: 'new_lesson',
+        title: `New Lesson Added: ${lessonData.title}`,
+        message: `Explore the new lesson on ${lessonData.subject}. Happy learning!`,
+        link: `/dashboard/lessons/${docRef.id}`
+    });
     return docRef.id;
   } catch (error) {
     console.error("Error creating lesson: ", error);
@@ -709,4 +738,29 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
         // 5. Update Request Status
         transaction.update(requestRef, { status: 'approved' });
     });
+}
+
+export async function getRecentAnnouncements(count = 10): Promise<Announcement[]> {
+    try {
+        const q = query(
+            collection(db, "announcements"),
+            orderBy("createdAt", "desc"),
+            limit(count)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+    } catch (error) {
+        console.error("Error fetching recent announcements:", error);
+        return [];
+    }
+}
+
+export async function markAnnouncementsAsRead(userId: string): Promise<void> {
+    try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, { lastCheckedAnnouncementsAt: Timestamp.now() });
+    } catch (error) {
+        console.error("Error marking announcements as read:", error);
+        throw new Error("Failed to update user's notification status.");
+    }
 }
