@@ -31,14 +31,23 @@ function PracticePageSkeleton() {
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
             <Card key={i}>
-              <CardContent className="p-4 space-y-3">
-                <div className="h-6 w-3/4 bg-muted rounded-md" />
-                <div className="h-4 w-1/2 bg-muted rounded-md" />
-                <div className="flex justify-between items-center">
-                   <div className="h-4 w-24 bg-muted rounded-md" />
-                   <div className="flex gap-2"><div className="h-9 w-20 bg-muted rounded-md" /><div className="h-9 w-24 bg-muted rounded-md" /></div>
+              <CardHeader className="p-4">
+                <div className="flex justify-between items-start gap-2 mb-3">
+                    <div className="space-y-2 flex-grow">
+                        <div className="h-5 w-3/4 bg-muted rounded-md" />
+                        <div className="h-5 w-1/2 bg-muted rounded-md" />
+                    </div>
+                    <div className="h-5 w-20 bg-muted rounded-md shrink-0"/>
                 </div>
-              </CardContent>
+                 <div className="flex flex-wrap gap-2">
+                    <div className="h-5 w-16 bg-muted rounded-md" />
+                    <div className="h-5 w-20 bg-muted rounded-md" />
+                </div>
+              </CardHeader>
+              <CardFooter className="bg-muted/50 p-3 flex justify-between items-center">
+                   <div className="flex items-center gap-3"><div className="h-5 w-24 bg-muted rounded-md" /> <div className="h-4 w-24 bg-muted rounded-md" /></div>
+                   <div className="flex gap-2"><div className="h-9 w-20 bg-muted rounded-md" /><div className="h-9 w-24 bg-muted rounded-md" /></div>
+              </CardFooter>
             </Card>
           ))}
         </div>
@@ -237,15 +246,20 @@ export default function PracticePage() {
                 {pendingExercises.length > 0 ? (
                     <div className="space-y-4">
                         {pendingExercises.map(ex => (
-                            <Card key={ex.id}>
-                                <CardContent className="p-4 flex flex-col gap-3">
-                                    <p className="font-semibold leading-relaxed">{ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}</p>
+                            <Card key={ex.id} className="flex flex-col">
+                                <CardHeader className="flex-grow p-4">
+                                    <div className="flex justify-between items-start gap-2 mb-3">
+                                        <CardTitle className="text-base font-semibold leading-relaxed">
+                                            {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
+                                        </CardTitle>
+                                        <Badge variant="outline" className="capitalize whitespace-nowrap shrink-0">{ex.type.replace(/_/g, ' ')}</Badge>
+                                    </div>
                                     {ex.tags && ex.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-2">
                                             {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                                         </div>
                                     )}
-                                </CardContent>
+                                </CardHeader>
                                 <CardFooter className="bg-muted/50 p-3 flex justify-between items-center text-xs text-muted-foreground">
                                     <div className="flex items-center gap-3">
                                         {getDifficultyBadge(ex.difficulty)}
@@ -271,15 +285,20 @@ export default function PracticePage() {
                         {completedExercises.map(ex => {
                              const response = responses.get(ex.id);
                              return (
-                                <Card key={ex.id} className="opacity-80">
-                                     <CardContent className="p-4 flex flex-col gap-3">
-                                        <p className="font-semibold leading-relaxed">{ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}</p>
+                                <Card key={ex.id} className="opacity-80 flex flex-col">
+                                    <CardHeader className="flex-grow p-4">
+                                        <div className="flex justify-between items-start gap-2 mb-3">
+                                            <CardTitle className="text-base font-semibold leading-relaxed">
+                                                {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
+                                            </CardTitle>
+                                            <Badge variant="outline" className="capitalize whitespace-nowrap shrink-0">{ex.type.replace(/_/g, ' ')}</Badge>
+                                        </div>
                                         {ex.tags && ex.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-2">
                                                 {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                                             </div>
                                         )}
-                                    </CardContent>
+                                    </CardHeader>
                                     <CardFooter className="bg-muted/50 p-3 flex justify-between items-center text-xs text-muted-foreground">
                                         <div className="flex items-center gap-3">
                                             {getDifficultyBadge(ex.difficulty)}
