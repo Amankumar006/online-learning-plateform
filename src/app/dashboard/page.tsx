@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 
 function DashboardSkeleton() {
   return (
-    <div className="w-full max-w-6xl mx-auto">
-      <div className="bg-black/10 dark:bg-black/20 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-white/10">
+    <div className="w-full h-full">
+      <div className="w-full h-full bg-black/10 dark:bg-black/20 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-white/10 flex flex-col">
         <div className="space-y-2 mb-8">
             <Skeleton className="h-10 w-1/3" />
             <Skeleton className="h-5 w-1/2" />
@@ -41,7 +41,7 @@ function DashboardSkeleton() {
               <Skeleton className="h-5 w-24 mt-4" />
           </div>
         </div>
-        <div className="mt-8">
+        <div className="mt-8 flex-grow">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl bg-white/5" />)}
               </div>
@@ -135,8 +135,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
-      <div className="bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10">
+    <div className="w-full h-full">
+      <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10 flex flex-col">
         
         <div className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-headline">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
@@ -240,7 +240,7 @@ export default function DashboardPage() {
             </Card>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 flex-grow">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                  <Link href={`/dashboard/lessons`} className="block">
                     <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">

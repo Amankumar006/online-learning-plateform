@@ -125,7 +125,7 @@ export default function DashboardLayout({
             </DropdownMenu>
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-8 pb-20 md:pb-8">
+      <main className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
         {children}
       </main>
       
