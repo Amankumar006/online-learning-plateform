@@ -14,7 +14,7 @@ import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 
 function DashboardSkeleton() {
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6">
+    <div className="w-full h-full p-4 sm:p-6 flex flex-col">
       <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl border border-slate-100/10 flex flex-col">
         {/* Header Skeleton */}
         <div className="flex justify-between items-center mb-8">
@@ -137,7 +137,7 @@ export default function DashboardPage() {
   const overallProgress = userProgress?.mastery || 0;
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6">
+    <div className="w-full h-full p-4 sm:p-6 flex flex-col">
       <div className="relative w-full h-full bg-slate-900/60 backdrop-blur-xl p-6 rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden">
         
         {/* Background Decorative SVG */}
