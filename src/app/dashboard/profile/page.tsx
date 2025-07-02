@@ -170,7 +170,7 @@ export default function ProfilePage() {
                     <CardContent className="space-y-6">
                         <div className="flex items-center gap-4">
                             <Avatar className="h-20 w-20">
-                                <AvatarImage src="https://placehold.co/80x80.png" alt={userProfile.name} data-ai-hint="person user" />
+                                <AvatarImage src={userProfile.photoURL || undefined} alt={userProfile.name} />
                                 <AvatarFallback>{getInitials(userProfile.name)}</AvatarFallback>
                             </Avatar>
                             <div>

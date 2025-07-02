@@ -45,7 +45,7 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string, role?: string } | null>(
+  const [userProfile, setUserProfile] = useState<{ name?: string, role?: string, photoURL?: string } | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
@@ -130,7 +130,7 @@ export default function AdminLayout({
               >
                 <Avatar>
                   <AvatarImage
-                    src="https://placehold.co/32x32.png"
+                    src={userProfile?.photoURL || undefined}
                     alt={userProfile?.name || "Admin"}
                   />
                   <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>

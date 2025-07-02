@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
-import { getUser, createUserInFirestore } from "@/lib/data";
+import { getUser, createUserInFirestore, updateUserProfile } from "@/lib/data";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -74,13 +74,16 @@ export default function LoginPage() {
       
       let userProfile = await getUser(user.uid);
       if (!userProfile) {
-        await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');
+        await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User', user.photoURL);
         userProfile = await getUser(user.uid);
          toast({
           title: "Account Created & Logged In",
           description: `Welcome to AdaptEd, ${userProfile?.name}!`,
         });
       } else {
+         if (user.photoURL && user.photoURL !== userProfile.photoURL) {
+            await updateUserProfile(user.uid, { photoURL: user.photoURL });
+         }
          toast({
           title: "Login Successful",
           description: `Welcome back, ${userProfile?.name}!`,

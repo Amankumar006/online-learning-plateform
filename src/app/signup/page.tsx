@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, sendEmailVerification } from "firebase/auth";
-import { createUserInFirestore, getUser } from "@/lib/data";
+import { createUserInFirestore, getUser, updateUserProfile } from "@/lib/data";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -55,7 +55,7 @@ export default function SignupPage() {
       const user = userCredential.user;
       
       await sendEmailVerification(user);
-      await createUserInFirestore(user.uid, user.email!, name);
+      await createUserInFirestore(user.uid, user.email!, name, user.photoURL);
 
       toast({
         title: "Account Created",
@@ -83,13 +83,16 @@ export default function SignupPage() {
       let userProfile = await getUser(user.uid);
 
       if (!userProfile) {
-        await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User');
+        await createUserInFirestore(user.uid, user.email!, user.displayName || 'New User', user.photoURL);
         userProfile = await getUser(user.uid); // Re-fetch the profile after creation
          toast({
             title: "Account Created",
             description: "Welcome to AdaptEd AI!",
          });
       } else {
+         if (user.photoURL && user.photoURL !== userProfile.photoURL) {
+            await updateUserProfile(user.uid, { photoURL: user.photoURL });
+         }
          toast({
             title: "Login Successful",
             description: `Welcome back, ${userProfile.name}!`,

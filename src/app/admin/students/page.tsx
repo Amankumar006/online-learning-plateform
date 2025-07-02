@@ -120,7 +120,7 @@ export default function AdminStudentsPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-3 font-medium">
                                         <Avatar>
-                                            <AvatarImage src={`https://placehold.co/40x40.png`} alt={user.name || 'User'} data-ai-hint="person user" />
+                                            <AvatarImage src={user.photoURL || undefined} alt={user.name || 'User'} />
                                             <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                                         </Avatar>
                                         <span>{user.name}</span>

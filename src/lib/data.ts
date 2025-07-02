@@ -74,6 +74,7 @@ export interface User {
   uid: string;
   email: string | null;
   name?: string;
+  photoURL?: string;
   role: 'student' | 'admin';
   progress: UserProgress;
   lastLessonRequestAt?: number;
@@ -199,7 +200,7 @@ export async function updateUserRole(userId: string, role: 'student' | 'admin'):
     }
 }
 
-export async function updateUserProfile(userId: string, data: { name: string }): Promise<void> {
+export async function updateUserProfile(userId: string, data: { name?: string, photoURL?: string }): Promise<void> {
     try {
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, data);
@@ -210,12 +211,13 @@ export async function updateUserProfile(userId: string, data: { name: string }):
 }
 
 
-export async function createUserInFirestore(uid: string, email: string, name: string) {
+export async function createUserInFirestore(uid: string, email: string, name: string, photoURL: string | null) {
     try {
         await setDoc(doc(db, "users", uid), {
             uid,
             email,
             name,
+            photoURL: photoURL || null,
             role: 'student', // Default role for new signups
             lastLessonRequestAt: null,
             lastCheckedAnnouncementsAt: Timestamp.now(),

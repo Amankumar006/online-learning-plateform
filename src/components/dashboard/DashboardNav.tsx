@@ -48,7 +48,7 @@ export default function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string, lastCheckedAnnouncementsAt?: any } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name?: string, lastCheckedAnnouncementsAt?: any, photoURL?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
@@ -207,9 +207,8 @@ export default function DashboardNav() {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-8 w-8">
                 <AvatarImage
-                  src="https://placehold.co/32x32.png"
+                  src={userProfile?.photoURL || undefined}
                   alt={userProfile?.name || "User"}
-                  data-ai-hint="person user"
                 />
                 <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>
               </Avatar>
