@@ -92,7 +92,7 @@ export default function LessonRequestForm({ userId, userName, lastRequestAt, onS
                 )}
             </Tooltip>
         </TooltipProvider>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Request a New Lesson</DialogTitle>
           <DialogDescription>
@@ -101,29 +101,29 @@ export default function LessonRequestForm({ userId, userName, lastRequestAt, onS
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
             <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="title" className="text-right">Title</Label>
-                    <Input id="title" {...register("title")} className="col-span-3" />
-                    {errors.title && <p className="col-span-4 text-right text-sm text-destructive">{errors.title.message}</p>}
+                <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input id="title" {...register("title")} />
+                    {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="subject" className="text-right">Subject</Label>
-                    <Input id="subject" {...register("subject")} className="col-span-3" />
-                    {errors.subject && <p className="col-span-4 text-right text-sm text-destructive">{errors.subject.message}</p>}
+                 <div className="space-y-2">
+                    <Label htmlFor="subject">Subject</Label>
+                    <Input id="subject" {...register("subject")} />
+                    {errors.subject && <p className="text-sm text-destructive">{errors.subject.message}</p>}
                 </div>
-                <div className="grid grid-cols-4 items-start gap-4">
-                    <Label htmlFor="description" className="text-right pt-2">Description</Label>
-                    <Textarea id="description" {...register("description")} className="col-span-3" />
-                    {errors.description && <p className="col-span-4 text-right text-sm text-destructive">{errors.description.message}</p>}
+                <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea id="description" {...register("description")} />
+                    {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="learningFormat" className="text-right">Format</Label>
+                 <div className="space-y-2">
+                    <Label htmlFor="learningFormat">Format</Label>
                     <Controller
                         control={control}
                         name="learningFormat"
                         render={({ field }) => (
                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <SelectTrigger className="col-span-3">
+                                <SelectTrigger>
                                     <SelectValue placeholder="Select a preferred format" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -134,11 +134,11 @@ export default function LessonRequestForm({ userId, userName, lastRequestAt, onS
                             </Select>
                         )}
                     />
-                     {errors.learningFormat && <p className="col-span-4 text-right text-sm text-destructive">{errors.learningFormat.message}</p>}
+                     {errors.learningFormat && <p className="text-sm text-destructive">{errors.learningFormat.message}</p>}
                 </div>
-                 <div className="grid grid-cols-4 items-start gap-4">
-                    <Label htmlFor="notes" className="text-right pt-2">Notes</Label>
-                    <Textarea id="notes" {...register("notes")} placeholder="(Optional) Any specific requirements or links." className="col-span-3" />
+                 <div className="space-y-2">
+                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Textarea id="notes" {...register("notes")} placeholder="Any specific requirements or links." />
                 </div>
             </div>
             <DialogFooter>

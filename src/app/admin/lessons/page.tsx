@@ -84,7 +84,7 @@ export default function AdminLessonsPage() {
         <Breadcrumb items={breadcrumbItems} />
         <Card>
         <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
                 <div>
                     <CardTitle>Manage Lessons</CardTitle>
                     <CardDescription>
