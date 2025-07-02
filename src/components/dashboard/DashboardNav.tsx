@@ -29,6 +29,13 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getUser } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+const navItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+    { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
+    { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
+    { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
+];
+
 export default function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -50,13 +57,6 @@ export default function DashboardNav() {
     });
     return () => unsubscribe();
   }, []);
-
-  const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-    { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
-    { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
-    { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
-  ];
   
   useEffect(() => {
     if (isLoading || !navContainerRef.current) return;
@@ -71,9 +71,9 @@ export default function DashboardNav() {
         opacity: 1,
       });
     } else {
-      setHighlighterStyle({ opacity: 0, transform: highlighterStyle.transform });
+      setHighlighterStyle({ opacity: 0 });
     }
-  }, [pathname, isLoading, navItems]);
+  }, [pathname, isLoading]);
 
 
   const getInitials = (name?: string) => {
