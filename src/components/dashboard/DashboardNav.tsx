@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -35,6 +35,9 @@ export default function DashboardNav() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<{ name?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const [highlighterStyle, setHighlighterStyle] = useState({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -54,6 +57,24 @@ export default function DashboardNav() {
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
   ];
+  
+  useEffect(() => {
+    if (isLoading || !navContainerRef.current) return;
+
+    const activeIndex = navItems.findIndex((item) => pathname === item.href);
+    const activeLinkEl = navContainerRef.current.children[activeIndex] as HTMLElement | undefined;
+
+    if (activeLinkEl) {
+      setHighlighterStyle({
+        width: `${activeLinkEl.offsetWidth}px`,
+        transform: `translateX(${activeLinkEl.offsetLeft}px)`,
+        opacity: 1,
+      });
+    } else {
+      setHighlighterStyle({ opacity: 0, transform: highlighterStyle.transform });
+    }
+  }, [pathname, isLoading, navItems]);
+
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -80,20 +101,31 @@ export default function DashboardNav() {
       </Link>
 
       <div className="flex items-center gap-2">
-        <nav className="hidden items-center gap-1 rounded-full bg-secondary/50 p-1 md:flex">
-          {navItems.map((item) => (
-            <Button
-              key={item.href}
-              variant={pathname === item.href ? "secondary" : "ghost"}
-              size="sm"
-              asChild
-              className="rounded-full"
-            >
-              <Link href={item.href}>{item.label}</Link>
-            </Button>
-          ))}
-        </nav>
-
+        <div className="relative hidden items-center rounded-full bg-secondary/50 p-1 md:flex">
+          <div
+            className="absolute h-[calc(100%-8px)] rounded-full bg-secondary transition-all duration-300 ease-in-out"
+            style={highlighterStyle}
+          />
+          <div ref={navContainerRef} className="flex items-center gap-1">
+            {navItems.map((item) => (
+              <Button
+                key={item.href}
+                variant="ghost"
+                size="sm"
+                asChild
+                className={cn(
+                  "relative z-10 rounded-full transition-colors",
+                  pathname === item.href
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground hover:text-primary-foreground"
+                )}
+              >
+                <Link href={item.href}>{item.label}</Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+        
         <ThemeToggle />
 
         <DropdownMenu>
