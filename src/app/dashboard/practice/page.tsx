@@ -15,6 +15,7 @@ import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, BrainCircuit } from
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 function PracticePageSkeleton() {
     return (
@@ -149,8 +150,15 @@ export default function PracticePage() {
     const pendingExercises = exercises.filter(ex => !responses.has(ex.id));
     const completedExercises = exercises.filter(ex => responses.has(ex.id));
 
+    const breadcrumbItems = [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/practice", label: "Practice" },
+    ];
+
+
     return (
       <div className="space-y-8">
+        <Breadcrumb items={breadcrumbItems} />
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-3 text-2xl font-headline">

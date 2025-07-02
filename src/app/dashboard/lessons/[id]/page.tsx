@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 
 function LessonPageSkeleton() {
@@ -87,6 +88,12 @@ export default function LessonPage() {
 
     return () => unsubscribe();
   }, [id]);
+  
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/lessons", label: "Lessons" },
+    { href: `/dashboard/lessons/${id}`, label: lesson?.title || "..." },
+  ];
 
   if (isLoading) {
     return <LessonPageSkeleton />;
@@ -116,6 +123,7 @@ export default function LessonPage() {
 
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
         <p className="text-lg text-muted-foreground">{lesson.subject}</p>

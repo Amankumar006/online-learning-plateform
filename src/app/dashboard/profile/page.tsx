@@ -14,6 +14,7 @@ import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 function ProfileSkeleton() {
     return (
@@ -147,6 +148,11 @@ export default function ProfilePage() {
         }
     };
     
+    const breadcrumbItems = [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/profile", label: "Profile" },
+    ];
+
     if (isLoading) {
         return <ProfileSkeleton />;
     }
@@ -159,6 +165,7 @@ export default function ProfilePage() {
 
     return (
         <div className="space-y-6">
+            <Breadcrumb items={breadcrumbItems} />
             <h1 className="text-3xl font-bold font-headline">My Profile & Stats</h1>
             
             <form onSubmit={handleSubmit}>

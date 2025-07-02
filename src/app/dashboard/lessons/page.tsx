@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, PlusCircle } from "lucide-react";
 import LessonRequestForm from "@/components/dashboard/LessonRequestForm";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 function LessonsSkeleton() {
   return (
@@ -77,9 +78,15 @@ export default function LessonsPage() {
 
     return () => unsubscribe();
   }, []);
+  
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/lessons", label: "Lessons" },
+  ];
 
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold font-headline">All Lessons</h1>

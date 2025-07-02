@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Zap, Activity, Clock, TrendingUp } from "lucide-react";
 import SubjectActivityChart from "@/components/progress/SubjectActivityChart";
 import WeeklyActivityChart from "@/components/progress/WeeklyActivityChart";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 
 function ProgressSkeleton() {
@@ -71,6 +72,11 @@ export default function ProgressPage() {
     return () => unsubscribe();
   }, []);
   
+  const breadcrumbItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/progress", label: "Progress" },
+  ];
+  
   if (isLoading) {
     return <ProgressSkeleton />;
   }
@@ -88,6 +94,7 @@ export default function ProgressPage() {
 
   return (
     <div className="space-y-6">
+        <Breadcrumb items={breadcrumbItems} />
         <div className="flex items-center gap-2">
              <TrendingUp className="h-8 w-8 text-primary" />
              <div>
