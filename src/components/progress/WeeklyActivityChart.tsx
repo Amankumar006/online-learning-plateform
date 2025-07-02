@@ -3,6 +3,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
+import { format } from 'date-fns';
 
 interface WeeklyActivityChartProps {
     data: { week: string; skillsMastered: number; timeSpent: number }[];
@@ -27,18 +28,23 @@ export default function WeeklyActivityChart({ data }: WeeklyActivityChartProps) 
             </div>
         );
     }
+    
+    const chartData = data.map(item => ({
+        ...item,
+        week: format(new Date(item.week), 'MMM d'),
+        timeSpent: parseFloat((item.timeSpent / 3600).toFixed(1))
+    }));
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
         <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data} accessibilityLayer>
+            <BarChart data={chartData} accessibilityLayer>
                 <CartesianGrid vertical={false} />
                 <XAxis
                     dataKey="week"
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tickFormatter={(value) => value.substring(0, 3)}
                 />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--chart-1))" />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--chart-2))" />

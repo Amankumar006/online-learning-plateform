@@ -2,6 +2,7 @@
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
+import { format, startOfWeek } from 'date-fns';
 
 // Old structure
 export interface ContentBlock {
@@ -437,15 +438,6 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
         const subjectLessonsSnapshot = await getDocs(subjectQuery);
         const totalLessonsInSubject = subjectLessonsSnapshot.size;
 
-        if (totalLessonsInSubject === 0) {
-            // This case should ideally not be hit if a lesson exists, but it's a safe fallback.
-            await updateDoc(userRef, {
-                'progress.completedLessons': increment(1),
-                'progress.completedLessonIds': arrayUnion(lessonId),
-            });
-            return;
-        }
-
         await runTransaction(db, async (transaction) => {
             const userSnap = await transaction.get(userRef);
             if (!userSnap.exists()) {
@@ -471,7 +463,7 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
             });
 
             // Calculate new mastery percentage
-            const newMastery = Math.round((completedInSubjectCount / totalLessonsInSubject) * 100);
+            const newMastery = totalLessonsInSubject > 0 ? Math.round((completedInSubjectCount / totalLessonsInSubject) * 100) : 0;
 
             // Update or add the subject in the mastery array
             const subjectsMastery = progress.subjectsMastery || [];
@@ -483,11 +475,16 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
                 subjectsMastery.push({ subject: subject, mastery: newMastery });
             }
 
+            // Calculate overall mastery
+            const totalMastery = subjectsMastery.reduce((acc, subj) => acc + subj.mastery, 0);
+            const overallMastery = subjectsMastery.length > 0 ? Math.round(totalMastery / subjectsMastery.length) : 0;
+
             // Update user document
             transaction.update(userRef, {
                 'progress.completedLessons': increment(1),
                 'progress.completedLessonIds': completedLessonIds,
                 'progress.subjectsMastery': subjectsMastery,
+                'progress.mastery': overallMastery,
             });
         });
     } catch (error) {
@@ -524,8 +521,6 @@ export async function saveExerciseAttempt(
         }, { merge: true }); // Use merge to allow for re-attempts if needed in future
 
         // Then, update aggregate stats in a transaction
-        // NOTE: This logic increments stats on every attempt. For more complex logic 
-        // (e.g., only counting first attempts), this would need to be enhanced.
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists()) {
@@ -542,11 +537,32 @@ export async function saveExerciseAttempt(
             const timePerExercise = 30; // approx 30 seconds per exercise
             const newTimeSpent = (progress.timeSpent || 0) + timePerExercise;
 
+             // --- Weekly Activity Logic ---
+            const weeklyActivity = progress.weeklyActivity || [];
+            const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+
+            if (currentWeek) {
+                currentWeek.skillsMastered += (isCorrect ? 1 : 0);
+                currentWeek.timeSpent += timePerExercise;
+            } else {
+                currentWeek = {
+                    week: weekStartDateStr,
+                    skillsMastered: (isCorrect ? 1 : 0),
+                    timeSpent: timePerExercise
+                };
+                weeklyActivity.push(currentWeek);
+            }
+            const sortedWeeklyActivity = weeklyActivity
+                .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
+                .slice(-5); // Keep only the last 5 weeks
+
             transaction.update(userRef, { 
                 'progress.totalExercisesAttempted': totalAttempted,
                 'progress.totalExercisesCorrect': totalCorrect,
                 'progress.averageScore': newAverageScore,
-                'progress.timeSpent': newTimeSpent
+                'progress.timeSpent': newTimeSpent,
+                'progress.weeklyActivity': sortedWeeklyActivity,
             });
         });
     } catch (e) {
