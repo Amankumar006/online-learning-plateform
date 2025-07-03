@@ -3,18 +3,19 @@
 
 import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock } from "@/lib/data";
 import { notFound, useRouter, useParams } from "next/navigation";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import AIBuddy from "@/components/lessons/ai-buddy";
 import { BookText, Bot, BrainCircuit, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 
 function LessonPageSkeleton() {
@@ -24,17 +25,13 @@ function LessonPageSkeleton() {
             <Skeleton className="h-6 w-1/4 mb-6" />
             <Card>
                 <CardContent className="p-6">
-                    <Tabs defaultValue="lesson" className="w-full">
-                        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 mb-6">
-                            <TabsTrigger value="lesson" disabled><BookText className="mr-2"/>Lesson</TabsTrigger>
-                            <TabsTrigger value="exercise" disabled><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
-                            <TabsTrigger value="ai-buddy" disabled><Bot className="mr-2"/>AI Buddy</TabsTrigger>
-                        </TabsList>
-                        <div className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                            <Skeleton className="h-[400px] w-full" />
-                            <Skeleton className="h-24 w-full mt-4" />
-                        </div>
-                    </Tabs>
+                    <div className="flex items-center justify-center mb-6">
+                       <Skeleton className="h-12 w-96 rounded-full" />
+                    </div>
+                    <div className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                        <Skeleton className="h-[400px] w-full" />
+                        <Skeleton className="h-24 w-full mt-4" />
+                    </div>
                 </CardContent>
             </Card>
         </div>
@@ -73,12 +70,19 @@ export default function LessonPage() {
 
   const [activeTab, setActiveTab] = useState('lesson');
   const [direction, setDirection] = useState(0);
-  const tabItems = ['lesson', 'exercise', 'ai-buddy'];
+  const tabItems = [
+    { id: 'lesson', label: 'Lesson', icon: BookText },
+    { id: 'exercise', label: 'Exercise', icon: BrainCircuit },
+    { id: 'ai-buddy', label: 'AI Buddy', icon: Bot },
+  ];
+
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  const [highlighterStyle, setHighlighterStyle] = useState({});
 
   const handleTabChange = (newTab: string) => {
     if (newTab === activeTab) return;
-    const oldIndex = tabItems.indexOf(activeTab);
-    const newIndex = tabItems.indexOf(newTab);
+    const oldIndex = tabItems.findIndex(t => t.id === activeTab);
+    const newIndex = tabItems.findIndex(t => t.id === newTab);
     setDirection(newIndex > oldIndex ? 1 : -1);
     setActiveTab(newTab);
   };
@@ -118,6 +122,24 @@ export default function LessonPage() {
 
     return () => unsubscribe();
   }, [id]);
+  
+  // Effect for highlighter
+  useEffect(() => {
+    if (isLoading || !tabContainerRef.current) return;
+
+    const activeIndex = tabItems.findIndex((item) => item.id === activeTab);
+    const activeTabEl = tabContainerRef.current.children[activeIndex] as HTMLElement | undefined;
+
+    if (activeTabEl) {
+        setHighlighterStyle({
+            width: `${activeTabEl.offsetWidth}px`,
+            transform: `translateX(${activeTabEl.offsetLeft}px)`,
+            opacity: 1,
+        });
+    } else {
+        setHighlighterStyle({ opacity: 0 });
+    }
+  }, [activeTab, isLoading]);
   
   const breadcrumbItems = [
     { href: "/dashboard", label: "Dashboard" },
@@ -159,12 +181,35 @@ export default function LessonPage() {
       </div>
       <Card>
           <CardContent className="p-4 sm:p-6">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 mb-6">
-                    <TabsTrigger value="lesson"><BookText className="mr-2"/>Lesson</TabsTrigger>
-                    <TabsTrigger value="exercise"><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
-                    <TabsTrigger value="ai-buddy"><Bot className="mr-2"/>AI Buddy</TabsTrigger>
-                </TabsList>
+            <div className="w-full">
+                <div className="relative flex items-center justify-center mb-6">
+                    <div className="relative flex items-center rounded-full bg-muted p-1 backdrop-blur-lg border border-black/10 dark:border-white/10 shadow-inner">
+                        <div
+                            className="absolute h-[calc(100%-8px)] rounded-full bg-gradient-to-br from-white/50 to-white/20 dark:from-white/20 dark:to-white/5 border border-white/30 dark:border-white/10 shadow-md backdrop-blur-sm transition-all duration-300 ease-in-out"
+                            style={highlighterStyle}
+                        />
+                        <div ref={tabContainerRef} className="flex items-center gap-1">
+                            {tabItems.map((tab) => (
+                                <Button
+                                    key={tab.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleTabChange(tab.id)}
+                                    className={cn(
+                                        "relative z-10 rounded-full transition-colors flex items-center gap-2 px-4 py-1.5",
+                                        activeTab === tab.id
+                                        ? 'text-foreground dark:text-background font-semibold'
+                                        : 'text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground'
+                                    )}
+                                >
+                                    <tab.icon className="h-4 w-4" />
+                                    {tab.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                
                 <div className="relative min-h-[60vh] mt-2 overflow-hidden">
                     <AnimatePresence initial={false} custom={direction}>
                         <motion.div
@@ -197,7 +242,7 @@ export default function LessonPage() {
                         </motion.div>
                     </AnimatePresence>
                 </div>
-            </Tabs>
+            </div>
         </CardContent>
       </Card>
     </div>
