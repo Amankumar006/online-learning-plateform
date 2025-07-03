@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -37,6 +37,13 @@ function AdminLoader() {
   );
 }
 
+const navItems = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/lessons", label: "Lessons", icon: BookCopy },
+  { href: "/admin/exercises", label: "Exercises", icon: BrainCircuit },
+  { href: "/admin/students", label: "Students", icon: Users },
+];
+
 export default function AdminLayout({
   children,
 }: {
@@ -50,18 +57,10 @@ export default function AdminLayout({
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/lessons", label: "Lessons", icon: BookCopy },
-    { href: "/admin/exercises", label: "Exercises", icon: BrainCircuit },
-    { href: "/admin/students", label: "Students", icon: Users },
-  ];
-
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
 
-  // Find the most specific active item
-  const getActiveItem = () => {
+  const activeItem = useMemo(() => {
     const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
     if (matchingItems.length === 0) return null;
 
@@ -69,8 +68,7 @@ export default function AdminLayout({
     return matchingItems.reduce((best, current) => {
         return current.href.length > best.href.length ? current : best;
     });
-  };
-  const activeItem = getActiveItem();
+  }, [pathname]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
