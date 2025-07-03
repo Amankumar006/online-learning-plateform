@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -124,24 +124,90 @@ const symbolGroups = [
     }
 ];
 
+const LATEX_COMMAND_MAP = new Map<string, { snippet: string, offset: number }>([
+  ['sqrt', { snippet: '\\sqrt{}', offset: -1 }],
+  ['frac', { snippet: '\\frac{}{}', offset: -3 }],
+  ['sum', { snippet: '\\sum_{i=1}^{n}', offset: 0 }],
+  ['int', { snippet: '\\int_{a}^{b}', offset: 0 }],
+  ['alpha', { snippet: '\\alpha ', offset: 0 }],
+  ['beta', { snippet: '\\beta ', offset: 0 }],
+  ['gamma', { snippet: '\\gamma ', offset: 0 }],
+  ['delta', { snippet: '\\Delta ', offset: 0 }],
+  ['pi', { snippet: '\\pi ', offset: 0 }],
+  ['theta', { snippet: '\\theta ', offset: 0 }],
+  ['sin', { snippet: '\\sin()', offset: -1 }],
+  ['cos', { snippet: '\\cos()', offset: -1 }],
+  ['tan', { snippet: '\\tan()', offset: -1 }],
+  ['log', { snippet: '\\log()', offset: -1 }],
+  ['ln', { snippet: '\\ln()', offset: -1 }],
+  ['infty', { snippet: '\\infty ', offset: 0 }],
+  ['partial', { snippet: '\\partial ', offset: 0 }],
+  ['neq', { snippet: '\\neq ', offset: 0 }],
+  ['approx', { snippet: '\\approx ', offset: 0 }],
+  ['le', { snippet: '\\le ', offset: 0 }],
+  ['ge', { snippet: '\\ge ', offset: 0 }],
+  ['pm', { snippet: '\\pm ', offset: 0 }],
+  ['times', { snippet: '\\times ', offset: 0 }],
+  ['div', { snippet: '\\div ', offset: 0 }],
+]);
+const LATEX_COMMANDS = Array.from(LATEX_COMMAND_MAP.keys());
+
 
 const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [currentCommand, setCurrentCommand] = useState<{word: string, start: number} | null>(null);
+
 
     const insertSymbol = (latex: string, offset = 0) => {
         if (!textareaRef.current) return;
-
         const start = textareaRef.current.selectionStart;
         const end = textareaRef.current.selectionEnd;
         const text = textareaRef.current.value;
-
         const newValue = text.substring(0, start) + latex + text.substring(end);
         onValueChange(newValue);
-
-        // Setting timeout to allow React to re-render before we manipulate the DOM
         setTimeout(() => {
             if (textareaRef.current) {
                 const newCursorPos = start + latex.length + offset;
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            }
+        }, 0);
+    };
+
+    const handleValueChange = (newValue: string, cursorPosition: number) => {
+        onValueChange(newValue);
+        const textBeforeCursor = newValue.slice(0, cursorPosition);
+        const commandMatch = textBeforeCursor.match(/\\([a-zA-Z]*)$/);
+
+        if (commandMatch) {
+            const command = commandMatch[1] || '';
+            const filtered = LATEX_COMMANDS.filter(c => c.startsWith(command)).slice(0, 5);
+            setSuggestions(filtered);
+            setCurrentCommand({ word: `\\${command}`, start: commandMatch.index! });
+        } else {
+            setSuggestions([]);
+            setCurrentCommand(null);
+        }
+    };
+
+    const handleSuggestionClick = (commandName: string) => {
+        if (!currentCommand || !textareaRef.current) return;
+        const commandInfo = LATEX_COMMAND_MAP.get(commandName);
+        if (!commandInfo) return;
+
+        const { snippet, offset } = commandInfo;
+        const { start } = currentCommand;
+        const end = start + currentCommand.word.length;
+        const newValue = value.slice(0, start) + snippet + value.slice(end);
+        onValueChange(newValue);
+
+        setSuggestions([]);
+        setCurrentCommand(null);
+
+        setTimeout(() => {
+            if (textareaRef.current) {
+                const newCursorPos = start + snippet.length + offset;
                 textareaRef.current.focus();
                 textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
             }
@@ -175,14 +241,32 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                             </div>
                         ))}
                     </div>
-                    <Textarea
-                        ref={textareaRef}
-                        value={value}
-                        onChange={(e) => onValueChange(e.target.value)}
-                        placeholder={placeholder}
-                        disabled={disabled}
-                        className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent"
-                    />
+                    <div className="relative flex-grow">
+                        <Textarea
+                            ref={textareaRef}
+                            value={value}
+                            onChange={(e) => handleValueChange(e.target.value, e.target.selectionStart)}
+                            placeholder={placeholder}
+                            disabled={disabled}
+                            className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent w-full h-full"
+                        />
+                         {suggestions.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 p-1 rounded-md border bg-popover shadow-lg">
+                                <p className="text-xs px-2 py-1 text-muted-foreground">Suggestions</p>
+                                {suggestions.map(suggestion => (
+                                    <Button
+                                        key={suggestion}
+                                        type="button"
+                                        variant="ghost"
+                                        className="w-full justify-start font-mono text-sm"
+                                        onClick={() => handleSuggestionClick(suggestion)}
+                                    >
+                                        {suggestion}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
             <Card className="h-full">
