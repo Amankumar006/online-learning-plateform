@@ -4,13 +4,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getExercise, getUserResponseForExercise, Exercise, UserExerciseResponse } from "@/lib/data";
+import { getCustomExercisesForUser, getUserResponseForExercise, Exercise, UserExerciseResponse } from "@/lib/data";
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { useToast } from "@/hooks/use-toast";
 
 function SolverPageSkeleton() {
     return (
@@ -45,6 +46,7 @@ function SolverPageSkeleton() {
 export default function SolveExercisePage() {
     const params = useParams();
     const router = useRouter();
+    const { toast } = useToast();
     const exerciseId = params.id as string;
 
     const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -61,21 +63,26 @@ export default function SolveExercisePage() {
                     return;
                 }
                 try {
-                    const [exerciseData, responseData] = await Promise.all([
-                        getExercise(exerciseId),
-                        getUserResponseForExercise(currentUser.uid, exerciseId),
-                    ]);
-                    
-                    if (!exerciseData) {
+                    // Fetch all custom exercises for the user to respect security rules
+                    const userCustomExercises = await getCustomExercisesForUser(currentUser.uid);
+                    const currentExerciseData = userCustomExercises.find(ex => ex.id === exerciseId);
+
+                    if (!currentExerciseData) {
+                        // This exercise doesn't exist or doesn't belong to the user
+                        toast({ variant: "destructive", title: "Error", description: "Exercise not found or you don't have permission to view it." });
                         router.push('/dashboard/practice');
                         return;
                     }
+
+                    // Now that we have the exercise, get the specific response for it
+                    const responseData = await getUserResponseForExercise(currentUser.uid, exerciseId);
                     
-                    setExercise(exerciseData);
+                    setExercise(currentExerciseData);
                     setResponse(responseData);
 
                 } catch (error) {
                     console.error("Failed to load exercise data:", error);
+                    toast({ variant: "destructive", title: "Error", description: "Could not load your exercise." });
                 } finally {
                     setIsLoading(false);
                 }
@@ -85,7 +92,7 @@ export default function SolveExercisePage() {
         });
 
         return () => unsubscribe();
-    }, [exerciseId, router]);
+    }, [exerciseId, router, toast]);
 
     const handleSolved = () => {
         router.push('/dashboard/practice');
