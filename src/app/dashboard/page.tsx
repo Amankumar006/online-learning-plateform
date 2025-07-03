@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { Card } from "@/components/ui/card";
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -311,3 +310,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
