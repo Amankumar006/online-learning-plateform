@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { createCustomAnnouncement, AnnouncementType } from "@/lib/data";
 import { Loader2, Send } from "lucide-react";
@@ -19,6 +20,7 @@ const announcementSchema = z.object({
   message: z.string().min(10, "Message must be at least 10 characters long."),
   type: z.enum(['general_update', 'new_feature']),
   link: z.string().url().optional().or(z.literal('')),
+  sendToGmail: z.boolean().default(false).optional(),
 });
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
@@ -29,18 +31,27 @@ export default function AnnouncementForm() {
     resolver: zodResolver(announcementSchema),
     defaultValues: {
       type: 'general_update',
+      sendToGmail: false,
     },
   });
 
   const onSubmit = async (data: AnnouncementFormValues) => {
     try {
       await createCustomAnnouncement({
-        ...data,
+        type: data.type,
+        title: data.title,
+        message: data.message,
         link: data.link || undefined,
-      });
+      }, data.sendToGmail);
+      
+      let toastDescription = "Your message has been broadcast to all users.";
+      if (data.sendToGmail) {
+        toastDescription += " Emails have been queued for delivery."
+      }
+
       toast({
         title: "Announcement Sent!",
-        description: "Your message has been broadcast to all users.",
+        description: toastDescription,
       });
       reset();
     } catch (error: any) {
@@ -89,8 +100,26 @@ export default function AnnouncementForm() {
              {errors.link && <p className="text-sm text-destructive">{errors.link.message}</p>}
         </div>
       </div>
+
+      <div className="flex items-center space-x-2">
+         <Controller
+            control={control}
+            name="sendToGmail"
+            render={({ field }) => (
+                <Checkbox
+                    id="sendToGmail"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={isSubmitting}
+                />
+            )}
+        />
+        <Label htmlFor="sendToGmail" className="font-normal">
+          Send this announcement as an email to all users
+        </Label>
+      </div>
       
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-2">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
           Send Announcement

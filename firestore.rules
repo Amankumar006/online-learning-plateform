@@ -4,65 +4,97 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an admin
+    // Helper function to check if the user is an admin
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+    
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user data is being updated correctly
+    function isUpdatingOwnValidProfile(userId) {
+        // Allow update if the user is the owner, and they are not changing their role, uid, or email.
+        let isNotChangingRole = !(request.resource.data.role != resource.data.role);
+        let isNotChangingUid = !(request.resource.data.uid != resource.data.uid);
+        let isNotChangingEmail = !(request.resource.data.email != resource.data.email);
+        
+        return isOwner(userId) && isNotChangingRole && isNotChangingUid && isNotChangingEmail;
+    }
 
+    // Users collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      // Allow user to create their own document, but not as an admin
-      allow create: if request.auth != null && request.auth.uid == userId
-                    && request.resource.data.role == 'student'
-                    && request.resource.data.uid == userId;
+      // Admins can read any user profile
+      // Authenticated users can read their own profile
+      allow read: if isAdmin() || isOwner(userId);
 
-      // Allow user to update their own document, but not change critical fields
-      allow update: if request.auth.uid == userId
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.uid == resource.data.uid
-                    && request.resource.data.email == resource.data.email;
+      // Admins can create new user profiles (e.g., for manual setup)
+      // An authenticated user can create their OWN profile document,
+      // but they cannot set their own role to admin.
+      allow create: if isAdmin() || (isOwner(userId) && request.resource.data.role == 'student');
+      
+      // Admins can update any user profile
+      // An authenticated user can update their own profile, but cannot change their role.
+      allow update: if isAdmin() || isUpdatingOwnValidProfile(userId);
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
     }
-
-    // Admins can manage lessons
+    
+    // Lessons collection
     match /lessons/{lessonId} {
+      // Any authenticated user can read lessons
       allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // Admins can manage all exercises. Users can manage their own custom exercises.
-    match /exercises/{exerciseId} {
-      allow read: if request.auth != null;
-      
-      allow create: if isAdmin() || (
-        request.resource.data.isCustom == true &&
-        request.resource.data.userId == request.auth.uid
-      );
-      
-      allow update: if isAdmin();
-
-      allow delete: if isAdmin() || (
-        resource.data.isCustom == true &&
-        resource.data.userId == request.auth.uid
-      );
-    }
-    
-    // Users can only manage their own responses
-    match /exerciseResponses/{responseId} {
-        allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
-    }
-
-    match /lessonRequests/{requestId} {
-      allow read: if request.auth != null;
-      // Users can create their own requests
-      allow create: if request.auth.uid == request.resource.data.userId;
-      // Admins can update requests (to approve/reject them)
-      allow update: if isAdmin();
-    }
-    
-    match /announcements/{announcementId} {
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete announcements
+      // Only admins can create, update, or delete lessons
       allow write: if isAdmin();
+    }
+    
+    // Exercises collection
+    match /exercises/{exerciseId} {
+        // Any authenticated user can read exercises
+        allow read: if request.auth != null;
+
+        // Admins can create any exercise.
+        // Users can create their own custom exercises.
+        allow create: if isAdmin() || (request.auth != null && request.resource.data.userId == request.auth.uid && request.resource.data.isCustom == true);
+        
+        // Only admins can update or delete exercises
+        allow update, delete: if isAdmin();
+    }
+    
+    // ExerciseResponses collection
+    match /exerciseResponses/{responseId} {
+      // A user can create and update their own responses.
+      // ResponseId is composite: `${userId}_${exerciseId}`
+      allow read, write: if request.auth != null && request.auth.uid == responseId.split('_')[0];
+      // Only admins can delete responses.
+      allow delete: if isAdmin();
+    }
+
+    // LessonRequests collection
+    match /lessonRequests/{requestId} {
+        // Authenticated users can create requests for themselves.
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Admins can read, update (approve/reject), and delete requests.
+        allow read, update, delete: if isAdmin();
+    }
+
+    // Announcements collection
+    match /announcements/{announcementId} {
+        // Any authenticated user can read announcements
+        allow read: if request.auth != null;
+        // Only admins can create, update, or delete announcements
+        allow write: if isAdmin();
+    }
+
+    // emailQueue collection for the "Trigger Email" extension
+    match /emailQueue/{emailId} {
+        // Only authenticated admins can create (queue) emails.
+        // The extension itself will handle processing, no read/update/delete needed by users.
+        allow create: if isAdmin();
+        allow read, update, delete: if false; // Nobody needs to read/update/delete from the client.
     }
   }
 }

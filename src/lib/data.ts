@@ -262,9 +262,9 @@ export async function createSystemAnnouncement(announcementData: Omit<Announceme
     }
 }
 
-export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
+export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>, sendToGmail?: boolean): Promise<void> {
     try {
-        const payload = { ...announcementData };
+        const payload: { [key: string]: any } = { ...announcementData };
         // Firestore rejects `undefined` values. If the link is falsy (empty or undefined), remove it.
         if (!payload.link) {
             delete payload.link;
@@ -273,9 +273,47 @@ export async function createCustomAnnouncement(announcementData: Omit<Announceme
             ...payload,
             createdAt: Timestamp.now()
         });
+
+        if (sendToGmail) {
+            await queueEmailsForAnnouncement(payload.title, payload.message, payload.link);
+        }
+
     } catch (error) {
         console.error("Error creating custom announcement: ", error);
         throw new Error("Failed to send the announcement.");
+    }
+}
+
+async function queueEmailsForAnnouncement(subject: string, message: string, link?: string): Promise<void> {
+    try {
+        const users = await getUsers();
+        const emailQueueCollection = collection(db, "emailQueue");
+
+        const emailPromises = users
+            .filter(user => user.email) // Ensure user has an email
+            .map(user => {
+                const htmlBody = `
+                    <h1>${subject}</h1>
+                    <p>${message}</p>
+                    ${link ? `<p><a href="${link}">Learn more here</a></p>` : ''}
+                    <br/>
+                    <p><small>You are receiving this email as a user of AdaptEd AI.</small></p>
+                `;
+
+                return addDoc(emailQueueCollection, {
+                    to: user.email,
+                    message: {
+                        subject: `[AdaptEd AI] ${subject}`,
+                        html: htmlBody,
+                    },
+                });
+            });
+
+        await Promise.all(emailPromises);
+
+    } catch (error) {
+        console.error("Error queuing emails:", error);
+        // We don't throw an error here to allow the in-app announcement to succeed even if email queuing fails.
     }
 }
 
@@ -794,5 +832,6 @@ export async function markAnnouncementsAsRead(userId: string): Promise<void> {
         throw new Error("Failed to update user's notification status.");
     }
 }
+
 
 
