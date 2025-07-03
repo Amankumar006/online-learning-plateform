@@ -6,6 +6,7 @@ import { format, startOfWeek, subDays } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
 import { uploadImageFromDataUrl } from './storage';
+import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
 
 
 // Old structure
@@ -96,7 +97,7 @@ export interface BaseExercise {
     hint?: string;
     category?: 'code' | 'math' | 'general';
     isCustom?: boolean;
-    userId?: string;
+    userId?: string | null;
     tags?: string[];
     createdAt?: number;
 }
@@ -136,7 +137,7 @@ export interface UserExerciseResponse {
   imageDataUri?: string | null;
   isCorrect: boolean;
   score: number;
-  feedback?: string;
+  feedback?: string | GradeMathSolutionOutput;
   submittedAt: number; // using timestamp for sorting
 }
 
@@ -464,15 +465,22 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
 }
 
 export async function getCustomExercisesForUser(userId: string): Promise<Exercise[]> {
-    const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
-    const exercisesList = querySnapshot.docs.map(doc => {
+    const userExercisesQuery = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
+    const globalExercisesQuery = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", null));
+
+    const [userSnapshot, globalSnapshot] = await Promise.all([
+        getDocs(userExercisesQuery),
+        getDocs(globalExercisesQuery)
+    ]);
+
+    const exercisesList = [...userSnapshot.docs, ...globalSnapshot.docs].map(doc => {
         const data = doc.data();
         if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
             data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
         }
         return { id: doc.id, ...data } as Exercise;
     });
+
     return exercisesList;
 }
 
@@ -622,7 +630,7 @@ export async function saveExerciseAttempt(
     submittedAnswer: string | boolean | string[],
     isCorrect: boolean,
     score: number,
-    feedback?: string,
+    feedback?: string | GradeMathSolutionOutput,
     imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);

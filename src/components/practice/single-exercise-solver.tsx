@@ -15,12 +15,12 @@ import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tag
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
-import MathEditor from "@/components/lessons/math-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MathSolutionGrader from "./math-solution-grader";
 
 
 interface SingleExerciseSolverProps {
@@ -204,11 +204,19 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         setLongFormAnswer(initialResponse.submittedAnswer as string);
         setImageDataUri(initialResponse.imageDataUri || null);
         if (initialResponse.feedback) {
-          setFeedback({
-            isCorrect: initialResponse.isCorrect,
-            score: initialResponse.score,
-            feedback: initialResponse.feedback,
-          });
+            // This is tricky because the feedback structure is different.
+            // For now, we only re-populate the math grader if the feedback is in the new format.
+            if (typeof initialResponse.feedback === 'object' && initialResponse.feedback !== null && 'overallScore' in initialResponse.feedback) {
+                setFeedback(initialResponse.feedback as GradeLongFormAnswerOutput);
+            } else if (typeof initialResponse.feedback === 'string') {
+                 // Handle old string feedback for general long-form
+                 setFeedback({
+                    isSolutionCorrect: initialResponse.isCorrect,
+                    overallScore: initialResponse.score,
+                    overallFeedback: initialResponse.feedback,
+                    stepEvaluations: [],
+                });
+            }
         }
       } else if (exercise.type === 'true_false') {
         setSelectedAnswer(initialResponse.submittedAnswer ? 'True' : 'False');
@@ -243,8 +251,13 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 studentAnswer: longFormAnswer,
                 imageDataUri: imageDataUri || undefined,
             });
-            aiFeedback = result;
-            setFeedback(result);
+            aiFeedback = {
+                isSolutionCorrect: result.isCorrect,
+                overallScore: result.score,
+                overallFeedback: result.feedback,
+                stepEvaluations: [],
+            };
+            setFeedback(aiFeedback);
             correct = result.isCorrect;
             score = result.score;
             toast({ title: "Answer Graded!", description: "Your detailed feedback is available below." });
@@ -280,7 +293,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             submittedAnswer,
             correct,
             score,
-            aiFeedback?.feedback,
+            aiFeedback || aiFeedback?.overallFeedback,
             imageDataUri
         );
          if (exercise.type !== 'long_form') {
@@ -289,6 +302,32 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     } catch (error) {
         console.error("Failed to save exercise result:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not save your progress." });
+    }
+  };
+
+  const handleMathGraded = async (result: GradeLongFormAnswerOutput, studentSolution: string) => {
+    setFeedback(result);
+    setIsAnswered(true);
+    setIsCorrect(result.isSolutionCorrect);
+
+    try {
+        await saveExerciseAttempt(
+            userId,
+            exercise.lessonId || 'custom',
+            exercise.id,
+            studentSolution,
+            result.isSolutionCorrect,
+            result.overallScore,
+            result, // Save the entire feedback object
+            null // No image for math grader
+        );
+    } catch (error) {
+        console.error("Failed to save math exercise result:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not save your progress.",
+        });
     }
   };
 
@@ -382,14 +421,22 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                  );
             }
              
-            // For Math and General long form questions
-            let mainInput = lfExercise.category === 'math' 
-                ? <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />
-                : <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />;
+            if (lfExercise.category === 'math') {
+                return (
+                    <MathSolutionGrader 
+                        exercise={lfExercise} 
+                        onGraded={handleMathGraded} 
+                        isAnswered={isAnswered}
+                        initialFeedback={feedback || undefined}
+                        initialSolution={longFormAnswer}
+                    />
+                );
+            }
             
+            // For General long form questions
             return (
                 <div className="space-y-6">
-                    {mainInput}
+                    <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />
                     <Separator />
                     <ImageUploader 
                         onImageChange={setImageDataUri} 
@@ -421,11 +468,11 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                                 <CardContent><p className="text-sm">{exercise.explanation}</p></CardContent>
                             </Card>
                         )}
-                        {feedback && (
-                             <Card className={cn(feedback.isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
-                                <CardHeader><CardTitle className="text-base flex items-center justify-between gap-2"><span>{feedback.isCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />} AI Feedback</span><Badge variant={feedback.isCorrect ? "default" : "destructive"}>Score: {feedback.score}/100</Badge></CardTitle></CardHeader>
-                                <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.feedback}</p></CardContent>
-                            </Card>
+                        {feedback && exercise.category !== 'math' && (
+                             <Card className={cn(feedback.isSolutionCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                                <CardHeader><CardTitle className="text-base flex items-center justify-between gap-2"><span>{feedback.isSolutionCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />} AI Feedback</span><Badge variant={feedback.isSolutionCorrect ? "default" : "destructive"}>Score: {feedback.overallScore}/100</Badge></CardTitle></CardHeader>
+                                <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.overallFeedback}</p></CardContent>
+                             </Card>
                         )}
                      </div>
                 )}
@@ -436,7 +483,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer && !imageDataUri) || isGrading || isSimulating} size="lg">
+                <Button onClick={handleAnswerSubmit} disabled={exercise.category === 'math' || (!selectedAnswer && !longFormAnswer && !imageDataUri) || isGrading || isSimulating} size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (
