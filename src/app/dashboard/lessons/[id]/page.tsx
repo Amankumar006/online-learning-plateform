@@ -182,21 +182,20 @@ export default function LessonPage() {
       <Card>
           <CardContent className="p-4 sm:p-6">
             <div className="w-full">
-                <div className="relative flex items-center justify-center mb-6">
-                    <div className="relative flex items-center rounded-full bg-muted p-1 backdrop-blur-lg border border-black/10 dark:border-white/10 shadow-inner">
-                        <div
-                            className="absolute h-[calc(100%-8px)] rounded-full bg-gradient-to-br from-white/50 to-white/20 dark:from-white/20 dark:to-white/5 border border-white/30 dark:border-white/10 shadow-md backdrop-blur-sm transition-all duration-300 ease-in-out"
+                <div className="relative w-full mb-6">
+                    <div className="relative w-full rounded-md bg-muted p-1 backdrop-blur-lg border border-black/10 dark:border-white/10 shadow-inner">
+                         <div
+                            className="absolute h-[calc(100%-8px)] rounded-md bg-gradient-to-br from-white/50 to-white/20 dark:from-white/20 dark:to-white/5 border border-white/30 dark:border-white/10 shadow-md backdrop-blur-sm transition-all duration-300 ease-in-out"
                             style={highlighterStyle}
                         />
-                        <div ref={tabContainerRef} className="flex items-center gap-1">
+                        <div ref={tabContainerRef} className="relative grid grid-cols-3 gap-1">
                             {tabItems.map((tab) => (
                                 <Button
                                     key={tab.id}
                                     variant="ghost"
-                                    size="sm"
                                     onClick={() => handleTabChange(tab.id)}
                                     className={cn(
-                                        "relative z-10 rounded-full transition-colors flex items-center gap-2 px-4 py-1.5",
+                                        "z-10 rounded-md transition-colors flex items-center justify-center gap-2",
                                         activeTab === tab.id
                                         ? 'text-foreground dark:text-background font-semibold'
                                         : 'text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground'
