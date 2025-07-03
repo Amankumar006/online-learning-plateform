@@ -3,7 +3,7 @@
 
 import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock } from "@/lib/data";
 import { notFound, useRouter, useParams } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import AIBuddy from "@/components/lessons/ai-buddy";
@@ -13,8 +13,7 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 
@@ -31,16 +30,36 @@ function LessonPageSkeleton() {
                             <TabsTrigger value="exercise" disabled><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
                             <TabsTrigger value="ai-buddy" disabled><Bot className="mr-2"/>AI Buddy</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="lesson" className="space-y-4">
+                        <div className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                             <Skeleton className="h-[400px] w-full" />
-                            <Skeleton className="h-24 w-full" />
-                        </TabsContent>
+                            <Skeleton className="h-24 w-full mt-4" />
+                        </div>
                     </Tabs>
                 </CardContent>
             </Card>
         </div>
     )
 }
+
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? '100%' : '-100%',
+    opacity: 0,
+    position: 'absolute' as 'absolute',
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+    position: 'absolute' as 'absolute',
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? '100%' : '-100%',
+    opacity: 0,
+    position: 'absolute' as 'absolute',
+  }),
+};
 
 
 export default function LessonPage() {
@@ -51,6 +70,18 @@ export default function LessonPage() {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [activeTab, setActiveTab] = useState('lesson');
+  const [direction, setDirection] = useState(0);
+  const tabItems = ['lesson', 'exercise', 'ai-buddy'];
+
+  const handleTabChange = (newTab: string) => {
+    if (newTab === activeTab) return;
+    const oldIndex = tabItems.indexOf(activeTab);
+    const newIndex = tabItems.indexOf(newTab);
+    setDirection(newIndex > oldIndex ? 1 : -1);
+    setActiveTab(newTab);
+  };
 
   const fetchUserProgress = async (uid: string) => {
     const progress = await getUserProgress(uid);
@@ -83,7 +114,6 @@ export default function LessonPage() {
             setIsLoading(false);
         }
       }
-      // The layout now handles redirection if the user is not logged in.
     });
 
     return () => unsubscribe();
@@ -100,7 +130,6 @@ export default function LessonPage() {
   }
 
   if (!user || !lesson) {
-    // This case might be hit briefly before layout redirection or if data fetch fails.
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -130,26 +159,44 @@ export default function LessonPage() {
       </div>
       <Card>
           <CardContent className="p-4 sm:p-6">
-            <Tabs defaultValue="lesson" className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 mb-6">
-                <TabsTrigger value="lesson"><BookText className="mr-2"/>Lesson</TabsTrigger>
-                <TabsTrigger value="exercise"><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
-                <TabsTrigger value="ai-buddy"><Bot className="mr-2"/>AI Buddy</TabsTrigger>
+                    <TabsTrigger value="lesson"><BookText className="mr-2"/>Lesson</TabsTrigger>
+                    <TabsTrigger value="exercise"><BrainCircuit className="mr-2"/>Exercise</TabsTrigger>
+                    <TabsTrigger value="ai-buddy"><Bot className="mr-2"/>AI Buddy</TabsTrigger>
                 </TabsList>
-                <TabsContent value="lesson">
-                <LessonContent 
-                    lesson={lesson} 
-                    userId={user.uid}
-                    userProgress={userProgress}
-                    onLessonComplete={() => fetchUserProgress(user.uid)}
-                />
-                </TabsContent>
-                <TabsContent value="exercise">
-                <AdaptiveExercise exercises={exercises} userId={user.uid} />
-                </TabsContent>
-                <TabsContent value="ai-buddy">
-                <AIBuddy lessonContent={textContentForAI} />
-                </TabsContent>
+                <div className="relative min-h-[60vh] mt-2 overflow-hidden">
+                    <AnimatePresence initial={false} custom={direction}>
+                        <motion.div
+                            key={activeTab}
+                            custom={direction}
+                            variants={slideVariants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{
+                                x: { type: "spring", stiffness: 300, damping: 30 },
+                                opacity: { duration: 0.2 }
+                            }}
+                            className="w-full"
+                        >
+                            {activeTab === 'lesson' && user && lesson && (
+                              <LessonContent 
+                                  lesson={lesson} 
+                                  userId={user.uid}
+                                  userProgress={userProgress}
+                                  onLessonComplete={() => fetchUserProgress(user.uid)}
+                              />
+                            )}
+                            {activeTab === 'exercise' && (
+                              <AdaptiveExercise exercises={exercises} userId={user.uid} />
+                            )}
+                            {activeTab === 'ai-buddy' && (
+                              <AIBuddy lessonContent={textContentForAI} />
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
             </Tabs>
         </CardContent>
       </Card>
