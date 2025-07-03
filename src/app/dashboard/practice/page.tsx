@@ -11,43 +11,45 @@ import { generateCustomExercise, GeneratedExercise } from '@/ai/flows/generate-c
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, BrainCircuit } from 'lucide-react';
+import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, BrainCircuit, Code, FunctionSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle } from 'lucide-react';
+
 
 function PracticePageSkeleton() {
     return (
       <div className="space-y-8">
         <Card>
-          <CardHeader><CardTitle><div className="h-7 w-64 bg-muted rounded-md" /></CardTitle><CardDescription><div className="h-4 w-96 bg-muted rounded-md mt-2" /></CardDescription></CardHeader>
+          <CardHeader><CardTitle><Skeleton className="h-7 w-64" /></CardTitle><CardDescription><Skeleton className="h-4 w-96 mt-2" /></CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            <div className="h-24 bg-muted rounded-md" />
-            <div className="h-10 w-48 bg-muted rounded-md" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-10 w-48" />
           </CardContent>
         </Card>
         <div className="h-8 w-56 bg-muted rounded-md" />
-        <div className="space-y-4">
-          {[...Array(2)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="p-4">
-                <div className="flex justify-between items-start gap-2 mb-3">
-                    <div className="space-y-2 flex-grow">
-                        <div className="h-5 w-3/4 bg-muted rounded-md" />
-                        <div className="h-5 w-1/2 bg-muted rounded-md" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="overflow-hidden flex flex-col">
+                <Skeleton className="h-24 w-full" />
+                <CardContent className="p-4 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                        <Skeleton className="h-6 w-24 rounded-full" />
                     </div>
-                    <div className="h-5 w-20 bg-muted rounded-md shrink-0"/>
-                </div>
-                 <div className="flex flex-wrap gap-2">
-                    <div className="h-5 w-16 bg-muted rounded-md" />
-                    <div className="h-5 w-20 bg-muted rounded-md" />
-                </div>
-              </CardHeader>
-              <CardFooter className="bg-muted/50 p-3 flex justify-between items-center">
-                   <div className="flex items-center gap-3"><div className="h-5 w-24 bg-muted rounded-md" /> <div className="h-4 w-24 bg-muted rounded-md" /></div>
-                   <div className="flex gap-2"><div className="h-9 w-20 bg-muted rounded-md" /><div className="h-9 w-24 bg-muted rounded-md" /></div>
-              </CardFooter>
+                    <Skeleton className="h-6 w-full mt-2" />
+                    <Skeleton className="h-5 w-3/4 mt-1" />
+                    <div className="flex-grow my-4 space-y-2">
+                        <div className="flex gap-2">
+                            <Skeleton className="h-5 w-16" />
+                            <Skeleton className="h-5 w-20" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-10 w-full mt-auto" />
+                </CardContent>
             </Card>
           ))}
         </div>
@@ -176,6 +178,12 @@ export default function PracticePage() {
             default: return <Badge variant="secondary">N/A</Badge>;
         }
     }
+    
+    const categoryIcons: Record<string, React.ReactNode> = {
+        code: <Code className="w-12 h-12 text-muted-foreground/80" />,
+        math: <FunctionSquare className="w-12 h-12 text-muted-foreground/80" />,
+        general: <BrainCircuit className="w-12 h-12 text-muted-foreground/80" />,
+    };
 
     const pendingExercises = exercises.filter(ex => !responses.has(ex.id));
     const completedExercises = exercises.filter(ex => responses.has(ex.id));
@@ -244,76 +252,79 @@ export default function PracticePage() {
             <section>
                 <h3 className="text-lg font-semibold mt-6 mb-3">Pending & In-Progress ({pendingExercises.length})</h3>
                 {pendingExercises.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {pendingExercises.map(ex => (
-                            <Card key={ex.id} className="flex flex-col">
-                                <CardHeader className="flex-grow p-4">
-                                    <div className="flex justify-between items-start gap-2 mb-3">
-                                        <CardTitle className="text-base font-semibold leading-relaxed">
-                                            {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
-                                        </CardTitle>
-                                        <Badge variant="outline" className="capitalize whitespace-nowrap shrink-0">{ex.type.replace(/_/g, ' ')}</Badge>
-                                    </div>
-                                    {ex.tags && ex.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
-                                        </div>
-                                    )}
-                                </CardHeader>
-                                <CardFooter className="bg-muted/50 p-3 flex justify-between items-center text-xs text-muted-foreground">
-                                    <div className="flex items-center gap-3">
+                            <Card key={ex.id} className="overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                                <div className="h-24 bg-gradient-to-br from-muted to-secondary flex items-center justify-center">
+                                    {categoryIcons[ex.category || 'general']}
+                                </div>
+                                <CardContent className="p-4 flex flex-col flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Badge variant="outline" className="capitalize">{ex.type.replace(/_/g, ' ')}</Badge>
                                         {getDifficultyBadge(ex.difficulty)}
-                                        <span>Created: {ex.createdAt ? format(new Date(ex.createdAt), 'dd MMM, yyyy') : 'N/A'}</span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button size="sm" asChild><Link href={`/dashboard/practice/${ex.id}`}><Pencil className="mr-2 h-4 w-4"/>Solve</Link></Button>
-                                        <Button size="sm" variant="outline" onClick={() => handleDiscardSaved(ex.id)}><Trash2 className="mr-2 h-4 w-4"/>Discard</Button>
+                                    <CardTitle className="text-base font-semibold leading-relaxed h-12 line-clamp-2">
+                                        {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
+                                    </CardTitle>
+                                    <div className="flex-grow my-4">
+                                        {ex.tags && ex.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1">
+                                                {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                                            </div>
+                                        )}
                                     </div>
-                                </CardFooter>
+                                    <div className="flex gap-2 mt-auto">
+                                        <Button asChild className="w-full"><Link href={`/dashboard/practice/${ex.id}`}><Pencil className="mr-2 h-4 w-4"/>Solve</Link></Button>
+                                        <Button size="icon" variant="outline" onClick={() => handleDiscardSaved(ex.id)}><Trash2 className="h-4 w-4"/></Button>
+                                    </div>
+                                </CardContent>
                             </Card>
                         ))}
                     </div>
                 ) : (
-                    <Alert><AlertTitle>No pending exercises!</AlertTitle></Alert>
+                    <Alert><AlertTitle>No pending exercises!</AlertTitle><AlertDescription>Use the generator above to create new practice problems.</AlertDescription></Alert>
                 )}
             </section>
 
             <section>
                 <h3 className="text-lg font-semibold mt-8 mb-3">Recently Completed ({completedExercises.length})</h3>
                 {completedExercises.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {completedExercises.map(ex => {
                              const response = responses.get(ex.id);
                              return (
-                                <Card key={ex.id} className="opacity-80 flex flex-col">
-                                    <CardHeader className="flex-grow p-4">
-                                        <div className="flex justify-between items-start gap-2 mb-3">
-                                            <CardTitle className="text-base font-semibold leading-relaxed">
-                                                {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
-                                            </CardTitle>
-                                            <Badge variant="outline" className="capitalize whitespace-nowrap shrink-0">{ex.type.replace(/_/g, ' ')}</Badge>
-                                        </div>
-                                        {ex.tags && ex.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                                {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                                <Card key={ex.id} className="overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1 opacity-80">
+                                    <div className="relative h-24 bg-gradient-to-br from-muted to-secondary flex items-center justify-center">
+                                        {categoryIcons[ex.category || 'general']}
+                                        {response?.isCorrect && (
+                                             <div className="absolute top-2 right-2 p-1 bg-green-500/80 backdrop-blur-sm rounded-full text-white">
+                                                <CheckCircle className="h-4 w-4" />
                                             </div>
                                         )}
-                                    </CardHeader>
-                                    <CardFooter className="bg-muted/50 p-3 flex justify-between items-center text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-3">
+                                    </div>
+                                    <CardContent className="p-4 flex flex-col flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Badge variant="outline" className="capitalize">{ex.type.replace(/_/g, ' ')}</Badge>
                                             {getDifficultyBadge(ex.difficulty)}
-                                            <span>Completed: {response?.submittedAt ? format(new Date(response.submittedAt), 'dd MMM, yyyy') : 'N/A'}</span>
                                         </div>
-                                        <div className="flex gap-2">
-                                             <Button size="sm" variant="secondary" asChild><Link href={`/dashboard/practice/${ex.id}`}><Eye className="mr-2 h-4 w-4"/>View</Link></Button>
+                                        <CardTitle className="text-base font-semibold leading-relaxed h-12 line-clamp-2">
+                                            {ex.type !== 'fill_in_the_blanks' ? ex.question : (ex as any).questionParts.join(' ___ ')}
+                                        </CardTitle>
+                                        <div className="flex-grow my-4">
+                                            {ex.tags && ex.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {ex.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                                                </div>
+                                            )}
                                         </div>
-                                    </CardFooter>
+                                        <Button asChild variant="secondary" className="w-full mt-auto"><Link href={`/dashboard/practice/${ex.id}`}><Eye className="mr-2 h-4 w-4"/>View Solution</Link></Button>
+                                    </CardContent>
                                 </Card>
                              )
                         })}
                     </div>
                 ) : (
-                    <Alert><AlertTitle>No completed exercises yet.</AlertTitle></Alert>
+                    <Alert><AlertTitle>No completed exercises yet.</AlertTitle><AlertDescription>Once you solve a pending exercise, it will appear here.</AlertDescription></Alert>
                 )}
             </section>
         </div>
