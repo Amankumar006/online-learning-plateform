@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookCopy, Users, Activity, Bell, Loader2 } from "lucide-react";
+import { BookCopy, Users, Activity, Bell, Megaphone } from "lucide-react";
 import { getLessons, getUsers, getPendingLessonRequests, approveLessonRequest, LessonRequest } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
+import AnnouncementForm from "@/components/admin/AnnouncementForm";
 
 
 function DashboardSkeleton() {
@@ -31,18 +33,33 @@ function DashboardSkeleton() {
                 </Card>
             ))}
         </div>
-        <Card className="mt-6">
-            <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-64 mt-2" />
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                </div>
-            </CardContent>
-        </Card>
+        <div className="grid lg:grid-cols-2 gap-6 mt-6">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-10 w-32 ml-auto" />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
       </>
     )
 }
@@ -185,27 +202,42 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <Card className="mt-6">
-          <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Pending Lesson Requests
-                <Badge>{lessonRequests.length}</Badge>
-              </CardTitle>
-              <CardDescription>Review and approve new lesson ideas submitted by students.</CardDescription>
-          </CardHeader>
-          <CardContent>
-              {lessonRequests.length > 0 ? (
-                  <Accordion type="single" collapsible className="w-full">
-                     {lessonRequests.map(request => (
+      <div className="grid lg:grid-cols-2 gap-6 mt-6">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Pending Lesson Requests
+                    <Badge>{lessonRequests.length}</Badge>
+                </CardTitle>
+                <CardDescription>Review and approve new lesson ideas submitted by students.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {lessonRequests.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full">
+                        {lessonRequests.map(request => (
                         <AdminLessonRequest key={request.id} request={request} onApprove={handleApproveRequest} />
-                     ))}
-                  </Accordion>
-              ) : (
-                  <p className="text-muted-foreground text-sm text-center py-4">No pending lesson requests.</p>
-              )}
-          </CardContent>
-      </Card>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <p className="text-muted-foreground text-sm text-center py-4">No pending lesson requests.</p>
+                )}
+            </CardContent>
+        </Card>
+
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Megaphone className="h-5 w-5" />
+                    Send a Custom Announcement
+                </CardTitle>
+                <CardDescription>Broadcast a message to all users. It will appear in their notification center.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <AnnouncementForm />
+            </CardContent>
+        </Card>
+      </div>
 
     </div>
   );

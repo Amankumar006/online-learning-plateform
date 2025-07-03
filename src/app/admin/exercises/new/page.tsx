@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExercise, getLessons, Lesson, getLesson, Exercise, createAnnouncement } from "@/lib/data";
+import { createExercise, getLessons, Lesson, getLesson, Exercise, createSystemAnnouncement } from "@/lib/data";
 import { generateExercise, GeneratedExercise } from "@/ai/flows/generate-exercise";
 import { Loader2, Sparkles, Wand2, BrainCircuit } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -138,7 +138,7 @@ export default function NewExercisePage() {
 
       const lesson = lessons.find(l => l.id === selectedLessonId);
       if (lesson) {
-          await createAnnouncement({
+          await createSystemAnnouncement({
               type: 'new_exercise',
               title: `New Exercises for "${lesson.title}"`,
               message: `New practice questions are available for one of your lessons.`,
@@ -296,3 +296,4 @@ export default function NewExercisePage() {
     </div>
   );
 }
+

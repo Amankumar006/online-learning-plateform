@@ -11,6 +11,8 @@ import {
   TrendingUp,
   Loader2,
   Bell,
+  Megaphone,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +35,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { getUser, Announcement, getRecentAnnouncements, markAnnouncementsAsRead } from "@/lib/data";
+import { getUser, Announcement, getRecentAnnouncements, markAnnouncementsAsRead, AnnouncementType } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatDistanceToNow } from 'date-fns';
 
@@ -43,6 +45,13 @@ const navItems = [
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
+
+const announcementIcons: Record<AnnouncementType, React.ReactNode> = {
+    new_lesson: <BookCopy className="h-5 w-5 text-blue-500" />,
+    new_exercise: <BrainCircuit className="h-5 w-5 text-green-500" />,
+    general_update: <Megaphone className="h-5 w-5 text-purple-500" />,
+    new_feature: <Wand2 className="h-5 w-5 text-orange-500" />,
+};
 
 export default function DashboardNav() {
   const pathname = usePathname();
@@ -202,9 +211,14 @@ export default function DashboardNav() {
                                     className="block p-3 mb-1 rounded-lg hover:bg-muted"
                                     onClick={() => setIsPopoverOpen(false)}
                                 >
-                                    <p className="font-semibold text-sm mb-1">{announcement.title}</p>
-                                    <p className="text-xs text-muted-foreground mb-2">{announcement.message}</p>
-                                    <p className="text-xs text-muted-foreground">{formatDistanceToNow(announcement.createdAt.toDate(), { addSuffix: true })}</p>
+                                  <div className="flex items-start gap-3">
+                                    <div className="mt-1">{announcementIcons[announcement.type]}</div>
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-sm mb-1">{announcement.title}</p>
+                                      <p className="text-xs text-muted-foreground mb-2">{announcement.message}</p>
+                                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(announcement.createdAt.toDate(), { addSuffix: true })}</p>
+                                    </div>
+                                  </div>
                                 </Link>
                             ))
                         ) : (
@@ -264,3 +278,4 @@ export default function DashboardNav() {
     </header>
   );
 }
+

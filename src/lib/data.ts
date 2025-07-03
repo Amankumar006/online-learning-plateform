@@ -152,9 +152,10 @@ export interface ExerciseWithLessonTitle extends Exercise {
     lessonTitle: string;
 }
 
+export type AnnouncementType = 'new_lesson' | 'new_exercise' | 'general_update' | 'new_feature';
 export interface Announcement {
     id: string;
-    type: 'new_lesson' | 'new_exercise' | 'update';
+    type: AnnouncementType;
     title: string;
     message: string;
     link?: string;
@@ -240,21 +241,33 @@ export async function createUserInFirestore(uid: string, email: string, name: st
     }
 }
 
-export async function createAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
+export async function createSystemAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
     try {
         await addDoc(collection(db, "announcements"), {
             ...announcementData,
             createdAt: Timestamp.now()
         });
     } catch (error) {
-        console.error("Error creating announcement: ", error);
+        console.error("Error creating system announcement: ", error);
+    }
+}
+
+export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
+    try {
+        await addDoc(collection(db, "announcements"), {
+            ...announcementData,
+            createdAt: Timestamp.now()
+        });
+    } catch (error) {
+        console.error("Error creating custom announcement: ", error);
+        throw new Error("Failed to send the announcement.");
     }
 }
 
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, "lessons"), lessonData);
-    await createAnnouncement({
+    await createSystemAnnouncement({
         type: 'new_lesson',
         title: `New Lesson Added: ${lessonData.title}`,
         message: `Explore the new lesson on ${lessonData.subject}. Happy learning!`,
@@ -766,3 +779,4 @@ export async function markAnnouncementsAsRead(userId: string): Promise<void> {
         throw new Error("Failed to update user's notification status.");
     }
 }
+
