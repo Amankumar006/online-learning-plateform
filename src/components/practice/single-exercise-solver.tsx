@@ -202,6 +202,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
 
       if (exercise.type === 'long_form') {
         setLongFormAnswer(initialResponse.submittedAnswer as string);
+        setImageDataUri(initialResponse.imageDataUri || null);
         if (initialResponse.feedback) {
           setFeedback({
             isCorrect: initialResponse.isCorrect,
@@ -279,7 +280,8 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             submittedAnswer,
             correct,
             score,
-            aiFeedback?.feedback
+            aiFeedback?.feedback,
+            imageDataUri
         );
          if (exercise.type !== 'long_form') {
             toast({ title: correct ? "Correct!" : "Not quite" });
@@ -389,7 +391,11 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 <div className="space-y-6">
                     {mainInput}
                     <Separator />
-                    <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
+                    <ImageUploader 
+                        onImageChange={setImageDataUri} 
+                        disabled={isAnswered || isGrading} 
+                        initialImageUrl={imageDataUri}
+                    />
                 </div>
             );
         default:

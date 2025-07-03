@@ -1,24 +1,31 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { AlertCircle, Image as ImageIcon, Trash2, ZoomIn } from 'lucide-react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface ImageUploaderProps {
   onImageChange: (dataUrl: string | null) => void;
   disabled?: boolean;
+  initialImageUrl?: string | null;
 }
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export default function ImageUploader({ onImageChange, disabled }: ImageUploaderProps) {
+export default function ImageUploader({ onImageChange, disabled, initialImageUrl }: ImageUploaderProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreview(initialImageUrl || null);
+  }, [initialImageUrl]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -91,17 +98,33 @@ export default function ImageUploader({ onImageChange, disabled }: ImageUploader
           </div>
         ) : (
           <div className="space-y-3">
-             <Card>
-                <CardContent className="p-2">
+             <Dialog>
+                <DialogTrigger asChild>
+                    <Card className="cursor-zoom-in group relative overflow-hidden">
+                        <CardContent className="p-2">
+                             <Image
+                                src={preview}
+                                alt="Solution preview"
+                                width={400}
+                                height={300}
+                                className="rounded-md object-contain max-h-60 w-full"
+                            />
+                        </CardContent>
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <ZoomIn className="h-10 w-10 text-white" />
+                        </div>
+                    </Card>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl p-2 bg-transparent border-0 shadow-none">
                      <Image
                         src={preview}
-                        alt="Solution preview"
-                        width={400}
-                        height={300}
-                        className="rounded-md object-contain max-h-60 w-full"
+                        alt="Full-size solution view"
+                        width={1200}
+                        height={800}
+                        className="rounded-lg object-contain w-full h-auto max-h-[90vh]"
                     />
-                </CardContent>
-             </Card>
+                </DialogContent>
+             </Dialog>
             <Button type="button" variant="destructive" size="sm" onClick={handleRemoveImage} disabled={disabled}>
               <Trash2 className="mr-2 h-4 w-4" /> Remove Image
             </Button>

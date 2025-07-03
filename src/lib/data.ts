@@ -133,6 +133,7 @@ export interface UserExerciseResponse {
   lessonId: string;
   exerciseId: string;
   submittedAnswer: string | boolean | string[];
+  imageDataUri?: string | null;
   isCorrect: boolean;
   score: number;
   feedback?: string;
@@ -463,7 +464,7 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
 }
 
 export async function getCustomExercisesForUser(userId: string): Promise<Exercise[]> {
-    const q = query(collection(db, "exercises"), where("userId", "==", userId), where("isCustom", "==", true));
+    const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
     const exercisesList = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -499,7 +500,7 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
                 id: doc.id,
                 ...data,
                 question: questionText,
-                lessonTitle: lessonsMap.get(data.lessonId) || 'Unknown Lesson'
+                lessonTitle: lessonsMap.get(data.lessonId) || (data.isCustom ? 'Custom Practice' : 'Unknown Lesson'),
             } as ExerciseWithLessonTitle;
         });
 
@@ -621,15 +622,15 @@ export async function saveExerciseAttempt(
     submittedAnswer: string | boolean | string[],
     isCorrect: boolean,
     score: number,
-    feedback?: string
+    feedback?: string,
+    imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);
     // Use a predictable ID to easily check for existence and avoid duplicates
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exerciseId}`);
     
     try {
-        // Save the detailed response record
-        await setDoc(responseRef, {
+        const dataToSave: Partial<UserExerciseResponse> = {
             userId,
             lessonId,
             exerciseId,
@@ -638,7 +639,14 @@ export async function saveExerciseAttempt(
             score,
             feedback: feedback || "",
             submittedAt: Date.now()
-        }, { merge: true }); // Use merge to allow for re-attempts if needed in future
+        };
+
+        if (imageDataUri) {
+            dataToSave.imageDataUri = imageDataUri;
+        }
+
+        // Save the detailed response record
+        await setDoc(responseRef, dataToSave, { merge: true }); // Use merge to allow for re-attempts if needed in future
 
         // Then, update aggregate stats in a transaction
         await runTransaction(db, async (transaction) => {
