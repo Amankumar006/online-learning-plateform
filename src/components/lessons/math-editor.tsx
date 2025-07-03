@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlockMath, InlineMath } from 'react-katex';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 interface MathEditorProps {
     value: string;
@@ -32,9 +34,20 @@ const FormattedMath = ({ text }: { text: string }) => {
                         // For inline math, render it directly.
                         return <InlineMath key={index} math={part.slice(1, -1)} />;
                     }
-                } catch (error) {
-                    // If KaTeX fails to parse, render the raw string with an error style
-                    return <span key={index} className="text-destructive font-mono bg-destructive/10 p-1 rounded-sm mx-1">{part}</span>;
+                } catch (error: any) {
+                    // If KaTeX fails to parse, render the raw string with an error style and a tooltip
+                    return (
+                        <TooltipProvider key={index}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="text-destructive font-mono bg-destructive/10 p-1 rounded-sm mx-1 cursor-help">{part}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="text-xs max-w-xs">{error.message}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    );
                 }
 
                 // Render plain text segments, preserving line breaks by splitting and rejoining with <br />
