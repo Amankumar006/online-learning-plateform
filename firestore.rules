@@ -4,106 +4,104 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    // Check if a user is authenticated.
+    // =================================
+    // Helper Functions
+    // =================================
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Check if the requesting user is the owner of a document.
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Get the role of the requesting user.
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Check if the requesting user is an admin.
     function isAdmin() {
-      return isAuthenticated() && getUserRole() == 'admin';
+      // Check for the existence of the user document and their role.
+      // Use exists() to avoid errors if the document doesn't exist yet.
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- Collection: users ---
+    // =================================
+    // Users Collection
+    // =================================
     match /users/{userId} {
-      // Admins can read/write any user profile.
-      allow read, write: if isAdmin();
-      // Users can read their own profile.
-      allow get: if isOwner(userId);
-      // Users can update specific fields on their own profile.
-      allow update: if isOwner(userId) && request.resource.data.keys().hasOnly(['name', 'photoURL', 'lastCheckedAnnouncementsAt', 'lastLessonRequestAt']);
+      // Users can read their own data. Admins can read anyone's data.
+      allow read: if isOwner(userId) || isAdmin();
+      // Users can update their own data. Admins can update anyone's.
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    // --- Collection: lessons ---
+    // =================================
+    // Lessons Collection
+    // =================================
     match /lessons/{lessonId} {
       // Any authenticated user can read lessons.
       allow read: if isAuthenticated();
-      // Only admins can create, update, or delete lessons.
+      // Only admins can create/update/delete lessons.
       allow write: if isAdmin();
     }
 
-    // --- Collection: announcements & emailQueue ---
-    match /announcements/{announcementId} {
-      // Any authenticated user can read announcements.
+    // =================================
+    // Exercises Collection
+    // =================================
+    match /exercises/{exerciseId} {
+      // Admins have full read/write access to all exercises.
+      allow read, write: if isAdmin();
+
+      // Read rule for non-admins (students).
+      // An authenticated user can read an exercise if:
+      // 1. The exercise is public (isCustom == false).
+      // OR
+      // 2. The exercise is custom (isCustom == true) AND the user is the owner.
+      allow read: if isAuthenticated() && (
+        resource.data.isCustom == false || 
+        (resource.data.isCustom == true && resource.data.userId == request.auth.uid)
+      );
+
+      // Create rule for non-admins (students).
+      // A user can only CREATE exercises that are marked as custom and owned by them.
+      // Admin creation is covered by the admin rule above.
+      allow create: if isAuthenticated() && 
+                     request.resource.data.isCustom == true && 
+                     request.resource.data.userId == request.auth.uid;
+
+      // Update/Delete rule for non-admins (students).
+      // A user can only UPDATE or DELETE exercises that are custom and owned by them.
+      allow update, delete: if isAuthenticated() && 
+                             resource.data.isCustom == true && 
+                             resource.data.userId == request.auth.uid;
+    }
+
+    // =================================
+    // ExerciseResponses Collection
+    // =================================
+    match /exerciseResponses/{responseId} {
+      // A user can read their own exercise responses. Admins can read any.
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      // A user can create or update their own responses.
+      allow write: if isOwner(request.resource.data.userId);
+    }
+
+    // =================================
+    // Other Collections
+    // =================================
+    match /lessonRequests/{reqId} {
+      // Users can create requests for themselves.
+      allow create: if isOwner(request.resource.data.userId);
+      // Only admins can read or act on requests.
+      allow read, update: if isAdmin();
+    }
+
+    match /announcements/{annId} {
       allow read: if isAuthenticated();
-      // Only admins can create announcements.
       allow write: if isAdmin();
     }
 
     match /emailQueue/{emailId} {
-      // No client-side access. This is managed by the server/extensions.
-      allow read, write: if false;
-    }
-
-
-    // --- Collection: lessonRequests ---
-    match /lessonRequests/{requestId} {
-      // Admins can read all requests.
-      allow read: if isAdmin();
-      // Users can create requests for themselves if the status is pending.
-      allow create: if isOwner(request.resource.data.userId) && request.resource.data.status == 'pending';
-      // No one can update or delete from the client.
-      allow update, delete: if false;
-    }
-
-    // --- Collection: exercises ---
-    match /exercises/{exerciseId} {
-      // Admins can do anything.
-      allow read, write: if isAdmin();
-
-      // This is the core rule for student read access.
-      // A user can read an exercise if:
-      // 1. It's a public, lesson-based exercise (isCustom == false).
-      // OR
-      // 2. It's a custom exercise that they own (isCustom == true AND userId matches).
-      // This single rule correctly validates BOTH getting a single public lesson AND querying for one's own custom exercises.
-      allow read: if isAuthenticated() && (resource.data.isCustom == false || isOwner(resource.data.userId));
-
-      // Users can create exercises only if they are marked as custom and for themselves.
-      allow create: if isOwner(request.resource.data.userId) && request.resource.data.isCustom == true;
-
-      // Users can delete only their own custom exercises.
-      allow delete: if isOwner(resource.data.userId) && resource.data.isCustom == true;
-
-      // Users cannot update exercises directly from the client.
-      allow update: if false;
-    }
-
-    // --- Collection: exerciseResponses ---
-    match /exerciseResponses/{responseId} {
-      // Admins can read all responses.
-      allow read: if isAdmin();
-
-      // This rule allows a user to read their own exercise responses.
-      // It works for both getting a single document and for querying
-      // where("userId", "==", uid), because Firestore can verify the query constraint
-      // against this rule.
-      allow read: if isOwner(resource.data.userId);
-
-      // A user can create or update their own response.
-      // We check the incoming data's userId to secure the write.
-      allow write: if isOwner(request.resource.data.userId);
+      // Only the backend (running as admin) can queue emails.
+      allow create: if isAdmin();
     }
   }
 }
