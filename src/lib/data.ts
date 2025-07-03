@@ -24,8 +24,13 @@ export interface CodeBlock {
     language: string;
     code: string;
 }
+export interface VideoBlock {
+    type: 'video';
+    url: string;
+}
 
-export type Block = TextBlock | CodeBlock;
+
+export type Block = TextBlock | CodeBlock | VideoBlock;
 
 export interface Section {
     title: string;
@@ -447,7 +452,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
 
 export async function getExercises(lessonId: string): Promise<Exercise[]> {
     try {
-        const q = query(collection(db, "exercises"), where("lessonId", "==", lessonId));
+        const q = query(collection(db, "exercises"), where("lessonId", "==", lessonId), where("isCustom", "==", false));
         const querySnapshot = await getDocs(q);
         const exercisesList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
         return exercisesList;
@@ -798,13 +803,27 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
         const imageUrl = await uploadImageFromDataUrl(generatedImage.imageUrl, fileName);
 
         // 4. Create Lesson in Firestore
-        await createLesson({
+        const lessonData = {
             ...lessonContent,
             image: imageUrl,
-        });
+        };
+        const lessonRef = doc(collection(db, 'lessons'));
+        transaction.set(lessonRef, lessonData);
 
         // 5. Update Request Status
         transaction.update(requestRef, { status: 'approved' });
+
+        // 6. Create Announcement
+        const announcementData = {
+            type: 'new_lesson' as AnnouncementType,
+            title: `New Lesson Added: ${lessonData.title}`,
+            message: `A new lesson requested by the community is now available.`,
+            link: `/dashboard/lessons/${lessonRef.id}`,
+            createdAt: Timestamp.now(),
+        };
+        const announcementRef = doc(collection(db, 'announcements'));
+        transaction.set(announcementRef, announcementData);
+
     });
 }
 
@@ -832,6 +851,50 @@ export async function markAnnouncementsAsRead(userId: string): Promise<void> {
         throw new Error("Failed to update user's notification status.");
     }
 }
+export async function getSolutionHistory(userId: string): Promise<any[]> {
+    const responsesQuery = query(collection(db, "exerciseResponses"), where("userId", "==", userId), orderBy("submittedAt", "desc"));
+    
+    const responsesSnapshot = await getDocs(responsesQuery);
+    if (responsesSnapshot.empty) {
+        return [];
+    }
+    
+    const exercisesMap = new Map<string, any>();
+    const lessonsMap = new Map<string, any>();
 
+    const history = await Promise.all(responsesSnapshot.docs.map(async (responseDoc) => {
+        const responseData = responseDoc.data();
+        
+        // Fetch exercise if not already fetched
+        if (!exercisesMap.has(responseData.exerciseId)) {
+            const exerciseDoc = await getDoc(doc(db, "exercises", responseData.exerciseId));
+            if(exerciseDoc.exists()) {
+                exercisesMap.set(responseData.exerciseId, exerciseDoc.data());
+            }
+        }
+        const exercise = exercisesMap.get(responseData.exerciseId);
 
+        // Fetch lesson if not already fetched and if it's not a custom exercise
+        if (exercise && exercise.lessonId !== 'custom' && !lessonsMap.has(exercise.lessonId)) {
+            const lessonDoc = await getDoc(doc(db, "lessons", exercise.lessonId));
+            if(lessonDoc.exists()){
+                lessonsMap.set(exercise.lessonId, lessonDoc.data());
+            }
+        }
+        const lesson = lessonsMap.get(exercise?.lessonId);
 
+        let questionText = "Question not found";
+        if (exercise) {
+            questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join(' ___ ') : exercise.question;
+        }
+
+        return {
+            ...responseData,
+            id: responseDoc.id,
+            question: questionText,
+            lessonTitle: lesson ? lesson.title : "Custom Practice",
+        };
+    }));
+
+    return history.filter(item => exercisesMap.has(item.exerciseId));
+}

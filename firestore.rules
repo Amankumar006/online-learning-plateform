@@ -4,104 +4,87 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =================================
-    // Helper Functions
-    // =================================
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
+    // Helper function to check if the user is an admin
     function isAdmin() {
-      // Check for the existence of the user document and their role.
-      // Use exists() to avoid errors if the document doesn't exist yet.
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Get the user's document and check the 'role' field.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // =================================
-    // Users Collection
-    // =================================
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Users can read their own data. Admins can read anyone's data.
-      allow read: if isOwner(userId) || isAdmin();
-      // Users can update their own data. Admins can update anyone's.
-      allow write: if isOwner(userId) || isAdmin();
+      // Admins can read any user profile. Users can only read their own.
+      allow read: if request.auth.uid == userId || isAdmin();
+      
+      // Users can update their own profile fields.
+      // Admins can update any user's profile (e.g., to change a role).
+      allow update: if request.auth.uid == userId || isAdmin();
+      
+      // A user is created only when they sign up.
+      allow create: if request.auth.uid == userId;
+      
+      // No one can delete user documents.
+      allow delete: if false;
     }
 
-    // =================================
-    // Lessons Collection
-    // =================================
+    // Rules for the 'lessons' collection
     match /lessons/{lessonId} {
       // Any authenticated user can read lessons.
-      allow read: if isAuthenticated();
-      // Only admins can create/update/delete lessons.
+      allow read: if request.auth != null;
+      
+      // Only admins can create, update, or delete lessons.
       allow write: if isAdmin();
     }
 
-    // =================================
-    // Exercises Collection
-    // =================================
+    // Rules for the 'exercises' collection
     match /exercises/{exerciseId} {
-      // Admins have full read/write access to all exercises.
-      allow read, write: if isAdmin();
+      // An exercise can be read if it's a public exercise, a custom exercise belonging to the user, or if the user is an admin.
+      // This rule works for direct 'get' requests and allows for secure queries.
+      allow read: if request.auth != null && (isAdmin() || resource.data.isCustom == false || resource.data.userId == request.auth.uid);
 
-      // Read rule for non-admins (students).
-      // An authenticated user can read an exercise if:
-      // 1. The exercise is public (isCustom == false).
-      // OR
-      // 2. The exercise is custom (isCustom == true) AND the user is the owner.
-      allow read: if isAuthenticated() && (
-        resource.data.isCustom == false || 
-        (resource.data.isCustom == true && resource.data.userId == request.auth.uid)
-      );
-
-      // Create rule for non-admins (students).
-      // A user can only CREATE exercises that are marked as custom and owned by them.
-      // Admin creation is covered by the admin rule above.
-      allow create: if isAuthenticated() && 
-                     request.resource.data.isCustom == true && 
-                     request.resource.data.userId == request.auth.uid;
-
-      // Update/Delete rule for non-admins (students).
-      // A user can only UPDATE or DELETE exercises that are custom and owned by them.
-      allow update, delete: if isAuthenticated() && 
-                             resource.data.isCustom == true && 
-                             resource.data.userId == request.auth.uid;
+      // Admins can create any exercise. Users can only create exercises marked as 'custom' for themselves.
+      allow create: if request.auth != null && (isAdmin() || (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid));
+      
+      // Only admins can update exercises.
+      allow update: if isAdmin();
+      
+      // Admins can delete any exercise. Users can only delete their own custom exercises.
+      allow delete: if request.auth != null && (isAdmin() || (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid && get(/databases/$(database)/documents/exercises/$(exerciseId)).data.isCustom == true));
     }
-
-    // =================================
-    // ExerciseResponses Collection
-    // =================================
+    
+    // Rules for user's responses to exercises
     match /exerciseResponses/{responseId} {
-      // A user can read their own exercise responses. Admins can read any.
-      allow read: if isAdmin() || isOwner(resource.data.userId);
-      // A user can create or update their own responses.
-      allow write: if isOwner(request.resource.data.userId);
+      // Users can read their own responses. Admins can read any response.
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Users can only create or update their own responses.
+      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
-    // =================================
-    // Other Collections
-    // =================================
-    match /lessonRequests/{reqId} {
-      // Users can create requests for themselves.
-      allow create: if isOwner(request.resource.data.userId);
-      // Only admins can read or act on requests.
-      allow read, update: if isAdmin();
-    }
-
-    match /announcements/{annId} {
-      allow read: if isAuthenticated();
+    // Rules for system-wide announcements
+    match /announcements/{announcementId} {
+      // Any authenticated user can read announcements.
+      allow read: if request.auth != null;
+      
+      // Only admins can create, update, or delete announcements.
       allow write: if isAdmin();
     }
 
+    // Rules for user-submitted lesson requests
+    match /lessonRequests/{requestId} {
+      // Only admins can read, update, or delete lesson requests.
+      allow read, update, delete: if isAdmin();
+      
+      // Users can create a request for themselves.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for the email queue used by the Trigger Email extension
     match /emailQueue/{emailId} {
-      // Only the backend (running as admin) can queue emails.
+      // Only admins (through the backend) can add emails to the queue.
       allow create: if isAdmin();
+      
+      // No one should be able to read, update, or delete from the queue directly.
+      allow read, update, delete: if false;
     }
   }
 }
