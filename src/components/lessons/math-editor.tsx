@@ -49,21 +49,68 @@ const FormattedMath = ({ text }: { text: string }) => {
     );
 };
 
-
-const mathSymbols = [
-    { display: 'π', latex: '\\pi ' },
-    { display: 'θ', latex: '\\theta ' },
-    { display: '∞', latex: '\\infty ' },
-    { display: '≤', latex: '\\le ' },
-    { display: '≥', latex: '\\ge ' },
-    { display: '≠', latex: '\\neq ' },
-    { display: '∫', latex: '\\int ' },
-    { display: '∑', latex: '\\sum ' },
-    { display: '√x', latex: '\\sqrt{}', offset: -1 },
-    { display: 'x²', latex: '^{}', offset: -1 },
-    { display: 'xₙ', latex: '_{}', offset: -1 },
-    { display: 'a/b', latex: '\\frac{}{}', offset: -3 },
+const symbolGroups = [
+    {
+        name: "Operators",
+        symbols: [
+            { display: '+', latex: '+' },
+            { display: '-', latex: '-' },
+            { display: '×', latex: '\\times ' },
+            { display: '÷', latex: '\\div ' },
+            { display: '±', latex: '\\pm ' },
+        ]
+    },
+    {
+        name: "Relations",
+        symbols: [
+             { display: '=', latex: '=' },
+            { display: '≠', latex: '\\neq ' },
+            { display: '≈', latex: '\\approx ' },
+            { display: '≤', latex: '\\le ' },
+            { display: '≥', latex: '\\ge ' },
+        ]
+    },
+     {
+        name: "Greek",
+        symbols: [
+            { display: 'α', latex: '\\alpha ' },
+            { display: 'β', latex: '\\beta ' },
+            { display: 'π', latex: '\\pi ' },
+            { display: 'θ', latex: '\\theta ' },
+            { display: 'Δ', latex: '\\Delta ' },
+        ]
+    },
+    {
+        name: "Calculus",
+        symbols: [
+            { display: '∫', latex: '\\int ' },
+            { display: '∑', latex: '\\sum ' },
+            { display: '∂', latex: '\\partial ' },
+            { display: '∞', latex: '\\infty ' },
+        ]
+    },
+    {
+        name: "Functions",
+        symbols: [
+            { display: 'sin', latex: '\\sin()', offset: -1 },
+            { display: 'cos', latex: '\\cos()', offset: -1 },
+            { display: 'tan', latex: '\\tan()', offset: -1 },
+            { display: 'log', latex: '\\log()', offset: -1 },
+            { display: 'ln', latex: '\\ln()', offset: -1 },
+        ]
+    },
+    {
+        name: "Structures",
+        symbols: [
+            { display: '√x', latex: '\\sqrt{}', offset: -1 },
+            { display: 'x²', latex: '^{}', offset: -1 },
+            { display: 'xₙ', latex: '_{}', offset: -1 },
+            { display: 'a/b', latex: '\\frac{}{}', offset: -3 },
+            { display: '()', latex: '()', offset: -1 },
+        ]
+    }
 ];
+
 
 const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -90,37 +137,47 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2 rounded-lg border bg-background p-3 focus-within:ring-2 focus-within:ring-ring">
-                 <div className="flex flex-wrap gap-1 justify-center border-b pb-2">
-                    {mathSymbols.map((symbol) => (
-                        <Button
-                            key={symbol.display}
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="font-mono h-8 px-2 text-base"
-                            onClick={() => insertSymbol(symbol.latex, symbol.offset || 0)}
-                            disabled={disabled}
-                        >
-                            {symbol.display}
-                        </Button>
-                    ))}
-                </div>
-                <Textarea
-                    ref={textareaRef}
-                    value={value}
-                    onChange={(e) => onValueChange(e.target.value)}
-                    placeholder={placeholder}
-                    disabled={disabled}
-                    className="font-mono text-sm min-h-[250px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2"
-                />
-            </div>
+            <Card className="flex flex-col">
+                 <CardHeader className="p-3 border-b">
+                    <CardTitle className="text-base font-medium">Equation Editor</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 flex flex-col flex-grow">
+                    <div className="border-b pb-2 mb-2">
+                        {symbolGroups.map(group => (
+                            <div key={group.name} className="mb-1 last:mb-0">
+                                <span className="text-xs font-semibold text-muted-foreground mr-2">{group.name}:</span>
+                                {group.symbols.map((symbol) => (
+                                    <Button
+                                        key={symbol.display}
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="font-mono h-7 px-2 text-base"
+                                        onClick={() => insertSymbol(symbol.latex, symbol.offset || 0)}
+                                        disabled={disabled}
+                                    >
+                                        {symbol.display}
+                                    </Button>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                    <Textarea
+                        ref={textareaRef}
+                        value={value}
+                        onChange={(e) => onValueChange(e.target.value)}
+                        placeholder={placeholder}
+                        disabled={disabled}
+                        className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent"
+                    />
+                </CardContent>
+            </Card>
             <Card className="h-full">
-                 <CardHeader className="py-2 px-4 border-b">
+                 <CardHeader className="py-3 px-4 border-b">
                     <CardTitle className="text-base font-medium">Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                    <ScrollArea className="h-[280px]">
+                    <ScrollArea className="h-[320px]">
                        {value ? (
                            <FormattedMath text={value} />
                        ) : (
