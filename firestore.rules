@@ -4,97 +4,80 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin
+    // Helper function to check if a user is an admin
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    // Helper function to check if user data is being updated correctly
-    function isUpdatingOwnValidProfile(userId) {
-        // Allow update if the user is the owner, and they are not changing their role, uid, or email.
-        let isNotChangingRole = !(request.resource.data.role != resource.data.role);
-        let isNotChangingUid = !(request.resource.data.uid != resource.data.uid);
-        let isNotChangingEmail = !(request.resource.data.email != resource.data.email);
-        
-        return isOwner(userId) && isNotChangingRole && isNotChangingUid && isNotChangingEmail;
-    }
 
-    // Users collection
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Admins can read any user profile
-      // Authenticated users can read their own profile
-      allow read: if isAdmin() || isOwner(userId);
-
-      // Admins can create new user profiles (e.g., for manual setup)
-      // An authenticated user can create their OWN profile document,
-      // but they cannot set their own role to admin.
-      allow create: if isAdmin() || (isOwner(userId) && request.resource.data.role == 'student');
-      
-      // Admins can update any user profile
-      // An authenticated user can update their own profile, but cannot change their role.
-      allow update: if isAdmin() || isUpdatingOwnValidProfile(userId);
-      
-      // Only admins can delete users
-      allow delete: if isAdmin();
+      // Admins can read/write any user document
+      allow read, write: if isAdmin();
+      // Users can only read and update their own document
+      allow get, update: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Lessons collection
+
+    // Rules for the 'lessons' collection
     match /lessons/{lessonId} {
-      // Any authenticated user can read lessons
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete lessons
-      allow write: if isAdmin();
+      // Admins can do anything
+      allow read, write: if isAdmin();
+      // Authenticated users can read lessons
+      allow get, list: if request.auth != null;
     }
     
-    // Exercises collection
+    // Rules for the 'exercises' collection
     match /exercises/{exerciseId} {
-        // Any authenticated user can read exercises
-        allow read: if request.auth != null;
+      // Admins can do anything
+      allow read, write: if isAdmin();
 
-        // Admins can create any exercise.
-        // Users can create their own custom exercises.
-        allow create: if isAdmin() || (request.auth != null && request.resource.data.userId == request.auth.uid && request.resource.data.isCustom == true);
-        
-        // Only admins can update or delete exercises
-        allow update, delete: if isAdmin();
+      // Students can read any non-custom exercise, or their own custom exercises.
+      allow read: if request.auth != null && (
+                    resource.data.isCustom == false ||
+                    resource.data.userId == request.auth.uid
+                  );
+
+      // Students can only create exercises that are marked as custom and for themselves
+      allow create: if request.auth != null
+                    && request.resource.data.isCustom == true
+                    && request.resource.data.userId == request.auth.uid;
+
+      // Students can only update/delete their own custom exercises
+      allow update, delete: if request.auth != null
+                           && resource.data.isCustom == true
+                           && resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for the 'exerciseResponses' collection
+    match /exerciseResponses/{responseId} {
+        // Admins can read all responses
+        allow read: if isAdmin();
+        // Users can read/write their own responses
+        allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Rules for the 'lessonRequests' collection
+    match /lessonRequests/{requestId} {
+        // Admins can read/write all requests
+        allow read, write: if isAdmin();
+        // Users can create requests for themselves
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
     
-    // ExerciseResponses collection
-    match /exerciseResponses/{responseId} {
-      // A user can create and update their own responses.
-      // ResponseId is composite: `${userId}_${exerciseId}`
-      allow read, write: if request.auth != null && request.auth.uid == responseId.split('_')[0];
-      // Only admins can delete responses.
-      allow delete: if isAdmin();
-    }
-
-    // LessonRequests collection
-    match /lessonRequests/{requestId} {
-        // Authenticated users can create requests for themselves.
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Admins can read, update (approve/reject), and delete requests.
-        allow read, update, delete: if isAdmin();
-    }
-
-    // Announcements collection
+    // Rules for the 'announcements' collection
     match /announcements/{announcementId} {
-        // Any authenticated user can read announcements
-        allow read: if request.auth != null;
-        // Only admins can create, update, or delete announcements
-        allow write: if isAdmin();
+      // Admins can create announcements
+      allow create: if isAdmin();
+      // Any authenticated user can read announcements
+      allow read: if request.auth != null;
     }
-
-    // emailQueue collection for the "Trigger Email" extension
+    
+    // Rules for the 'emailQueue' collection (write-only for backend processes)
     match /emailQueue/{emailId} {
-        // Only authenticated admins can create (queue) emails.
-        // The extension itself will handle processing, no read/update/delete needed by users.
-        allow create: if isAdmin();
-        allow read, update, delete: if false; // Nobody needs to read/update/delete from the client.
+        // Only allow backend/server processes to write to this collection
+        // This rule effectively blocks client-side writes.
+        // The "Trigger Email" extension will operate with admin privileges.
+        allow read, write: if false;
+        allow create: if isAdmin(); // Allow admins to queue emails (e.g. via backend functions)
     }
   }
 }
