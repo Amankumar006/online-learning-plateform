@@ -105,20 +105,22 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
   const hasError = result?.stderr && result.stderr.length > 0;
 
   return (
-    <div className="p-4 bg-black rounded-md text-sm text-white font-mono min-h-[200px] whitespace-pre-wrap">
-        {isLoading ? (
-             <div className="flex items-center gap-2">
-                <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
-             </div>
-        ) : result ? (
-            <>
-                {hasOutput && <pre>{result.stdout}</pre>}
-                {hasError && <pre className="text-red-400">{result.stderr}</pre>}
-                {!hasOutput && !hasError && <p className="text-gray-400">Execution finished with no output.</p>}
-            </>
-        ) : (
-             <div className="text-gray-400">Click "Run & Analyze" to see the output here.</div>
-        )}
+    <div className="p-4 bg-muted/50 font-mono text-sm min-h-[200px] whitespace-pre-wrap text-foreground">
+      {isLoading ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
+        </div>
+      ) : result ? (
+        <>
+          {hasOutput && <pre>{result.stdout}</pre>}
+          {hasError && <pre className="text-red-500">{result.stderr}</pre>}
+          {!hasOutput && !hasError && (
+            <p className="text-muted-foreground">Execution finished with no output.</p>
+          )}
+        </>
+      ) : (
+        <div className="text-muted-foreground">Click "Run & Analyze" to see the output here.</div>
+      )}
     </div>
   );
 };
@@ -135,8 +137,8 @@ const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecution
     
     if (result) {
          return (
-            <div className="space-y-4">
-                <Card>
+            <div className="space-y-4 p-4 bg-muted/50 min-h-[200px]">
+                <Card className="bg-background/50 border-border/50">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Complexity Analysis</CardTitle>
                     </CardHeader>
@@ -151,7 +153,7 @@ const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecution
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-background/50 border-border/50">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Code Analysis</CardTitle>
                     </CardHeader>
@@ -342,33 +344,38 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             const lfExercise = exercise as LongFormExercise;
             if (lfExercise.category === 'code') {
                  return (
-                    <div className="space-y-4">
+                    <div className="rounded-lg border bg-background overflow-hidden">
+                        <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
+                            <p className="text-sm font-semibold capitalize flex items-center gap-2"><Code className="h-4 w-4" /> {lfExercise.language || 'Code Editor'}</p>
+                        </div>
                         <CodeEditor
                             value={longFormAnswer}
                             onValueChange={setLongFormAnswer}
                             disabled={isAnswered || isGrading}
                             language={lfExercise.language}
                         />
-                        {!isAnswered && (
-                            <div className="flex justify-end">
-                                <Button onClick={handleRunCode} variant="secondary" disabled={isSimulating || !longFormAnswer.trim()}>
-                                    {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                                    Run & Analyze
-                                </Button>
-                            </div>
-                        )}
-                        <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="console">Console</TabsTrigger>
-                                <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="console">
-                                <ConsoleOutput result={simulationResult} isLoading={isSimulating && activeOutputTab === 'console'} />
-                            </TabsContent>
-                            <TabsContent value="analysis">
-                                <AiAnalysisOutput result={simulationResult} isLoading={isSimulating && activeOutputTab === 'analysis'} />
-                            </TabsContent>
-                        </Tabs>
+                        <div className="border-t">
+                            <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
+                                <div className="flex items-center justify-between p-2 px-4 bg-muted">
+                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
+                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
+                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
+                                    </TabsList>
+                                    {!isAnswered && (
+                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()}>
+                                            {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                                            Run & Analyze
+                                        </Button>
+                                    )}
+                                </div>
+                                <TabsContent value="console" className="mt-0">
+                                    <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
+                                </TabsContent>
+                                <TabsContent value="analysis" className="mt-0">
+                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} />
+                                </TabsContent>
+                            </Tabs>
+                        </div>
                     </div>
                  );
             }
