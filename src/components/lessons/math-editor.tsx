@@ -10,14 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
-interface MathEditorProps {
-    value: string;
-    onValueChange: (value: string) => void;
-    disabled?: boolean;
-    placeholder?: string;
+interface FormattedMathProps {
+    text: string;
+    fullTextValue: string;
+    onTextChange: (newText: string) => void;
 }
 
-const FormattedMath = ({ text }: { text: string }) => {
+const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTextChange }) => {
     // This regex splits the text by block and inline LaTeX, preserving them
     const parts = text.split(/(\$\$[\s\S]*?\$\$|\$.*?\$)/g);
     
@@ -27,30 +26,49 @@ const FormattedMath = ({ text }: { text: string }) => {
                 if (!part) return null;
                 try {
                     if (part.startsWith('$$') && part.endsWith('$$')) {
-                        // For block math, render it directly. KaTeX handles block display.
                         return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>;
                     }
                     if (part.startsWith('$') && part.endsWith('$')) {
-                        // For inline math, render it directly.
                         return <InlineMath key={index} math={part.slice(1, -1)} />;
                     }
                 } catch (error: any) {
-                    // If KaTeX fails to parse, render the raw string with an error style and a tooltip
+                    const handleFixMissingBrace = (badPart: string) => {
+                        const fixedPart = badPart + '}';
+                        // Use a function with replace to only replace the first instance
+                        // This is a safeguard in case the same malformed string appears multiple times.
+                        let replaced = false;
+                        const newFullText = fullTextValue.replace(badPart, (match) => {
+                            if (!replaced) {
+                                replaced = true;
+                                return fixedPart;
+                            }
+                            return match;
+                        });
+                        onTextChange(newFullText);
+                    };
+
+                    const isMissingBraceError = typeof error.message === 'string' && error.message.includes("Expected '}'");
+
                     return (
                         <TooltipProvider key={index}>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <span className="text-destructive font-mono bg-destructive/10 p-1 rounded-sm mx-1 cursor-help">{part}</span>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent className="flex flex-col gap-2 p-2">
                                     <p className="text-xs max-w-xs">{error.message}</p>
+                                    {isMissingBraceError && (
+                                        <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFixMissingBrace(part)}>
+                                            Add missing '}' and fix
+                                        </Button>
+                                    )}
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                     );
                 }
 
-                // Render plain text segments, preserving line breaks by splitting and rejoining with <br />
+                // Render plain text segments by splitting them into lines and rejoining with <br /> to preserve line breaks
                 return part.split('\n').map((line, lineIndex, arr) => (
                     <React.Fragment key={`${index}-${lineIndex}`}>
                         {line}
@@ -151,6 +169,14 @@ const LATEX_COMMAND_MAP = new Map<string, { snippet: string, offset: number }>([
   ['div', { snippet: '\\div ', offset: 0 }],
 ]);
 const LATEX_COMMANDS = Array.from(LATEX_COMMAND_MAP.keys());
+
+
+interface MathEditorProps {
+    value: string;
+    onValueChange: (value: string) => void;
+    disabled?: boolean;
+    placeholder?: string;
+}
 
 
 const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
@@ -276,7 +302,7 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                 <CardContent className="p-4">
                     <ScrollArea className="h-[320px]">
                        {value ? (
-                           <FormattedMath text={value} />
+                           <FormattedMath text={value} fullTextValue={value} onTextChange={onValueChange} />
                        ) : (
                            <div className="text-muted-foreground text-center flex items-center justify-center h-full">
                                <p>Your rendered equations will appear here.</p>
