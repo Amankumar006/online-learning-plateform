@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getCustomExercisesForUser, getUserResponseForExercise, Exercise, UserExerciseResponse } from "@/lib/data";
+import { getCustomExercisesForUser, getAllUserResponses, Exercise, UserExerciseResponse } from "@/lib/data";
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
@@ -63,8 +63,12 @@ export default function SolveExercisePage() {
                     return;
                 }
                 try {
-                    // Fetch all custom exercises for the user to respect security rules
-                    const userCustomExercises = await getCustomExercisesForUser(currentUser.uid);
+                    // Fetch lists instead of single documents to comply with security rules
+                    const [userCustomExercises, allUserResponses] = await Promise.all([
+                        getCustomExercisesForUser(currentUser.uid),
+                        getAllUserResponses(currentUser.uid)
+                    ]);
+                    
                     const currentExerciseData = userCustomExercises.find(ex => ex.id === exerciseId);
 
                     if (!currentExerciseData) {
@@ -74,11 +78,11 @@ export default function SolveExercisePage() {
                         return;
                     }
 
-                    // Now that we have the exercise, get the specific response for it
-                    const responseData = await getUserResponseForExercise(currentUser.uid, exerciseId);
+                    // Find the response from the map
+                    const responseData = allUserResponses.get(exerciseId);
                     
                     setExercise(currentExerciseData);
-                    setResponse(responseData);
+                    setResponse(responseData || null);
 
                 } catch (error) {
                     console.error("Failed to load exercise data:", error);
