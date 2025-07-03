@@ -6,65 +6,70 @@ import { useRouter } from 'next/navigation';
 import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 function DashboardSkeleton() {
   return (
     <div className="w-full h-full flex flex-col">
-       <div className="relative w-full flex-grow bg-slate-100/50 dark:bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-slate-200/80 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
+       {/* Main Glass Panel Skeleton */}
+       <div className="relative w-full flex-grow bg-white/20 dark:bg-black/25 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/20 flex flex-col overflow-hidden p-6">
         <div className="relative z-10 flex flex-col h-full">
-            <div className="flex-grow overflow-y-auto">
-                <div className="mb-8">
-                    <Skeleton className="h-8 w-1/2 md:w-1/3" />
-                    <Skeleton className="h-4 w-2/3 md:w-1/2 mt-2" />
+            <div className="flex-grow overflow-y-auto -mr-6 pr-6">
+                {/* Header Skeleton */}
+                <div className="mb-12">
+                    <Skeleton className="h-10 w-1/2 md:w-1/3" />
+                    <Skeleton className="h-6 w-2/3 md:w-1/2 mt-3" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {/* Next Lesson Skeleton */}
-                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6 flex flex-col">
-                        <Skeleton className="h-4 w-24 mb-2" />
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                        <Skeleton className="h-5 w-24 mb-4" />
                         <div className="flex-grow flex flex-col justify-between">
                             <Skeleton className="w-full h-24 mt-2" />
                             <div className="flex justify-between items-end mt-4">
-                                <Skeleton className="h-6 w-3/4" />
-                                <Skeleton className="h-6 w-6 rounded-full" />
+                                <Skeleton className="h-8 w-3/4" />
+                                <Skeleton className="h-8 w-8 rounded-full" />
                             </div>
                         </div>
                     </div>
 
                     {/* AI Recommendation Skeleton */}
-                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6">
-                        <Skeleton className="h-4 w-32 mb-4" />
+                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
+                        <Skeleton className="h-5 w-32 mb-4" />
                         <div className="space-y-3">
-                            <Skeleton className="h-10 w-full" />
-                            <Skeleton className="h-10 w-full" />
-                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
                         </div>
                     </div>
                     
                     {/* Track Progress Skeleton */}
-                    <div className="rounded-xl bg-gradient-to-b from-teal-500/10 to-blue-500/10 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6 flex flex-col">
-                        <Skeleton className="h-4 w-24 mb-2" />
+                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                        <Skeleton className="h-5 w-24 mb-2" />
                         <div className="flex-grow flex flex-col items-center justify-center">
                             <Skeleton className="h-32 w-32 rounded-full" />
-                            <Skeleton className="h-4 w-20 mt-2" />
+                            <Skeleton className="h-4 w-24 mt-4" />
                         </div>
                     </div>
                 </div>
 
-                <div className="mt-6">
+                {/* Subjects Skeleton */}
+                <div className="mt-8">
+                     <Skeleton className="h-6 w-32 mb-4" />
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[...Array(4)].map((_, i) => (
-                             <div key={i} className="h-full rounded-lg bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-4 flex items-center gap-4">
-                                <Skeleton className="p-3 h-12 w-12 rounded-lg" />
-                                <div className="space-y-2">
-                                    <Skeleton className="h-4 w-20" />
-                                    <Skeleton className="h-3 w-16" />
+                             <div key={i} className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
+                                <Skeleton className="p-3 h-14 w-14 rounded-lg" />
+                                <div className="space-y-2 flex-1 w-full">
+                                    <Skeleton className="h-5 w-full" />
+                                    <Skeleton className="h-4 w-1/2 mx-auto" />
                                 </div>
                             </div>
                         ))}
@@ -157,13 +162,13 @@ export default function DashboardPage() {
   }, {} as Record<string, number>);
 
   const subjectIcons: Record<string, React.ReactNode> = {
-    'Science': <FlaskConical className="w-6 h-6 text-red-500 dark:text-red-400" />,
-    'History': <Landmark className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />,
-    'Mathematics': <Calculator className="w-6 h-6 text-blue-500 dark:text-blue-400" />,
-    'Computer Science': <Terminal className="w-6 h-6 text-green-500 dark:text-green-400" />,
-    'Web Development': <Code className="w-6 h-6 text-purple-500 dark:text-purple-400" />,
-    'Biology': <Leaf className="w-6 h-6 text-teal-500 dark:text-teal-400" />,
-    'default': <BookOpen className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+    'Science': <FlaskConical className="w-8 h-8 text-red-500 dark:text-red-400" />,
+    'History': <Landmark className="w-8 h-8 text-yellow-500 dark:text-yellow-400" />,
+    'Mathematics': <Calculator className="w-8 h-8 text-blue-500 dark:text-blue-400" />,
+    'Computer Science': <Terminal className="w-8 h-8 text-green-500 dark:text-green-400" />,
+    'Web Development': <Code className="w-8 h-8 text-purple-500 dark:text-purple-400" />,
+    'Biology': <Leaf className="w-8 h-8 text-teal-500 dark:text-teal-400" />,
+    'default': <BookOpen className="w-8 h-8 text-gray-500 dark:text-gray-400" />
   };
 
   const getSubjectIcon = (subject: string) => {
@@ -186,30 +191,34 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="relative w-full flex-grow bg-slate-100/50 dark:bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-slate-200/80 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
+      {/* Main Glass Panel */}
+      <div className="relative w-full flex-grow bg-white/20 dark:bg-black/25 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/20 flex flex-col overflow-hidden p-6">
         
-        {/* Background Decorative SVG */}
-        <div className="absolute inset-0 z-0 opacity-50">
+        {/* Richer SVG Background */}
+        <div className="absolute inset-0 z-0 opacity-60">
             <svg width="100%" height="100%" className="absolute inset-0">
                 <defs>
                     <linearGradient id="thread-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="hsl(var(--primary)/0.1)" />
-                        <stop offset="100%" stopColor="hsl(var(--accent)/0.1)" />
+                        <stop offset="0%" stopColor="hsl(var(--primary)/0.15)" />
+                        <stop offset="100%" stopColor="hsl(var(--accent)/0.15)" />
+                    </linearGradient>
+                    <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="hsl(var(--chart-1))" />
+                        <stop offset="100%" stopColor="hsl(var(--chart-2))" />
                     </linearGradient>
                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
                         <feMerge>
                             <feMergeNode in="coloredBlur" />
                             <feMergeNode in="SourceGraphic" />
                         </feMerge>
                     </filter>
                 </defs>
-                {/* Threads */}
-                <path d="M-100 100 Q 150 150, 400 -50" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
-                <path d="M-50 400 Q 200 200, 500 500" stroke="url(#thread-gradient)" fill="none" strokeWidth="1" filter="url(#glow)"/>
-                <path d="M 1200 100 Q 900 300, 700 600" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
-                <path d="M 1000 800 Q 1200 600, 1400 700" stroke="url(#thread-gradient)" fill="none" strokeWidth="1" filter="url(#glow)"/>
-                 {/* Particles */}
+                <path d="M-100 100 Q 150 150, 400 -50" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                <path d="M-50 400 Q 200 200, 500 500" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
+                <path d="M 1200 100 Q 900 300, 700 600" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                <path d="M 1000 800 Q 1200 600, 1400 700" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
+                <path d="M 200 800 Q 400 700, 600 900" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
                 <circle cx="15%" cy="20%" r="2" fill="hsl(var(--primary)/0.2)" filter="url(#glow)" />
                 <circle cx="80%" cy="10%" r="2" fill="hsl(var(--accent)/0.2)" filter="url(#glow)" />
                 <circle cx="5%" cy="85%" r="3" fill="hsl(var(--primary)/0.3)" filter="url(#glow)" />
@@ -220,37 +229,28 @@ export default function DashboardPage() {
         
         {/* Main Content */}
         <div className="relative z-10 flex flex-col h-full">
-            <div className="flex-grow overflow-y-auto">
-                <div className="mb-8">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
-                    <p className="text-muted-foreground text-md">Let's continue your learning journey.</p>
+            <div className="flex-grow overflow-y-auto -mr-6 pr-6">
+                <div className="mb-12">
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
+                    <p className="text-muted-foreground text-lg">Let's continue your learning journey.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     
-                    {/* Your Next Lesson */}
-                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                        <h3 className="font-semibold text-muted-foreground mb-2">Your Next Lesson</h3>
+                    {/* Your Next Lesson (Hero) */}
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-gradient-to-tr from-primary/5 to-accent/5 dark:from-primary/10 dark:to-accent/10 backdrop-blur-lg border border-white/10 hover:border-primary/30 transition-all duration-300 p-6 flex flex-col hover:shadow-xl hover:shadow-primary/10">
+                        <h3 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2"><BookOpen className="h-4 w-4"/> Your Next Lesson</h3>
                         {nextLesson ? (
                             <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
-                                <div className="relative w-full h-24 mt-2">
-                                    <svg className="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
-                                        <defs>
-                                            <linearGradient id="lesson-chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3"/>
-                                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0"/>
-                                            </linearGradient>
-                                        </defs>
-                                        <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" fill="url(#lesson-chart-gradient)" />
-                                        <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" stroke="hsl(var(--primary))" fill="none" strokeWidth="2" strokeLinecap="round"/>
-                                    </svg>
-                                    <div className="absolute top-0 left-0 bg-primary/80 dark:bg-gradient-to-r from-orange-400/30 to-rose-400/30 text-white font-semibold px-4 py-2 rounded-lg text-lg">
-                                        {nextLesson.subject}
-                                    </div>
+                                <div className="flex-grow flex flex-col items-center justify-center">
+                                    <p className="text-2xl font-bold text-foreground text-center">{nextLesson.title}</p>
+                                    <Badge variant="secondary" className="mt-2">{nextLesson.subject}</Badge>
                                 </div>
                                 <div className="flex justify-between items-end mt-4">
-                                    <p className="text-xl font-bold text-foreground">{nextLesson.title}</p>
-                                    <ArrowRight className="w-6 h-6 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                                    <p className="text-lg font-semibold text-primary">Start Learning</p>
+                                    <div className="p-2 rounded-full bg-primary/20 group-hover:bg-primary/30 transition-colors">
+                                       <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1.5 transition-transform" />
+                                    </div>
                                 </div>
                             </Link>
                         ) : (
@@ -264,23 +264,23 @@ export default function DashboardPage() {
                     </div>
 
                     {/* AI Recommendation */}
-                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6">
-                        <h3 className="font-semibold text-muted-foreground mb-4">AI Recommendation</h3>
+                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
+                        <h3 className="font-semibold text-muted-foreground mb-4 flex items-center gap-2"><Bot className="h-4 w-4"/> AI Recommendations</h3>
                         {isGeneratingTopics ? (
                             <div className="space-y-4 py-4">
-                                <Skeleton className="h-4 w-full" />
-                                <Skeleton className="h-4 w-5/6" />
-                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-5 w-full bg-white/10" />
+                                <Skeleton className="h-5 w-5/6 bg-white/10" />
+                                <Skeleton className="h-5 w-full bg-white/10" />
                             </div>
                         ) : suggestedTopics.length > 1 ? (
                             <div className="space-y-3">
                                 {suggestedTopics.slice(1, 4).map((topic, index) => {
                                     const lesson = findLessonForTopic(topic);
                                     return (
-                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-2 rounded-md hover:bg-muted/80 transition-colors font-medium text-muted-foreground hover:text-foreground">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-1.5 bg-purple-500/10 dark:bg-purple-500/20 rounded-md"><MessageSquare className="w-4 h-4 text-purple-500 dark:text-purple-400" /></div>
+                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-3 rounded-md hover:bg-white/10 dark:hover:bg-black/20 transition-colors font-medium text-muted-foreground hover:text-foreground group">
+                                        <div className="flex items-center justify-between">
                                             <span>{topic}</span>
+                                            <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                     </Link>
                                     );
@@ -294,15 +294,15 @@ export default function DashboardPage() {
                     </div>
                     
                     {/* Track Progress */}
-                    <div className="rounded-xl bg-gradient-to-b from-teal-500/10 to-blue-500/10 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                        <h3 className="font-semibold text-foreground mb-2">Track Progress</h3>
+                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                        <h3 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Track Progress</h3>
                         <div className="flex-grow flex flex-col items-center justify-center">
-                            <div className="relative w-32 h-32">
+                            <div className="relative w-36 h-36">
                                 <svg className="w-full h-full" viewBox="0 0 36 36">
-                                    <path className="stroke-current text-foreground/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
-                                    <path className="stroke-current text-teal-500 dark:text-teal-400" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                                    <path className="stroke-current text-foreground/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="4"></path>
+                                    <path className="stroke-[url(#progress-gradient)]" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="4" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
                                 </svg>
-                                <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-foreground">{overallProgress}%</div>
+                                <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-foreground">{overallProgress}<span className="text-lg font-medium mt-1">%</span></div>
                             </div>
                             <Button variant="link" asChild className="mt-2 text-muted-foreground hover:text-foreground">
                                 <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
@@ -311,12 +311,13 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-8">
+                    <h3 className="text-xl font-bold tracking-tight font-headline text-foreground mb-4">Explore Subjects</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {subjectEntries.map(([subject, count]) => (
                              <Link href={`/dashboard/lessons`} key={subject} className="block group">
-                                <div className="h-full rounded-lg bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-white/60 dark:hover:bg-slate-700/60">
-                                    <div className="p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg">
+                                <div className="h-full rounded-lg bg-white/5 dark:bg-black/10 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4 text-center transition-all duration-300 hover:-translate-y-1.5 hover:bg-white/10 dark:hover:bg-black/20 hover:shadow-lg hover:shadow-accent/10">
+                                    <div className="p-4 bg-white/10 dark:bg-black/20 rounded-lg">
                                         {getSubjectIcon(subject)}
                                     </div>
                                     <div>
