@@ -84,7 +84,7 @@ export default function AnnouncementForm() {
                 control={control}
                 name="type"
                 render={({ field }) => (
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
                         <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="general_update">General Update</SelectItem>

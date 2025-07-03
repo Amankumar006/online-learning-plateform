@@ -122,7 +122,7 @@ export default function LessonRequestForm({ userId, userName, lastRequestAt, onS
                         control={control}
                         name="learningFormat"
                         render={({ field }) => (
-                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                           <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a preferred format" />
                                 </SelectTrigger>
