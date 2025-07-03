@@ -134,13 +134,13 @@ export default function DashboardPage() {
   }, {} as Record<string, number>);
 
   const subjectIcons: Record<string, React.ReactNode> = {
-    'Science': <FlaskConical className="w-6 h-6 text-red-400" />,
-    'History': <Landmark className="w-6 h-6 text-yellow-400" />,
-    'Mathematics': <Calculator className="w-6 h-6 text-blue-400" />,
-    'Computer Science': <Terminal className="w-6 h-6 text-green-400" />,
-    'Web Development': <Code className="w-6 h-6 text-purple-400" />,
-    'Biology': <Leaf className="w-6 h-6 text-teal-400" />,
-    'default': <BookOpen className="w-6 h-6 text-gray-400" />
+    'Science': <FlaskConical className="w-6 h-6 text-red-500 dark:text-red-400" />,
+    'History': <Landmark className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />,
+    'Mathematics': <Calculator className="w-6 h-6 text-blue-500 dark:text-blue-400" />,
+    'Computer Science': <Terminal className="w-6 h-6 text-green-500 dark:text-green-400" />,
+    'Web Development': <Code className="w-6 h-6 text-purple-500 dark:text-purple-400" />,
+    'Biology': <Leaf className="w-6 h-6 text-teal-500 dark:text-teal-400" />,
+    'default': <BookOpen className="w-6 h-6 text-gray-500 dark:text-gray-400" />
   };
 
   const getSubjectIcon = (subject: string) => {
@@ -163,7 +163,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="relative w-full flex-grow bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/10 flex flex-col overflow-hidden p-6">
+      <div className="relative w-full flex-grow bg-background/30 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-black/10 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
         
         {/* Background Decorative SVG */}
         <div className="absolute inset-0 z-0 opacity-50">
@@ -199,15 +199,15 @@ export default function DashboardPage() {
         <div className="relative z-10 flex flex-col h-full">
             <div className="flex-grow overflow-y-auto">
                 <div className="mb-8">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-headline">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
-                    <p className="text-slate-400 text-md">Let's continue your learning journey.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
+                    <p className="text-muted-foreground text-md">Let's continue your learning journey.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     
                     {/* Your Next Lesson */}
-                    <Card className="lg:col-span-2 md:col-span-2 rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                        <h3 className="font-semibold text-slate-300 mb-2">Your Next Lesson</h3>
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                        <h3 className="font-semibold text-muted-foreground mb-2">Your Next Lesson</h3>
                         {nextLesson ? (
                             <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
                                 <div className="relative w-full h-24 mt-2">
@@ -226,37 +226,37 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-end mt-4">
-                                    <p className="text-xl font-bold text-white">{nextLesson.title}</p>
-                                    <ArrowRight className="w-6 h-6 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                                    <p className="text-xl font-bold text-foreground">{nextLesson.title}</p>
+                                    <ArrowRight className="w-6 h-6 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                                 </div>
                             </Link>
                         ) : (
                             <div className="flex-grow flex flex-col items-center justify-center h-full">
-                                <p className="text-slate-400 mb-4">You've completed all lessons! Great job!</p>
+                                <p className="text-muted-foreground mb-4">You've completed all lessons! Great job!</p>
                                 <Button asChild variant="secondary">
                                     <Link href="/dashboard/lessons">Review Completed Lessons</Link>
                                 </Button>
                             </div>
                         )}
-                    </Card>
+                    </div>
 
                     {/* AI Recommendation */}
-                    <Card className="rounded-xl bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6">
-                        <h3 className="font-semibold text-slate-300 mb-4">AI Recommendation</h3>
+                    <div className="rounded-xl bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6">
+                        <h3 className="font-semibold text-muted-foreground mb-4">AI Recommendation</h3>
                         {isGeneratingTopics ? (
                             <div className="space-y-4 py-4">
-                                <Skeleton className="h-4 w-full bg-slate-700/50" />
-                                <Skeleton className="h-4 w-5/6 bg-slate-700/50" />
-                                <Skeleton className="h-4 w-full bg-slate-700/50" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-5/6" />
+                                <Skeleton className="h-4 w-full" />
                             </div>
                         ) : suggestedTopics.length > 1 ? (
                             <div className="space-y-3">
                                 {suggestedTopics.slice(1, 4).map((topic, index) => {
                                     const lesson = findLessonForTopic(topic);
                                     return (
-                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-2 rounded-md hover:bg-slate-700/50 transition-colors font-medium text-slate-300 hover:text-white">
+                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-2 rounded-md hover:bg-muted/80 transition-colors font-medium text-muted-foreground hover:text-foreground">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-1.5 bg-purple-500/20 rounded-md"><MessageSquare className="w-4 h-4 text-purple-400" /></div>
+                                            <div className="p-1.5 bg-purple-500/10 dark:bg-purple-500/20 rounded-md"><MessageSquare className="w-4 h-4 text-purple-500 dark:text-purple-400" /></div>
                                             <span>{topic}</span>
                                         </div>
                                     </Link>
@@ -265,40 +265,40 @@ export default function DashboardPage() {
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-full text-center">
-                                <p className="text-sm text-slate-400 py-4">No other recommendations right now. Explore all lessons!</p>
+                                <p className="text-sm text-muted-foreground py-4">No other recommendations right now. Explore all lessons!</p>
                             </div>
                         )}
-                    </Card>
+                    </div>
                     
                     {/* Track Progress */}
-                    <Card className="rounded-xl bg-gradient-to-b from-teal-500/30 to-blue-500/30 backdrop-blur-lg border border-slate-100/10 hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
-                        <h3 className="font-semibold text-slate-100 mb-2">Track Progress</h3>
+                    <div className="rounded-xl bg-gradient-to-b from-teal-500/20 to-blue-500/20 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                        <h3 className="font-semibold text-foreground mb-2">Track Progress</h3>
                         <div className="flex-grow flex flex-col items-center justify-center">
                             <div className="relative w-32 h-32">
                                 <svg className="w-full h-full" viewBox="0 0 36 36">
-                                    <path className="stroke-current text-white/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
-                                    <path className="stroke-current text-teal-300" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                                    <path className="stroke-current text-foreground/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
+                                    <path className="stroke-current text-teal-500 dark:text-teal-300" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
                                 </svg>
-                                <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white">{overallProgress}%</div>
+                                <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-foreground">{overallProgress}%</div>
                             </div>
-                            <Button variant="link" asChild className="mt-2 text-slate-300 hover:text-white">
+                            <Button variant="link" asChild className="mt-2 text-muted-foreground hover:text-foreground">
                                 <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
                             </Button>
                         </div>
-                    </Card>
+                    </div>
                 </div>
 
                 <div className="mt-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {subjectEntries.map(([subject, count]) => (
                              <Link href={`/dashboard/lessons`} key={subject} className="block group">
-                                <div className="h-full rounded-lg bg-slate-800/50 backdrop-blur-lg border border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-slate-700/60">
-                                    <div className="p-3 bg-slate-700/50 rounded-lg">
+                                <div className="h-full rounded-lg bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-background/80 dark:hover:bg-slate-700/60">
+                                    <div className="p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg">
                                         {getSubjectIcon(subject)}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-white">{subject}</p>
-                                        <p className="text-sm text-slate-400">{count} Lessons</p>
+                                        <p className="font-semibold text-foreground">{subject}</p>
+                                        <p className="text-sm text-muted-foreground">{count} Lessons</p>
                                     </div>
                                 </div>
                             </Link>
