@@ -383,5 +383,3 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     </div>
   );
 }
-
-    
