@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 function LessonPageSkeleton() {
@@ -225,15 +226,19 @@ export default function LessonPage() {
                             className="w-full"
                         >
                             {activeTab === 'lesson' && user && lesson && (
-                              <LessonContent 
-                                  lesson={lesson} 
-                                  userId={user.uid}
-                                  userProgress={userProgress}
-                                  onLessonComplete={() => fetchUserProgress(user.uid)}
-                              />
+                              <ScrollArea className="h-[60vh] pr-4">
+                                <LessonContent 
+                                    lesson={lesson} 
+                                    userId={user.uid}
+                                    userProgress={userProgress}
+                                    onLessonComplete={() => fetchUserProgress(user.uid)}
+                                />
+                              </ScrollArea>
                             )}
                             {activeTab === 'exercise' && (
-                              <AdaptiveExercise exercises={exercises} userId={user.uid} />
+                              <ScrollArea className="h-[60vh] pr-4">
+                                <AdaptiveExercise exercises={exercises} userId={user.uid} />
+                              </ScrollArea>
                             )}
                             {activeTab === 'ai-buddy' && (
                               <AIBuddy lessonContent={textContentForAI} />
