@@ -67,6 +67,7 @@ Component interaction occurs at several levels:
     -   **Data Storage:** New requests are stored in a `lessonRequests` collection in Firestore with a `pending` status.
     -   **Admin Side:** The admin dashboard displays all pending lesson requests. Admins can review the details of each request.
     -   **Approval and Generation:** Upon approval by an admin, an AI workflow is triggered which uses the request details to generate the lesson content and a relevant image. The new lesson is then created and becomes publicly available. The request's status is updated to `approved`.
+-   **Announcement System:** Admins can send custom announcements from their dashboard. These announcements appear in a notification center for all users. The system supports different types of announcements (e.g., "New Feature", "General Update") and can be configured to send emails via the "Trigger Email" Firebase Extension.
 
 ## 6. Data Flow
 
@@ -74,7 +75,7 @@ Component interaction occurs at several levels:
 -   **Data Fetching (Frontend):** The frontend fetches data for the dashboard, lessons, and exercises by making requests to the backend API or directly querying Firestore collections using the Firebase SDK. Firestore's real-time capabilities can update the frontend automatically when data changes on the backend.
 -   **Data Submission (Frontend):** User input from exercises, profile updates, or AI chat is sent from the frontend to the backend API or directly written to Firestore (depending on the sensitivity and complexity of the operation). Lesson requests are submitted via a dedicated form and stored in the `lessonRequests` collection.
 -   **Backend Processing:** The Node.js backend receives data from the frontend, performs validation, applies business logic, and interacts with Firestore and Firebase Storage. For AI-related requests, the backend triggers the appropriate Genkit flows.
--   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`, `lessonRequests`).
+-   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`, `lessonRequests`, `announcements`, `emailQueue`).
 -   **Firebase Storage Interactions:** The backend handles file uploads (e.g., exercise images) to Firebase Storage. The frontend receives signed URLs from the backend to display or interact with these files.
 -   **AI Data Flow:** When an AI flow is triggered from the backend, Genkit orchestrates the interaction with Google AI services. Input data from the frontend or backend is passed to the AI model, and the generated output is returned to the backend, which then sends it back to the frontend.
 
@@ -111,7 +112,7 @@ The deployment process likely involves:
 -   **Google AI Integration (via Genkit):** The primary external integration is with Google AI services (likely using models like Gemini) through the Genkit framework. This enables features like AI chat, content generation, and grading.
 -   **Firebase SDKs:** While used for interaction, the Firebase SDKs themselves represent an integration with the Firebase platform's various services.
 -   **Email (via Trigger Email Extension):** The application is configured to queue emails in a Firestore collection named `emailQueue`. To enable sending, the "Trigger Email" Firebase extension must be installed and configured. See the detailed [Email Setup Guide](../email-setup.md) for instructions.
--   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as email services, payment gateways, or analytics platforms.
+-   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as payment gateways or analytics platforms.
 
 ## 11. Authentication
 
