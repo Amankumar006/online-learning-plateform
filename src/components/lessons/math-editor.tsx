@@ -40,12 +40,12 @@ const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTe
                         return <InlineMath key={index} math={part.slice(1, -1)} />;
                     }
                 } catch (error: any) {
-                    const handleFixMissingBrace = (badPart: string) => {
-                        const fixedPart = badPart + '}';
+                    const handleFix = (fixFunction: (p: string) => string) => {
+                        const fixedPart = fixFunction(part);
                         // Use a function with replace to only replace the first instance
                         // This is a safeguard in case the same malformed string appears multiple times.
                         let replaced = false;
-                        const newFullText = fullTextValue.replace(badPart, (match) => {
+                        const newFullText = fullTextValue.replace(part, (match) => {
                             if (!replaced) {
                                 replaced = true;
                                 return fixedPart;
@@ -56,6 +56,29 @@ const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTe
                     };
 
                     const isMissingBraceError = typeof error.message === 'string' && error.message.includes("Expected '}'");
+                    const isUnexpectedBraceError = typeof error.message === 'string' && error.message.includes("Unexpected '}'");
+                    
+                    const renderFixButton = () => {
+                        if (isMissingBraceError) {
+                            return (
+                                <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFix(p => p + '}')}>
+                                    Add missing '}' and fix
+                                </Button>
+                            );
+                        }
+                        if (isUnexpectedBraceError) {
+                            return (
+                                <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFix(p => {
+                                    const lastBraceIndex = p.lastIndexOf('}');
+                                    return lastBraceIndex !== -1 ? p.substring(0, lastBraceIndex) + p.substring(lastBraceIndex + 1) : p;
+                                })}>
+                                    Remove extra '}'
+                                </Button>
+                            );
+                        }
+                        return null;
+                    }
+
 
                     return (
                         <TooltipProvider key={index}>
@@ -65,11 +88,7 @@ const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTe
                                 </TooltipTrigger>
                                 <TooltipContent className="flex flex-col gap-2 p-2">
                                     <p className="text-xs max-w-xs">{error.message}</p>
-                                    {isMissingBraceError && (
-                                        <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFixMissingBrace(part)}>
-                                            Add missing '}' and fix
-                                        </Button>
-                                    )}
+                                    {renderFixButton()}
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
