@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUserProgress, UserProgress } from "@/lib/data";
+import { getUserProgress, UserProgress, getSolutionHistory } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Zap, Activity, Clock, TrendingUp } from "lucide-react";
 import SubjectActivityChart from "@/components/progress/SubjectActivityChart";
 import WeeklyActivityChart from "@/components/progress/WeeklyActivityChart";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import SolutionBoard from "@/components/progress/SolutionBoard";
 
 
 function ProgressSkeleton() {
@@ -50,21 +51,39 @@ function ProgressSkeleton() {
                     </CardContent>
                  </Card>
              </div>
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-7 w-48" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+             </Card>
         </div>
     )
 }
 
 export default function ProgressPage() {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
+  const [solutionHistory, setSolutionHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setIsLoading(true);
-        const progress = await getUserProgress(currentUser.uid);
-        setUserProgress(progress);
-        setIsLoading(false);
+        try {
+            const [progress, history] = await Promise.all([
+                getUserProgress(currentUser.uid),
+                getSolutionHistory(currentUser.uid)
+            ]);
+            setUserProgress(progress);
+            setSolutionHistory(history);
+        } catch (error) {
+            console.error("Failed to load progress data", error);
+        } finally {
+            setIsLoading(false);
+        }
       }
       // The layout now handles redirection if the user is not logged in.
     });
@@ -91,6 +110,9 @@ export default function ProgressPage() {
   }
   
   const timeSpentHours = userProgress.timeSpent ? (userProgress.timeSpent / 3600).toFixed(1) : "0.0";
+  const exerciseAccuracy = userProgress.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
+    ? Math.round(((userProgress.totalExercisesCorrect || 0) / userProgress.totalExercisesAttempted) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -106,12 +128,12 @@ export default function ProgressPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Overall Progress</CardTitle>
+                    <CardTitle className="text-sm font-medium">Exercise Accuracy</CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-primary">{userProgress.mastery || 0}%</div>
-                    <p className="text-xs text-muted-foreground">Keep pushing forward!</p>
+                    <div className="text-2xl font-bold text-primary">{exerciseAccuracy}%</div>
+                    <p className="text-xs text-muted-foreground">Based on all attempts</p>
                 </CardContent>
             </Card>
             <Card>
@@ -156,6 +178,8 @@ export default function ProgressPage() {
                 </CardContent>
             </Card>
         </div>
+
+        <SolutionBoard history={solutionHistory} />
 
     </div>
   );

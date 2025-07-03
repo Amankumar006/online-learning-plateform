@@ -236,12 +236,12 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Overall Progress</CardTitle>
+                                <CardTitle className="text-sm font-medium">Lesson Mastery</CardTitle>
                                 <Zap className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">{userProfile.progress.mastery || 0}%</div>
-                                <p className="text-xs text-muted-foreground">Mastery across all subjects</p>
+                                <p className="text-xs text-muted-foreground">Based on completed lessons</p>
                             </CardContent>
                         </Card>
                          <Card>
@@ -256,12 +256,12 @@ export default function ProfilePage() {
                         </Card>
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Skills Mastered</CardTitle>
+                                <CardTitle className="text-sm font-medium">Correct Answers</CardTitle>
                                 <BrainCircuit className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">{userProfile.progress.totalExercisesCorrect || 0}</div>
-                                <p className="text-xs text-muted-foreground">Correctly answered exercises</p>
+                                <p className="text-xs text-muted-foreground">Total exercises answered correctly</p>
                             </CardContent>
                         </Card>
                         <Card>

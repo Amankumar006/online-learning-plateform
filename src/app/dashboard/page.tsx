@@ -183,11 +183,13 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  if (!user || !userProfile) {
+  if (!user || !userProfile || !userProgress) {
     return <DashboardSkeleton />;
   }
   
-  const overallProgress = userProgress?.mastery || 0;
+  const exerciseAccuracy = userProgress.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
+    ? Math.round(((userProgress.totalExercisesCorrect || 0) / userProgress.totalExercisesAttempted) * 100)
+    : 0;
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -300,9 +302,9 @@ export default function DashboardPage() {
                             <div className="relative w-36 h-36">
                                 <svg className="w-full h-full" viewBox="0 0 36 36">
                                     <path className="stroke-current text-foreground/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="4"></path>
-                                    <path className="stroke-[url(#progress-gradient)]" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="4" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                                    <path className="stroke-[url(#progress-gradient)]" strokeDasharray={`${exerciseAccuracy}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="4" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
                                 </svg>
-                                <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-foreground">{overallProgress}<span className="text-lg font-medium mt-1">%</span></div>
+                                <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-foreground">{exerciseAccuracy}<span className="text-lg font-medium mt-1">%</span></div>
                             </div>
                             <Button variant="link" asChild className="mt-2 text-muted-foreground hover:text-foreground">
                                 <Link href="/dashboard/progress">View Details <ArrowRight className="w-4 h-4 ml-1" /></Link>
