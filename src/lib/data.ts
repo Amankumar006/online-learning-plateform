@@ -204,7 +204,13 @@ export async function updateUserRole(userId: string, role: 'student' | 'admin'):
 export async function updateUserProfile(userId: string, data: { name?: string, photoURL?: string }): Promise<void> {
     try {
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, data);
+        const updateData: { [key: string]: any } = {};
+        if (data.name) updateData.name = data.name;
+        if (data.photoURL) updateData.photoURL = data.photoURL;
+        
+        if (Object.keys(updateData).length > 0) {
+            await updateDoc(userRef, updateData);
+        }
     } catch (error) {
         console.error("Error updating user profile: ", error);
         throw new Error("Failed to update user profile");
@@ -243,8 +249,12 @@ export async function createUserInFirestore(uid: string, email: string, name: st
 
 export async function createSystemAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
     try {
+        const payload = { ...announcementData };
+        if (!payload.link) {
+            delete payload.link;
+        }
         await addDoc(collection(db, "announcements"), {
-            ...announcementData,
+            ...payload,
             createdAt: Timestamp.now()
         });
     } catch (error) {
@@ -254,8 +264,13 @@ export async function createSystemAnnouncement(announcementData: Omit<Announceme
 
 export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
     try {
+        const payload = { ...announcementData };
+        // Firestore rejects `undefined` values. If the link is falsy (empty or undefined), remove it.
+        if (!payload.link) {
+            delete payload.link;
+        }
         await addDoc(collection(db, "announcements"), {
-            ...announcementData,
+            ...payload,
             createdAt: Timestamp.now()
         });
     } catch (error) {
@@ -779,4 +794,5 @@ export async function markAnnouncementsAsRead(userId: string): Promise<void> {
         throw new Error("Failed to update user's notification status.");
     }
 }
+
 
