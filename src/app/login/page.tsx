@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, sendPasswordResetEmail, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getUser, createUserInFirestore, updateUserProfile } from "@/lib/data";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -41,6 +41,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      await setPersistence(auth, browserLocalPersistence);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       const userProfile = await getUser(user.uid);
@@ -69,6 +70,7 @@ export default function LoginPage() {
   const socialLogin = async (provider: GoogleAuthProvider | GithubAuthProvider) => {
     setIsLoading(true);
     try {
+      await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
