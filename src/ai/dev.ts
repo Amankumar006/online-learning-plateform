@@ -12,3 +12,4 @@ import '@/ai/tools/lesson-tools.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
 import '@/ai/flows/generate-custom-exercise.ts';
 import '@/ai/flows/simulate-code-execution.ts';
+import '@/ai/flows/convert-speech-to-latex.ts';
