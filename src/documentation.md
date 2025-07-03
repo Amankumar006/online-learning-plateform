@@ -110,6 +110,7 @@ The deployment process likely involves:
 -   **Internal REST APIs:** The project utilizes internal RESTful APIs exposed by the Node.js backend. These APIs are used by the frontend to interact with the backend logic, data processing, and AI functionalities. Examples might include endpoints for fetching lesson data, submitting exercise answers, or triggering AI flows.
 -   **Google AI Integration (via Genkit):** The primary external integration is with Google AI services (likely using models like Gemini) through the Genkit framework. This enables features like AI chat, content generation, and grading.
 -   **Firebase SDKs:** While used for interaction, the Firebase SDKs themselves represent an integration with the Firebase platform's various services.
+-   **Email (via Trigger Email Extension):** The application is configured to queue emails in a Firestore collection named `emailQueue`. To enable sending, the "Trigger Email" Firebase extension must be installed and configured. See the detailed [Email Setup Guide](../email-setup.md) for instructions.
 -   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as email services, payment gateways, or analytics platforms.
 
 ## 11. Authentication
