@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow to grade a student's long-form answer, potentially with an image.
@@ -64,6 +65,9 @@ const gradeLongFormAnswerFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+        throw new Error('The AI was unable to grade your answer. Please try submitting again.');
+    }
+    return output;
   }
 );

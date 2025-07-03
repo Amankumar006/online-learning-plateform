@@ -60,6 +60,10 @@ const generateStudyTopicsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+        // In this case, failing gracefully with an empty list is better than an error.
+        return { suggestedTopics: [] };
+    }
+    return output;
   }
 );

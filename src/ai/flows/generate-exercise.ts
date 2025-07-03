@@ -84,7 +84,10 @@ const generateExerciseFlow = ai.defineFlow(
           ex.correctAnswer = ex.options[0];
         }
       });
+      return output;
     }
-    return output!;
+    // If the output is null or undefined, return an empty array of exercises.
+    // This prevents a crash and allows the UI to handle the "no results" case gracefully.
+    return { exercises: [] };
   }
 );

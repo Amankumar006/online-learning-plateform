@@ -66,6 +66,9 @@ const simulateCodeExecutionFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+        throw new Error('The AI was unable to simulate your code. Please check for syntax errors or try again.');
+    }
+    return output;
   }
 );

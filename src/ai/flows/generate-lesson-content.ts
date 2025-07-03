@@ -104,6 +104,9 @@ const generateLessonContentFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('The AI failed to generate lesson content. Please try a different topic or adjust the parameters.');
+    }
+    return output;
   }
 );
