@@ -56,7 +56,7 @@ const FormattedText = ({ text }: { text: string }) => {
             return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
         }
         if (part.startsWith('$$') && part.endsWith('$$')) {
-            return <BlockMath key={index}>{part.slice(2, -2)}</BlockMath>;
+            return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>
         }
         if (part.startsWith('$') && part.endsWith('$')) {
             return <InlineMath key={index}>{part.slice(1, -1)}</InlineMath>;
@@ -129,7 +129,7 @@ const TextContentRenderer = ({ text }: { text: string }) => {
           currentList = [];
         }
         if (line.trim()) {
-          elements.push(<p key={`p-${index}-${lineIndex}`}><FormattedText text={line} /></p>);
+          elements.push(<p key={`p-${index}-${lineIndex}`} className="leading-relaxed"><FormattedText text={line} /></p>);
         }
       }
     });
@@ -147,7 +147,7 @@ const TextContentRenderer = ({ text }: { text: string }) => {
     return elements;
   });
 
-  return <>{renderedSegments}</>;
+  return <div className="space-y-4">{renderedSegments}</div>;
 };
 
 const BlockRenderer = ({ block }: { block: Block }) => {
