@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow to convert natural language math queries into LaTeX.
@@ -10,12 +11,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const ConvertSpeechToLatexInputSchema = z.object({
+const ConvertSpeechToLatexInputSchema = z.object({
   query: z.string().describe('The natural language math query to convert.'),
 });
 export type ConvertSpeechToLatexInput = z.infer<typeof ConvertSpeechToLatexInputSchema>;
 
-export const ConvertSpeechToLatexOutputSchema = z.object({
+const ConvertSpeechToLatexOutputSchema = z.object({
   latex: z.string().describe('The resulting LaTeX string.'),
 });
 export type ConvertSpeechToLatexOutput = z.infer<typeof ConvertSpeechToLatexOutputSchema>;
