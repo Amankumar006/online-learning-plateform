@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
 import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
 import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Terminal, Play } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
 import MathEditor from "@/components/lessons/math-editor";
@@ -117,11 +117,58 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
                 {!hasOutput && !hasError && <p className="text-gray-400">Execution finished with no output.</p>}
             </>
         ) : (
-             <div className="text-gray-400">Click "Run Code" to see the output here.</div>
+             <div className="text-gray-400">Click "Run & Analyze" to see the output here.</div>
         )}
     </div>
   );
 };
+
+const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <p>Analyzing your code...</p>
+            </div>
+        )
+    }
+    
+    if (result) {
+         return (
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Complexity Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex gap-8">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Time</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.time}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Space</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.space}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Code Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm whitespace-pre-wrap">{result.analysis}</p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    return (
+        <div className="text-center text-muted-foreground p-8 min-h-[200px] flex items-center justify-center">
+            <p>Click "Run & Analyze" to get AI feedback on your code.</p>
+        </div>
+    )
+}
 
 
 export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
@@ -134,7 +181,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
-  const [activeTab, setActiveTab] = useState("solution");
+  const [activeOutputTab, setActiveOutputTab] = useState("console");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -145,7 +192,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     setIsCorrect(null);
     setFeedback(null);
     setSimulationResult(null);
-    setActiveTab("solution");
+    setActiveOutputTab("console");
     
     if (initialResponse) {
       setIsAnswered(true);
@@ -247,17 +294,18 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
 
     setIsSimulating(true);
     setSimulationResult(null);
-    setActiveTab("console");
     try {
       const result = await simulateCodeExecution({
         code: longFormAnswer,
         language: codeExercise.language,
       });
       setSimulationResult(result);
-      toast({ title: "Simulation Complete", description: "The AI has simulated the execution of your code." });
+      toast({ title: "Analysis Complete", description: "The AI has simulated and analyzed your code." });
+      setActiveOutputTab("analysis"); // Switch to analysis tab after running
     } catch (e) {
       console.error(e);
       toast({ variant: 'destructive', title: 'Simulation Failed', description: 'The AI could not simulate the code execution.' });
+      setActiveOutputTab("console");
     } finally {
       setIsSimulating(false);
     }
@@ -292,40 +340,49 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             );
         case 'long_form':
             const lfExercise = exercise as LongFormExercise;
-            let mainInput, imageUploader = null;
-            
             if (lfExercise.category === 'code') {
-                 mainInput = (
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="solution">Solution</TabsTrigger>
-                            <TabsTrigger value="console">Console</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="solution" className="mt-4">
-                            <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} />
-                        </TabsContent>
-                        <TabsContent value="console" className="mt-4">
-                            <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
-                        </TabsContent>
-                    </Tabs>
-                );
-            } else if (lfExercise.category === 'math') {
-                 mainInput = <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />;
-            } else {
-                mainInput = <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />;
+                 return (
+                    <div className="space-y-4">
+                        <CodeEditor
+                            value={longFormAnswer}
+                            onValueChange={setLongFormAnswer}
+                            disabled={isAnswered || isGrading}
+                            language={lfExercise.language}
+                        />
+                        {!isAnswered && (
+                            <div className="flex justify-end">
+                                <Button onClick={handleRunCode} variant="secondary" disabled={isSimulating || !longFormAnswer.trim()}>
+                                    {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                                    Run & Analyze
+                                </Button>
+                            </div>
+                        )}
+                        <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="console">Console</TabsTrigger>
+                                <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="console">
+                                <ConsoleOutput result={simulationResult} isLoading={isSimulating && activeOutputTab === 'console'} />
+                            </TabsContent>
+                            <TabsContent value="analysis">
+                                <AiAnalysisOutput result={simulationResult} isLoading={isSimulating && activeOutputTab === 'analysis'} />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                 );
             }
+             
+            // For Math and General long form questions
+            let mainInput = lfExercise.category === 'math' 
+                ? <MathEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} />
+                : <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />;
             
-            imageUploader = (
-                <>
-                  <Separator />
-                  <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
-                </>
-            );
-
             return (
                 <div className="space-y-6">
                     {mainInput}
-                    {imageUploader}
+                    <Separator />
+                    <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} />
                 </div>
             );
         default:
@@ -363,13 +420,6 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
         </ScrollArea>
         
         <div className="flex-shrink-0 border-t p-4 flex justify-end gap-2 bg-background">
-            {exercise.type === 'long_form' && exercise.category === 'code' && !isAnswered && (
-              <Button onClick={handleRunCode} variant="outline" disabled={isSimulating || !longFormAnswer.trim()}>
-                {isSimulating ? <Loader2 className="animate-spin" /> : <Play />}
-                Run Code
-              </Button>
-            )}
-
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
