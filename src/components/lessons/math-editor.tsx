@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { convertLatexToSpeech } from '@/ai/flows/convert-latex-to-speech';
 import katex from 'katex';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { cn } from '@/lib/utils';
 
 
 interface FormattedMathProps {
@@ -189,6 +190,7 @@ interface MathEditorProps {
 const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
     const [currentCommand, setCurrentCommand] = useState<{word: string, start: number} | null>(null);
     const [isListening, setIsListening] = useState(false);
     const speechRecognitionRef = useRef<any>(null);
@@ -197,6 +199,12 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
     const [exportFormat, setExportFormat] = useState('mathml');
     const [exportContent, setExportContent] = useState('');
     const [isExporting, setIsExporting] = useState(false);
+
+    useEffect(() => {
+        if (suggestions.length > 0) {
+            setActiveSuggestionIndex(0);
+        }
+    }, [suggestions]);
 
     const insertSymbol = (latex: string, offset = 0) => {
         if (!textareaRef.current) return;
@@ -253,6 +261,25 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
         }, 0);
     };
     
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (suggestions.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveSuggestionIndex(prev => (prev + 1) % suggestions.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                handleSuggestionClick(suggestions[activeSuggestionIndex]);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setSuggestions([]);
+                setCurrentCommand(null);
+            }
+        }
+    };
+
     const handleListenClick = () => {
         if (isListening) {
             speechRecognitionRef.current?.stop();
@@ -440,25 +467,34 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                             <Textarea
                                 ref={textareaRef}
                                 value={value}
+                                onKeyDown={handleKeyDown}
                                 onChange={(e) => handleValueChange(e.target.value, e.target.selectionStart)}
                                 placeholder={placeholder}
                                 disabled={disabled}
                                 className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent w-full h-full"
                             />
-                             {suggestions.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 p-1 rounded-md border bg-popover shadow-lg">
-                                    <p className="text-xs px-2 py-1 text-muted-foreground">Suggestions</p>
-                                    {suggestions.map(suggestion => (
-                                        <Button
-                                            key={suggestion}
-                                            type="button"
-                                            variant="ghost"
-                                            className="w-full justify-start font-mono text-sm"
-                                            onClick={() => handleSuggestionClick(suggestion)}
-                                        >
-                                            {suggestion}
-                                        </Button>
-                                    ))}
+                            {suggestions.length > 0 && (
+                                <div className="absolute z-10 w-48 mt-1 p-1 rounded-md border bg-popover shadow-lg">
+                                    <p className="text-xs px-2 py-1 text-muted-foreground">LaTeX Suggestions</p>
+                                    <ul className="max-h-40 overflow-y-auto" role="listbox">
+                                        {suggestions.map((suggestion, index) => (
+                                            <li
+                                                key={suggestion}
+                                                role="option"
+                                                aria-selected={index === activeSuggestionIndex}
+                                                className={cn(
+                                                    "w-full text-left font-mono text-sm p-2 rounded-sm cursor-pointer",
+                                                    index === activeSuggestionIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                                                )}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    handleSuggestionClick(suggestion);
+                                                }}
+                                            >
+                                                {suggestion}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
                         </div>
