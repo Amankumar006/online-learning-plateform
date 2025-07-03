@@ -160,9 +160,9 @@ export default function DashboardNav() {
       </Link>
 
       <div className="flex items-center gap-2">
-        <div className="relative hidden items-center rounded-full bg-secondary/50 p-1 md:flex">
+        <div className="relative hidden items-center rounded-full bg-background/30 p-1 md:flex backdrop-blur-lg border border-black/10 dark:border-white/10 shadow-inner">
           <div
-            className="absolute h-[calc(100%-8px)] rounded-full bg-primary transition-all duration-300 ease-in-out"
+            className="absolute h-[calc(100%-8px)] rounded-full bg-gradient-to-br from-white/50 to-white/20 dark:from-white/20 dark:to-white/5 border border-white/30 dark:border-white/10 shadow-md backdrop-blur-sm transition-all duration-300 ease-in-out"
             style={highlighterStyle}
           />
           <div ref={navContainerRef} className="flex items-center gap-1">
@@ -175,8 +175,8 @@ export default function DashboardNav() {
                 className={cn(
                   "relative z-10 rounded-full transition-colors",
                   activeItem?.href === item.href
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground hover:text-primary-foreground"
+                    ? 'text-foreground dark:text-background font-semibold'
+                    : 'text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground'
                 )}
               >
                 <Link href={item.href}>{item.label}</Link>
@@ -278,4 +278,3 @@ export default function DashboardNav() {
     </header>
   );
 }
-
