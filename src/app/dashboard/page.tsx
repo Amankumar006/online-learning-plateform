@@ -15,37 +15,61 @@ import { cn } from "@/lib/utils";
 
 function DashboardSkeleton() {
   return (
-    <div className="w-full h-full p-4 sm:p-6 flex flex-col">
-      <div className="w-full h-full bg-slate-900/40 backdrop-blur-2xl p-6 rounded-2xl border border-slate-100/10 flex flex-col">
-        {/* Main Grid Skeleton */}
-        <div className="flex-grow">
-            <div className="mb-8 space-y-2">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-64" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-grow">
-              <div className="lg:col-span-2 md:col-span-2 rounded-xl p-6 space-y-4 bg-white/5 backdrop-blur-lg">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-24 w-full" />
-              </div>
-
-              <div className="rounded-xl p-6 space-y-3 bg-white/5 backdrop-blur-lg">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-5 w-full mt-4" />
-                <Skeleton className="h-5 w-5/6" />
-              </div>
-
-              <div className="rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 backdrop-blur-lg">
-                  <Skeleton className="h-24 w-24 rounded-full" />
-                  <Skeleton className="h-5 w-24 mt-4" />
-              </div>
-            
-              {/* Bottom Row Skeleton */}
-              <div className="lg:col-span-4 md:col-span-2">
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-white/5" />)}
+    <div className="w-full h-full flex flex-col">
+       <div className="relative w-full flex-grow bg-slate-100/50 dark:bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-slate-200/80 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
+        <div className="relative z-10 flex flex-col h-full">
+            <div className="flex-grow overflow-y-auto">
+                <div className="mb-8">
+                    <Skeleton className="h-8 w-1/2 md:w-1/3" />
+                    <Skeleton className="h-4 w-2/3 md:w-1/2 mt-2" />
                 </div>
-              </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Next Lesson Skeleton */}
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6 flex flex-col">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <div className="flex-grow flex flex-col justify-between">
+                            <Skeleton className="w-full h-24 mt-2" />
+                            <div className="flex justify-between items-end mt-4">
+                                <Skeleton className="h-6 w-3/4" />
+                                <Skeleton className="h-6 w-6 rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* AI Recommendation Skeleton */}
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6">
+                        <Skeleton className="h-4 w-32 mb-4" />
+                        <div className="space-y-3">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    </div>
+                    
+                    {/* Track Progress Skeleton */}
+                    <div className="rounded-xl bg-gradient-to-b from-teal-500/10 to-blue-500/10 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-6 flex flex-col">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <div className="flex-grow flex flex-col items-center justify-center">
+                            <Skeleton className="h-32 w-32 rounded-full" />
+                            <Skeleton className="h-4 w-20 mt-2" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {[...Array(4)].map((_, i) => (
+                             <div key={i} className="h-full rounded-lg bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-4 flex items-center gap-4">
+                                <Skeleton className="p-3 h-12 w-12 rounded-lg" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-3 w-16" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
       </div>
@@ -162,7 +186,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="relative w-full flex-grow bg-background/30 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-black/10 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
+      <div className="relative w-full flex-grow bg-slate-100/50 dark:bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-slate-200/80 dark:border-slate-100/10 flex flex-col overflow-hidden p-6">
         
         {/* Background Decorative SVG */}
         <div className="absolute inset-0 z-0 opacity-50">
@@ -205,7 +229,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     
                     {/* Your Next Lesson */}
-                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
                         <h3 className="font-semibold text-muted-foreground mb-2">Your Next Lesson</h3>
                         {nextLesson ? (
                             <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
@@ -220,7 +244,7 @@ export default function DashboardPage() {
                                         <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" fill="url(#lesson-chart-gradient)" />
                                         <path d="M 0 50 C 30 20, 50 60, 100 40 S 150 0, 200 30" stroke="hsl(var(--primary))" fill="none" strokeWidth="2" strokeLinecap="round"/>
                                     </svg>
-                                    <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-400/30 to-rose-400/30 text-white font-semibold px-4 py-2 rounded-lg text-lg">
+                                    <div className="absolute top-0 left-0 bg-primary/80 dark:bg-gradient-to-r from-orange-400/30 to-rose-400/30 text-white font-semibold px-4 py-2 rounded-lg text-lg">
                                         {nextLesson.subject}
                                     </div>
                                 </div>
@@ -240,7 +264,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* AI Recommendation */}
-                    <div className="rounded-xl bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6">
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6">
                         <h3 className="font-semibold text-muted-foreground mb-4">AI Recommendation</h3>
                         {isGeneratingTopics ? (
                             <div className="space-y-4 py-4">
@@ -270,13 +294,13 @@ export default function DashboardPage() {
                     </div>
                     
                     {/* Track Progress */}
-                    <div className="rounded-xl bg-gradient-to-b from-teal-500/20 to-blue-500/20 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 hover:border-black/20 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
+                    <div className="rounded-xl bg-gradient-to-b from-teal-500/10 to-blue-500/10 dark:from-teal-500/30 dark:to-blue-500/30 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 hover:border-slate-300 dark:hover:border-slate-100/20 transition-all duration-300 p-6 flex flex-col">
                         <h3 className="font-semibold text-foreground mb-2">Track Progress</h3>
                         <div className="flex-grow flex flex-col items-center justify-center">
                             <div className="relative w-32 h-32">
                                 <svg className="w-full h-full" viewBox="0 0 36 36">
                                     <path className="stroke-current text-foreground/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"></path>
-                                    <path className="stroke-current text-teal-500 dark:text-teal-300" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
+                                    <path className="stroke-current text-teal-500 dark:text-teal-400" strokeDasharray={`${overallProgress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3.5" strokeLinecap="round" transform="rotate(-90 18 18)"></path>
                                 </svg>
                                 <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-foreground">{overallProgress}%</div>
                             </div>
@@ -291,7 +315,7 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {subjectEntries.map(([subject, count]) => (
                              <Link href={`/dashboard/lessons`} key={subject} className="block group">
-                                <div className="h-full rounded-lg bg-background/50 dark:bg-slate-800/50 backdrop-blur-lg border border-black/10 dark:border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-background/80 dark:hover:bg-slate-700/60">
+                                <div className="h-full rounded-lg bg-white/40 dark:bg-slate-800/50 backdrop-blur-lg border border-slate-200/60 dark:border-slate-100/10 p-4 flex items-center gap-4 transition-all duration-300 hover:scale-105 hover:bg-white/60 dark:hover:bg-slate-700/60">
                                     <div className="p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg">
                                         {getSubjectIcon(subject)}
                                     </div>
@@ -310,5 +334,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
