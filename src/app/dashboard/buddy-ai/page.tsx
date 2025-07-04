@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
@@ -387,6 +387,12 @@ export default function BuddyAIPage() {
                     </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 flex flex-col w-full max-w-[300px]">
+                    <SheetHeader className="sr-only">
+                        <SheetTitle>Conversations and Personas</SheetTitle>
+                        <SheetDescription>
+                            A list of your past conversations and options to start a new chat with a different AI persona.
+                        </SheetDescription>
+                    </SheetHeader>
                     <SidebarContent 
                       conversations={conversations} 
                       activeConversationId={activeConversationId} 
