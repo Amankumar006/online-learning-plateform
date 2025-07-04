@@ -29,9 +29,9 @@ interface Conversation {
 const StarterPrompt = ({ icon, text, onClick }: { icon: React.ReactNode, text: string, onClick: () => void }) => (
     <button
         onClick={onClick}
-        className="p-4 border rounded-lg hover:bg-muted text-left transition-colors w-full flex items-start gap-3"
+        className="p-4 border rounded-lg hover:bg-muted text-left transition-colors w-full flex items-start gap-4 hover:shadow-md hover:-translate-y-0.5"
     >
-        <div className="text-primary mt-1">{icon}</div>
+        <div className="p-2 bg-primary/10 rounded-full text-primary">{icon}</div>
         <div>
             <p className="font-semibold">{text}</p>
             <p className="text-sm text-muted-foreground">Let Buddy AI help you out.</p>
@@ -39,7 +39,7 @@ const StarterPrompt = ({ icon, text, onClick }: { icon: React.ReactNode, text: s
     </button>
 );
 
-const initialMessage: Message = { role: 'assistant', content: "Hello! How can I help you today? Ask me to create an exercise or suggest a topic." };
+const initialMessage: Message = { role: 'assistant', content: "Hello! I'm your AI study partner. How can I help you learn today? You can ask me to create an exercise, suggest a topic, or explain a concept." };
 
 export default function BuddyAIPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -51,12 +51,10 @@ export default function BuddyAIPage() {
   const [error, setError] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Initialize with a single new chat on load
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // For now, history is session-based. A full implementation would load from Firestore.
         if (conversations.length === 0) {
             const newId = Date.now().toString();
             setConversations([{ id: newId, title: 'New Chat', messages: [initialMessage] }]);
@@ -65,7 +63,7 @@ export default function BuddyAIPage() {
       }
     });
     return () => unsubscribe();
-  }, []); // Run only once
+  }, []);
 
   const activeConversation = useMemo(() => {
     return conversations.find(c => c.id === activeConversationId);
@@ -99,11 +97,9 @@ export default function BuddyAIPage() {
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
-    // Update conversation state
-    let updatedConversations = conversations.map(c => {
+    const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
-            // If it's the first user message, set the title
-            const newTitle = c.messages.length === 1 ? messageToSend.substring(0, 30) + '...' : c.title;
+            const newTitle = c.messages.length === 1 ? messageToSend.substring(0, 30) + (messageToSend.length > 30 ? '...' : '') : c.title;
             return { ...c, title: newTitle, messages: [...c.messages, userMessage] };
         }
         return c;
@@ -127,25 +123,24 @@ export default function BuddyAIPage() {
       });
       const assistantMessage: Message = { role: 'assistant', content: result.response };
       
-      // Add assistant response to the active conversation
-       updatedConversations = updatedConversations.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, assistantMessage] };
-            }
-            return c;
-        });
-       setConversations(updatedConversations);
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          // Find the last user message and add the assistant message after it
+          const updatedMessages = [...c.messages, assistantMessage];
+          return { ...c, messages: updatedMessages };
+        }
+        return c;
+      }));
 
     } catch (e: any) {
       console.error(e);
       const errorMessage: Message = { role: 'assistant', content: "Sorry, I ran into an error. Please try again." };
-       updatedConversations = updatedConversations.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, errorMessage] };
-            }
-            return c;
-        });
-       setConversations(updatedConversations);
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+            return { ...c, messages: [...c.messages, errorMessage] };
+        }
+        return c;
+      }));
       setError(e.message || 'An error occurred while communicating with the AI.');
 
     } finally {
@@ -171,7 +166,6 @@ export default function BuddyAIPage() {
         </div>
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 h-[calc(100vh-22rem)]">
-            {/* Sidebar */}
             <Card className="hidden lg:flex flex-col">
                 <div className="p-3 border-b">
                     <Button onClick={handleNewChat} className="w-full justify-start"><Plus className="mr-2 h-4 w-4"/> New Chat</Button>
@@ -193,34 +187,38 @@ export default function BuddyAIPage() {
                 </ScrollArea>
             </Card>
 
-            {/* Chat Area */}
             <Card className="flex-1 flex flex-col">
                 <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                     {!hasStarted && !input ? (
-                        <div className="p-4">
-                            <h2 className="text-lg font-semibold mb-4">How can I help you today?</h2>
+                        <div className="p-4 flex flex-col justify-center h-full">
+                            <h2 className="text-xl font-semibold mb-6 text-center">How can I help you today?</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <StarterPrompt
                                     icon={<Sparkles className="h-5 w-5"/>}
-                                    text="Suggest a new topic for me to study"
+                                    text="Suggest a new topic for me"
                                     onClick={() => handleSend("Suggest a new topic for me to study based on my progress.")}
                                 />
                                 <StarterPrompt
                                     icon={<BrainCircuit className="h-5 w-5"/>}
-                                    text="Create a practice question"
+                                    text="Create a hard practice question"
                                     onClick={() => handleSend("Create a hard practice question about Python dictionaries.")}
                                 />
                                 <StarterPrompt
                                     icon={<HelpCircle className="h-5 w-5"/>}
-                                    text="Explain a concept"
+                                    text="Explain a concept simply"
                                     onClick={() => { setInput("Can you explain the concept of recursion in simple terms?"); }}
+                                />
+                                 <StarterPrompt
+                                    icon={<Bot className="h-5 w-5"/>}
+                                    text="What can you do?"
+                                    onClick={() => handleSend("What are all the things you can do for me?")}
                                 />
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-6">
                             {activeConversation?.messages.map((message, index) => (
-                                <div key={index} className={cn("flex items-start gap-4", message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                                <div key={index} className={cn("flex items-start gap-4 animate-in fade-in-0 duration-500", message.role === 'user' ? 'justify-end' : 'justify-start')}>
                                     {message.role === 'assistant' && (
                                         <Avatar className="w-8 h-8 border">
                                             <AvatarFallback><Bot size={20} /></AvatarFallback>
@@ -237,7 +235,7 @@ export default function BuddyAIPage() {
                                 </div>
                             ))}
                              {isLoading && (
-                                 <div className="flex items-start gap-4 justify-start">
+                                 <div className="flex items-start gap-4 justify-start animate-in fade-in-0 duration-500">
                                     <Avatar className="w-8 h-8 border">
                                         <AvatarFallback><Bot size={20} /></AvatarFallback>
                                     </Avatar>
