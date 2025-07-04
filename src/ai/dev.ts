@@ -17,3 +17,4 @@ import '@/ai/flows/convert-speech-to-latex.ts';
 import '@/ai/flows/convert-latex-to-speech.ts';
 import '@/ai/flows/buddy-chat.ts';
 import '@/ai/flows/canvas-math-flow.ts';
+import '@/ai/flows/visual-explainer-flow.ts';
