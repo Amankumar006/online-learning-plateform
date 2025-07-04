@@ -24,6 +24,12 @@ function SolveMathAction() {
 			return
 		}
 
+        const bounds = editor.getShapePageBounds(shape);
+        if (!bounds) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not determine shape dimensions.' });
+            return;
+        }
+
 		const problem = shape.props.text;
 		
 		toast({ title: 'AI is solving...', description: 'Please wait while the AI generates the equation.'})
@@ -34,7 +40,7 @@ function SolveMathAction() {
 			editor.createShape({
 				type: 'text',
 				x: shape.x,
-				y: shape.y + shape.props.h + 20,
+				y: shape.y + bounds.h + 20,
 				props: {
 					text: `$${latex}$`,
 					size: 'xl',
@@ -66,13 +72,19 @@ function GradeMathAction() {
 		}
 
 		const questionShape = selectedShapes.find(s => 'text' in s.props && s.props.text.toLowerCase().includes('question:')) || selectedShapes[0];
-    const solutionShape = selectedShapes.find(s => s.id !== questionShape.id);
+        const solutionShape = selectedShapes.find(s => s.id !== questionShape.id);
 
 
 		if (!('text' in questionShape.props) || !questionShape.props.text || !solutionShape || !('text' in solutionShape.props) || !solutionShape.props.text) {
 			toast({ variant: 'destructive', title: 'Text not found', description: 'Please ensure both selected shapes contain text.'})
 			return
 		}
+
+        const solutionBounds = editor.getShapePageBounds(solutionShape);
+        if (!solutionBounds) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not determine solution shape dimensions.' });
+            return;
+        }
 
 		const question = questionShape.props.text.replace(/question:/i, '').trim();
 		const solution = solutionShape.props.text;
@@ -83,17 +95,17 @@ function GradeMathAction() {
 			const result = await gradeMathSolution({ question, studentSolutionLatex: solution })
 
 			// Format the feedback into a single string
-      const feedbackText = formatFeedback(result)
+            const feedbackText = formatFeedback(result)
 
 			editor.createShape({
 				type: 'text',
 				x: solutionShape.x,
-				y: solutionShape.y + solutionShape.props.h + 20,
+				y: solutionShape.y + solutionBounds.h + 20,
 				props: {
 					text: feedbackText,
 					size: 'm',
 					align: 'start',
-          w: 400
+                    w: 400
 				},
 			})
 
