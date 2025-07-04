@@ -14,9 +14,15 @@ import {generateCustomExercise} from './generate-custom-exercise';
 import {generateStudyTopics} from './generate-study-topics';
 import {createExercise, getLessons, getUser, Exercise} from '@/lib/data';
 
+const MessageSchema = z.object({
+  role: z.enum(['user', 'model']),
+  content: z.string(),
+});
+
 const BuddyChatInputSchema = z.object({
   userMessage: z.string().describe('The message sent by the user.'),
   userId: z.string().describe("The ID of the current user, used for context-aware actions."),
+  history: z.array(MessageSchema).optional().describe('The conversation history.'),
 });
 type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
@@ -101,21 +107,6 @@ export async function buddyChat(input: BuddyChatInput): Promise<BuddyChatOutput>
   return buddyChatFlow(input);
 }
 
-const prompt = ai.definePrompt({
-    name: 'buddyChatPrompt',
-    tools: [createExerciseTool, suggestTopicsTool],
-    system: `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion.
-Your goal is to help students learn and stay motivated.
-You have tools to assist you:
-- 'createCustomExercise': Use this to generate a new practice problem when a user asks for one. When you use this tool, tell the user the exercise has been created and is available on their "Practice" page.
-- 'suggestStudyTopics': Use this to provide study suggestions when a user asks for guidance on what to learn next.
-
-For general questions, provide clear, concise, and accurate explanations. Break down complex topics into simple terms.
-Always maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`,
-    input: { schema: BuddyChatInputSchema },
-    prompt: `{{{userMessage}}}`,
-});
-
 const buddyChatFlow = ai.defineFlow(
   {
     name: 'buddyChatFlow',
@@ -127,7 +118,26 @@ const buddyChatFlow = ai.defineFlow(
     }
   },
   async (input, {auth}) => {
-    const llmResponse = await prompt(input, { auth });
+    const history = (input.history || []).map(msg => ({
+        role: msg.role as 'user' | 'model',
+        parts: [{ text: msg.content }],
+    }));
+
+    const llmResponse = await ai.generate({
+        model: 'googleai/gemini-2.0-flash',
+        tools: [createExerciseTool, suggestTopicsTool],
+        system: `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion.
+Your goal is to help students learn and stay motivated.
+You have tools to assist you:
+- 'createCustomExercise': Use this to generate a new practice problem when a user asks for one. When you use this tool, tell the user the exercise has been created and is available on their "Practice" page.
+- 'suggestStudyTopics': Use this to provide study suggestions when a user asks for guidance on what to learn next.
+
+For general questions, provide clear, concise, and accurate explanations. Break down complex topics into simple terms.
+Always maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`,
+        history: history,
+        prompt: input.userMessage,
+    }, { auth });
+    
     return { response: llmResponse.text };
   }
 );

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -67,6 +68,11 @@ export default function BuddyAIPage() {
         setMessages([]);
         setHasStarted(true);
     }
+    
+    const historyForAI = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        content: msg.content,
+    }));
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     setMessages(prev => [...prev, userMessage]);
@@ -75,7 +81,11 @@ export default function BuddyAIPage() {
     setError(null);
 
     try {
-      const result = await buddyChat({ userId: user.uid, userMessage: messageToSend });
+      const result = await buddyChat({ 
+          userId: user.uid, 
+          userMessage: messageToSend,
+          history: historyForAI,
+      });
       const assistantMessage: Message = { role: 'assistant', content: result.response };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
