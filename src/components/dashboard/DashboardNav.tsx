@@ -13,6 +13,7 @@ import {
   Bell,
   Megaphone,
   Wand2,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,7 @@ const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
     { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
+    { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
 
@@ -67,12 +69,10 @@ export default function DashboardNav() {
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
 
-  // Find the most specific active item
   const activeItem = useMemo(() => {
     const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
     if (matchingItems.length === 0) return null;
 
-    // Find the item with the longest href, which is the most specific match
     return matchingItems.reduce((best, current) => {
         return current.href.length > best.href.length ? current : best;
     });
@@ -254,9 +254,8 @@ export default function DashboardNav() {
         </DropdownMenu>
       </div>
       
-       {/* Mobile Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-2 backdrop-blur-sm md:hidden">
-        <div className="grid h-16 grid-cols-4 gap-1">
+       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-2 backdrop-blur-sm md:hidden">
+        <div className="grid h-16 grid-cols-5 gap-1">
           {navItems.map((item) => (
             <Link
               key={item.href}
