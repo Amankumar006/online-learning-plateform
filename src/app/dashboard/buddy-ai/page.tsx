@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
-import { Bot, User, Loader2, SendHorizontal, Sparkles, BrainCircuit, BookQuestion } from 'lucide-react';
+import { Bot, User, Loader2, SendHorizontal, Sparkles, BrainCircuit, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -122,7 +121,7 @@ export default function BuddyAIPage() {
                                 onClick={() => handleSend("Create a hard practice question about Python dictionaries.")}
                             />
                             <StarterPrompt 
-                                icon={<BookQuestion className="h-5 w-5"/>}
+                                icon={<HelpCircle className="h-5 w-5"/>}
                                 text="Explain a concept"
                                 onClick={() => { setInput("Can you explain the concept of recursion in simple terms?"); setHasStarted(true); }}
                             />
