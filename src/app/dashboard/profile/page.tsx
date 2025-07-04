@@ -82,6 +82,8 @@ export default function ProfilePage() {
     const [learningStyle, setLearningStyle] = useState('unspecified');
     const [interests, setInterests] = useState('');
     const [goals, setGoals] = useState('');
+    const [gradeLevel, setGradeLevel] = useState('');
+    const [ageGroup, setAgeGroup] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -94,6 +96,8 @@ export default function ProfilePage() {
                     setLearningStyle(profile.learningStyle || 'unspecified');
                     setInterests(profile.interests?.join(', ') || '');
                     setGoals(profile.goals || '');
+                    setGradeLevel(profile.gradeLevel || '');
+                    setAgeGroup(profile.ageGroup || '');
                 }
                 setIsLoading(false);
             }
@@ -146,6 +150,8 @@ export default function ProfilePage() {
                 learningStyle,
                 interests: interests.split(',').map(i => i.trim()).filter(Boolean),
                 goals,
+                gradeLevel,
+                ageGroup,
             };
 
             await updateUserProfile(user.uid, dataToUpdate);
@@ -248,6 +254,28 @@ export default function ProfilePage() {
                         <CardDescription>Help the AI tailor the learning experience for you. This will be used in features like the AI Canvas.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div className="space-y-2">
+                                <Label htmlFor="gradeLevel">Grade Level</Label>
+                                <Input
+                                    id="gradeLevel"
+                                    value={gradeLevel}
+                                    onChange={(e) => setGradeLevel(e.target.value)}
+                                    placeholder="e.g., 9th Grade, University"
+                                    disabled={isSaving}
+                                />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="ageGroup">Age Group</Label>
+                                <Input
+                                    id="ageGroup"
+                                    value={ageGroup}
+                                    onChange={(e) => setAgeGroup(e.target.value)}
+                                    placeholder="e.g., 14-16"
+                                    disabled={isSaving}
+                                />
+                            </div>
+                        </div>
                          <div className="space-y-2">
                             <Label htmlFor="learning-style">Preferred Learning Style</Label>
                             <Select value={learningStyle} onValueChange={setLearningStyle} disabled={isSaving}>

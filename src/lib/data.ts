@@ -88,6 +88,8 @@ export interface User {
   learningStyle?: 'visual' | 'auditory' | 'kinesthetic' | 'reading/writing' | 'unspecified';
   interests?: string[];
   goals?: string;
+  gradeLevel?: string;
+  ageGroup?: string;
 }
 
 // New Exercise Data Structure
@@ -213,7 +215,7 @@ export async function updateUserRole(userId: string, role: 'student' | 'admin'):
     }
 }
 
-export async function updateUserProfile(userId: string, data: Partial<Pick<User, 'name' | 'photoURL' | 'learningStyle' | 'interests' | 'goals'>>): Promise<void> {
+export async function updateUserProfile(userId: string, data: Partial<Pick<User, 'name' | 'photoURL' | 'learningStyle' | 'interests' | 'goals' | 'gradeLevel' | 'ageGroup'>>): Promise<void> {
     try {
         const userRef = doc(db, 'users', userId);
         const updateData: { [key: string]: any } = {};
@@ -224,6 +226,8 @@ export async function updateUserProfile(userId: string, data: Partial<Pick<User,
         if (data.learningStyle !== undefined) updateData.learningStyle = data.learningStyle;
         if (data.interests !== undefined) updateData.interests = data.interests;
         if (data.goals !== undefined) updateData.goals = data.goals;
+        if (data.gradeLevel !== undefined) updateData.gradeLevel = data.gradeLevel;
+        if (data.ageGroup !== undefined) updateData.ageGroup = data.ageGroup;
         
         if (Object.keys(updateData).length > 0) {
             await updateDoc(userRef, updateData);
@@ -248,6 +252,8 @@ export async function createUserInFirestore(uid: string, email: string, name: st
             learningStyle: 'unspecified',
             interests: [],
             goals: '',
+            gradeLevel: '',
+            ageGroup: '',
             progress: {
                 completedLessons: 0,
                 averageScore: 0,
