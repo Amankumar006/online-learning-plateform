@@ -14,6 +14,7 @@ import {
   Megaphone,
   Wand2,
   Bot,
+  Pen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,7 @@ const navItems = [
     { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
     { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
+    { href: "/dashboard/canvas", label: "Canvas", icon: Pen },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
 

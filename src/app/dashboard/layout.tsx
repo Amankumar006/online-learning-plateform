@@ -42,12 +42,14 @@ export default function DashboardLayout({
     return <DashboardLoader />;
   }
   
+  const isCanvasPage = pathname === '/dashboard/canvas';
+
   return (
     <div className="flex h-screen w-full flex-col font-body">
-      <DashboardNav />
+      {!isCanvasPage && <DashboardNav />}
       <main className={cn(
         "flex-1 flex flex-col overflow-hidden",
-        pathname !== '/dashboard/buddy-ai' && "p-4 md:p-6 lg:p-8"
+        !isCanvasPage && "p-4 md:p-6 lg:p-8"
         )}>
         {children}
       </main>
