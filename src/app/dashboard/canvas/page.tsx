@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Tldraw, useEditor, createShapeId } from '@tldraw/tldraw'
@@ -162,7 +161,7 @@ function CustomUi() {
 			style={{
 				position: 'absolute',
 				top: '10px',
-				left: '60px',
+				right: '10px',
 				zIndex: 999,
 				pointerEvents: 'all',
                 display: 'flex',
