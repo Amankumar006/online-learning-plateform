@@ -48,7 +48,7 @@ export default function DashboardLayout({
     <div className="flex h-screen w-full flex-col font-body">
       <DashboardNav />
       <main className={cn(
-        "flex-1 flex flex-col overflow-hidden",
+        "flex-1 flex flex-col overflow-y-auto",
         !isCanvasPage && "p-4 md:p-6 lg:p-8"
         )}>
         {children}
