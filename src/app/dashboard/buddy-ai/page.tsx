@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, Plus, MessageSquare, Search, Copy, RefreshCw, Trash2, Settings, Ellipsis, BookOpen } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -32,6 +32,8 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { Copy, RefreshCw } from 'lucide-react';
+
 
 interface Message {
     role: 'user' | 'model';
@@ -56,15 +58,16 @@ const copyToClipboard = (text: string) => {
 
 
 const CodeBlock = ({ language, code }: { language: string; code: string }) => {
+  const { toast } = useToast();
   return (
-    <div className="my-4 rounded-md bg-muted">
-        <div className="flex items-center justify-between rounded-t-md bg-secondary px-4 py-2 text-sm text-muted-foreground">
+    <div className="my-4 rounded-md bg-muted text-sm">
+        <div className="flex items-center justify-between rounded-t-md bg-secondary px-4 py-2 text-muted-foreground">
             <span>{language}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(code)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(code); toast({title: "Copied to clipboard!"})}}>
                 <Copy className="h-4 w-4" />
             </Button>
         </div>
-      <pre className="overflow-x-auto p-4 text-sm">
+      <pre className="overflow-x-auto p-4">
         <code>{code}</code>
       </pre>
     </div>
@@ -107,12 +110,8 @@ const FormattedMessageContent = ({ content }: { content: string }) => {
           if (line.startsWith('> ')) {
             return <blockquote key={`${i}-${j}`} className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground">{renderInline(line.substring(2))}</blockquote>;
           }
-          if (line.match(/^\s*\d+\.\s/)) { // Numbered list
-            const itemContent = line.replace(/^\s*\d+\.\s/, '');
-            return <div key={`${i}-${j}`} className="flex items-start gap-3 my-2"><span className="w-5 text-right font-medium text-primary">{line.match(/^\s*(\d+\.)/)?.[1]}</span><div className="flex-1">{renderInline(itemContent)}</div></div>;
-          }
-           if (line.match(/^\s*\*\s/)) { // Bulleted list
-            const itemContent = line.replace(/^\s*\*\s/, '');
+           if (line.match(/^\s*-\s/)) { // Bulleted list
+            const itemContent = line.replace(/^\s*-\s/, '');
             return <div key={`${i}-${j}`} className="flex items-start gap-3 my-2"><span className="text-primary mt-1.5">●</span><div className="flex-1">{renderInline(itemContent)}</div></div>;
           }
           if (line.trim()) {
@@ -183,7 +182,7 @@ export default function BuddyAIPage() {
         messages: [],
         createdAt: Date.now(),
     };
-    setConversations(prev => [newConversation, ...prev]);
+    setConversations(prev => [newConversation, ...prev.sort((a, b) => b.createdAt - a.createdAt)]);
     setActiveConversationId(newId);
     setInput('');
   }
@@ -216,23 +215,22 @@ export default function BuddyAIPage() {
         if (c.id === activeConversationId) {
             const isNewChat = c.messages.length === 0;
             const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-            return { ...c, title: newTitle, messages: [...c.messages, userMessage] };
+            return { ...c, title: newTitle, messages: [...c.messages, userMessage], createdAt: Date.now() };
         }
         return c;
-    });
+    }).sort((a,b) => b.createdAt - a.createdAt);
     setConversations(updatedConversations);
 
     setInput('');
     setIsLoading(true);
 
     const historyForAI = activeConversation.messages.map(msg => ({
-        role: msg.role as 'user' | 'model',
+        role: msg.role,
         content: msg.content,
     }));
 
     try {
       const result = await buddyChat({
-          userId: user.uid,
           userMessage: messageToSend,
           history: historyForAI,
       });
@@ -279,13 +277,12 @@ export default function BuddyAIPage() {
     setIsLoading(true);
 
     const historyForAI = historyWithoutLastResponse.map(msg => ({
-        role: msg.role as 'user' | 'model',
+        role: msg.role,
         content: msg.content,
     }));
     
     try {
         const result = await buddyChat({
-            userId: user.uid,
             userMessage: lastUserMessage.content,
             history: historyForAI,
         });
@@ -340,43 +337,13 @@ export default function BuddyAIPage() {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <div className="relative grid grid-cols-1 md:grid-cols-[280px_1fr] flex-1 -m-4 md:-m-6 lg:-m-8 bg-white/20 dark:bg-black/25 backdrop-blur-xl overflow-hidden">
-        {/* --- SVG Background --- */}
-        <div className="absolute inset-0 z-0 opacity-60">
-            <svg width="100%" height="100%" className="absolute inset-0">
-                <defs>
-                    <linearGradient id="thread-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="hsl(var(--primary)/0.15)" />
-                        <stop offset="100%" stopColor="hsl(var(--accent)/0.15)" />
-                    </linearGradient>
-                     <filter id="glow">
-                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
-                        <feMerge>
-                            <feMergeNode in="coloredBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                </defs>
-                <path d="M-100 100 Q 150 150, 400 -50" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
-                <path d="M-50 400 Q 200 200, 500 500" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
-                <path d="M 1200 100 Q 900 300, 700 600" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
-                <path d="M 1000 800 Q 1200 600, 1400 700" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
-                <path d="M 200 800 Q 400 700, 600 900" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
-                <circle cx="15%" cy="20%" r="2" fill="hsl(var(--primary)/0.2)" filter="url(#glow)" />
-                <circle cx="80%" cy="10%" r="2" fill="hsl(var(--accent)/0.2)" filter="url(#glow)" />
-                <circle cx="5%" cy="85%" r="3" fill="hsl(var(--primary)/0.3)" filter="url(#glow)" />
-                <circle cx="95%" cy="80%" r="2" fill="hsl(var(--accent)/0.2)" filter="url(#glow)" />
-                <circle cx="50%" cy="50%" r="1" fill="hsl(var(--primary)/0.1)" filter="url(#glow)" />
-            </svg>
-        </div>
-
+    <div className="flex flex-row h-full">
         {/* --- Sidebar --- */}
-        <div className="z-10 hidden md:flex flex-col p-4 border-r border-white/10 bg-white/5 dark:bg-black/10 backdrop-blur-lg">
+        <div className="hidden md:flex flex-col w-[280px] p-4 bg-background/80 backdrop-blur-sm border-r border-border">
             <h1 className="text-xl font-bold font-headline px-2">Buddy A.I+</h1>
             
             <div className="flex gap-2 mt-6">
                 <Button onClick={handleNewChat} className="w-full justify-start rounded-full text-base py-5"><Plus className="mr-2 h-4 w-4"/> New Chat</Button>
-                <Button variant="outline" size="icon" className="rounded-full"><Search /></Button>
             </div>
 
             <div className="flex justify-between items-center mt-6">
@@ -400,7 +367,7 @@ export default function BuddyAIPage() {
                 </AlertDialog>
             </div>
 
-            <ScrollArea className="flex-1 -mx-4 mt-2">
+            <ScrollArea className="flex-1 -mx-2 mt-2">
                 <div className="px-2 space-y-4">
                      {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
                         <div key={groupTitle}>
@@ -454,29 +421,29 @@ export default function BuddyAIPage() {
         </div>
 
         {/* --- Main Chat Area --- */}
-        <div className="z-10 relative flex flex-col flex-1">
+        <div className="flex flex-col flex-1 overflow-hidden">
             {activeConversation && activeConversation.messages.length > 0 ? (
-                 <>
+                 <div className="flex flex-col h-full">
                     <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                        <div className="p-8 space-y-8 max-w-4xl mx-auto">
+                        <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                             {activeConversation?.messages.map((message, index) => (
                                 <div key={index} className="flex items-start gap-4">
-                                    <Avatar className="w-8 h-8 border shadow-sm">
+                                    <Avatar className="w-8 h-8 border shadow-sm shrink-0">
                                         <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
                                         <AvatarFallback>
                                             {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <div className="flex-1 pt-1">
+                                    <div className="flex-1 pt-1 space-y-2">
                                         <p className="font-semibold text-sm">
                                             {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
                                         </p>
                                         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
                                             <FormattedMessageContent content={message.content} />
                                         </div>
-                                        {message.role === 'model' && index === activeConversation.messages.length - 1 && (
+                                        {message.role === 'model' && index === activeConversation.messages.length - 1 && !isLoading && (
                                             <div className="mt-4 flex items-center gap-2">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(message.content)}><Copy className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}><Copy className="h-4 w-4" /></Button>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRegenerate} disabled={isLoading}><RefreshCw className="h-4 w-4" /></Button>
                                             </div>
                                         )}
@@ -485,101 +452,73 @@ export default function BuddyAIPage() {
                             ))}
                             {isLoading && (
                                 <div className="flex items-start gap-4">
-                                    <Avatar className="w-8 h-8 border shadow-sm"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                                    <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                                    <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                                    <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                                 </div>
                             )}
                         </div>
                     </ScrollArea>
-
-                    <div className="w-full p-4 bg-background/60 backdrop-blur-sm border-t border-white/10">
-                        <div className="relative mx-auto max-w-3xl">
-                            <Input
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="What's in your mind?..."
-                                className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSend();
-                                    }
-                                }}
-                                disabled={isLoading}
-                            />
-                            <Button
-                                onClick={() => handleSend()}
-                                disabled={isLoading || !input.trim()}
-                                size="icon"
-                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                <span className="sr-only">Send</span>
-                            </Button>
-                        </div>
-                    </div>
-                 </>
+                 </div>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-end p-4 pb-8">
-                    <div className="w-full max-w-4xl mx-auto text-center">
+                <div className="flex-1 flex flex-col items-center justify-center p-4">
+                    <div className="w-full max-w-2xl mx-auto text-center">
                         <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
                             Hello, {user?.displayName?.split(' ')[0]}
                         </h1>
                         <h2 className="text-xl md:text-2xl text-muted-foreground mb-12">How can I help you today?</h2>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
+                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
                                 <Sparkles className="h-5 w-5 text-primary"/>
                                 <h4 className="font-semibold">Suggest topics</h4>
                                 <p className="text-xs text-muted-foreground">based on my progress</p>
                             </Card>
-                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
+                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
                                 <HelpCircle className="h-5 w-5 text-primary"/>
                                 <h4 className="font-semibold">Explain a concept</h4>
                                 <p className="text-xs text-muted-foreground">like recursion in Python</p>
                             </Card>
-                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Create a medium-difficulty C++ practice problem about pointers")}>
+                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Create a medium-difficulty C++ practice problem about pointers")}>
                                 <BrainCircuit className="h-5 w-5 text-primary"/>
                                 <h4 className="font-semibold">Create an exercise</h4>
                                 <p className="text-xs text-muted-foreground">on a specific topic</p>
                             </Card>
-                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("What are some key points from my last completed lesson?")}>
+                             <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("What are the key points from my last completed lesson?")}>
                                 <BookOpen className="h-5 w-5 text-primary"/>
                                 <h4 className="font-semibold">Summarize a lesson</h4>
                                 <p className="text-xs text-muted-foreground">that I recently finished</p>
                             </Card>
                         </div>
-
-                        <div className="relative">
-                            <Input
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Ask me anything, or describe a custom exercise you'd like..."
-                                className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 border-white/10 focus-visible:ring-primary/50 bg-white/5"
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSend();
-                                    }
-                                }}
-                                disabled={isLoading}
-                            />
-                            <Button
-                                onClick={() => handleSend()}
-                                disabled={isLoading || !input.trim()}
-                                size="icon"
-                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                <span className="sr-only">Send</span>
-                            </Button>
-                        </div>
                     </div>
                 </div>
             )}
+            <div className="shrink-0 p-4 bg-background/80 backdrop-blur-sm border-t">
+                <div className="relative mx-auto max-w-3xl">
+                    <Input
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="What's on your mind?..."
+                        className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
+                        disabled={isLoading}
+                    />
+                    <Button
+                        onClick={() => handleSend()}
+                        disabled={isLoading || !input.trim()}
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
+                    >
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        <span className="sr-only">Send</span>
+                    </Button>
+                </div>
+            </div>
         </div>
     </div>
   );
 }
-
-    
