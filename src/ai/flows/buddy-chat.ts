@@ -34,7 +34,7 @@ const createExerciseTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async ({ prompt }, {auth}) => {
-        if (!auth.uid) {
+        if (!auth || !auth.uid) {
             return "I can't create an exercise because I don't know who you are. Please make sure you are logged in.";
         }
         const exercise = await generateCustomExercise({ prompt });
@@ -65,7 +65,7 @@ const suggestTopicsTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async (_, {auth}) => {
-         if (!auth.uid) {
+         if (!auth || !auth.uid) {
             return "I can't suggest topics without knowing your progress. Please make sure you are logged in.";
         }
         const [user, lessonsData] = await Promise.all([
