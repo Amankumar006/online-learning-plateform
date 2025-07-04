@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -380,12 +381,6 @@ export default function BuddyAIPage() {
                     ))}
                 </div>
             </ScrollArea>
-            
-            <div className="border-t border-white/10 -mx-4 mt-auto">
-                 <Button variant="ghost" className="w-full justify-start rounded-none py-6 text-base" asChild>
-                    <Link href="/dashboard/profile"><Settings className="mr-3 h-5 w-5"/> Settings</Link>
-                </Button>
-            </div>
         </div>
 
         {/* --- Main Chat Area --- */}
