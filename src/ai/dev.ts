@@ -15,7 +15,5 @@ import '@/ai/flows/generate-custom-exercise.ts';
 import '@/ai/flows/simulate-code-execution.ts';
 import '@/ai/flows/convert-speech-to-latex.ts';
 import '@/ai/flows/convert-latex-to-speech.ts';
-import '@/ai/flows/grade-math-solution.ts';
 import '@/ai/flows/buddy-chat.ts';
 import '@/ai/flows/canvas-math-flow.ts';
-import '@/ai/flows/grade-math-solution.ts';
