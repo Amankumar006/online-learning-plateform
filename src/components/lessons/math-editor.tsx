@@ -61,14 +61,14 @@ const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTe
                     const renderFixButton = () => {
                         if (isMissingBraceError) {
                             return (
-                                <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFix(p => p + '}')}>
+                                <Button size="sm" variant="secondary" className="h-auto py-1 mt-2" onClick={() => handleFix(p => p + '}')}>
                                     Add missing '}' and fix
                                 </Button>
                             );
                         }
                         if (isUnexpectedBraceError) {
                             return (
-                                <Button size="sm" variant="secondary" className="h-auto py-1" onClick={() => handleFix(p => {
+                                <Button size="sm" variant="secondary" className="h-auto py-1 mt-2" onClick={() => handleFix(p => {
                                     const lastBraceIndex = p.lastIndexOf('}');
                                     return lastBraceIndex !== -1 ? p.substring(0, lastBraceIndex) + p.substring(lastBraceIndex + 1) : p;
                                 })}>
@@ -111,60 +111,60 @@ const symbolGroups = [
     {
         name: "Operators",
         symbols: [
-            { display: '+', latex: '+' },
-            { display: '-', latex: '-' },
-            { display: '×', latex: '\\times ' },
-            { display: '÷', latex: '\\div ' },
-            { display: '±', latex: '\\pm ' },
+            { display: '+', latex: '+', ariaLabel: "plus sign" },
+            { display: '-', latex: '-', ariaLabel: "minus sign" },
+            { display: '×', latex: '\\times ', ariaLabel: "multiplication sign" },
+            { display: '÷', latex: '\\div ', ariaLabel: "division sign" },
+            { display: '±', latex: '\\pm ', ariaLabel: "plus-minus sign" },
         ]
     },
     {
         name: "Relations",
         symbols: [
-             { display: '=', latex: '=' },
-            { display: '≠', latex: '\\neq ' },
-            { display: '≈', latex: '\\approx ' },
-            { display: '≤', latex: '\\le ' },
-            { display: '≥', latex: '\\ge ' },
+             { display: '=', latex: '=', ariaLabel: "equals sign" },
+            { display: '≠', latex: '\\neq ', ariaLabel: "not equal to" },
+            { display: '≈', latex: '\\approx ', ariaLabel: "approximately equal to" },
+            { display: '≤', latex: '\\le ', ariaLabel: "less than or equal to" },
+            { display: '≥', latex: '\\ge ', ariaLabel: "greater than or equal to" },
         ]
     },
      {
         name: "Greek",
         symbols: [
-            { display: 'α', latex: '\\alpha ' },
-            { display: 'β', latex: '\\beta ' },
-            { display: 'π', latex: '\\pi ' },
-            { display: 'θ', latex: '\\theta ' },
-            { display: 'Δ', latex: '\\Delta ' },
+            { display: 'α', latex: '\\alpha ', ariaLabel: "alpha" },
+            { display: 'β', latex: '\\beta ', ariaLabel: "beta" },
+            { display: 'π', latex: '\\pi ', ariaLabel: "pi" },
+            { display: 'θ', latex: '\\theta ', ariaLabel: "theta" },
+            { display: 'Δ', latex: '\\Delta ', ariaLabel: "delta" },
         ]
     },
     {
         name: "Calculus",
         symbols: [
-            { display: '∫', latex: '\\int ' },
-            { display: '∑', latex: '\\sum ' },
-            { display: '∂', latex: '\\partial ' },
-            { display: '∞', latex: '\\infty ' },
+            { display: '∫', latex: '\\int ', ariaLabel: "integral" },
+            { display: '∑', latex: '\\sum ', ariaLabel: "summation" },
+            { display: '∂', latex: '\\partial ', ariaLabel: "partial derivative" },
+            { display: '∞', latex: '\\infty ', ariaLabel: "infinity" },
         ]
     },
     {
         name: "Functions",
         symbols: [
-            { display: 'sin', latex: '\\sin()', offset: -1 },
-            { display: 'cos', latex: '\\cos()', offset: -1 },
-            { display: 'tan', latex: '\\tan()', offset: -1 },
-            { display: 'log', latex: '\\log()', offset: -1 },
-            { display: 'ln', latex: '\\ln()', offset: -1 },
+            { display: 'sin', latex: '\\sin()', offset: -1, ariaLabel: "sine function" },
+            { display: 'cos', latex: '\\cos()', offset: -1, ariaLabel: "cosine function" },
+            { display: 'tan', latex: '\\tan()', offset: -1, ariaLabel: "tangent function" },
+            { display: 'log', latex: '\\log()', offset: -1, ariaLabel: "logarithm" },
+            { display: 'ln', latex: '\\ln()', offset: -1, ariaLabel: "natural logarithm" },
         ]
     },
     {
         name: "Structures",
         symbols: [
-            { display: '√x', latex: '\\sqrt{}', offset: -1 },
-            { display: 'x²', latex: '^{}', offset: -1 },
-            { display: 'xₙ', latex: '_{}', offset: -1 },
-            { display: 'a/b', latex: '\\frac{}{}', offset: -3 },
-            { display: '()', latex: '()', offset: -1 },
+            { display: '√x', latex: '\\sqrt{}', offset: -1, ariaLabel: "square root" },
+            { display: 'x²', latex: '^{}', offset: -1, ariaLabel: "superscript or exponent" },
+            { display: 'xₙ', latex: '_{}', offset: -1, ariaLabel: "subscript" },
+            { display: 'a/b', latex: '\\frac{}{}', offset: -3, ariaLabel: "fraction" },
+            { display: '()', latex: '()', offset: -1, ariaLabel: "parentheses" },
         ]
     }
 ];
@@ -450,9 +450,9 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                                         className="h-8 w-8"
                                         onClick={handleListenClick}
                                         disabled={disabled}
+                                        aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
                                     >
                                         {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                                        <span className="sr-only">{isListening ? 'Stop listening' : 'Start listening'}</span>
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -461,11 +461,11 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                             </Tooltip>
                         </TooltipProvider>
                     </CardHeader>
-                    <CardContent className="p-2 flex flex-col flex-grow">
-                        <div className="border-b pb-2 mb-2">
+                    <CardContent className="p-0 flex flex-col flex-grow">
+                        <div className="p-2 border-b">
                             {symbolGroups.map(group => (
                                 <div key={group.name} className="mb-1 last:mb-0">
-                                    <span className="text-xs font-semibold text-muted-foreground mr-2">{group.name}:</span>
+                                    <span className="text-xs font-semibold text-muted-foreground mr-2 w-16 inline-block">{group.name}:</span>
                                     {group.symbols.map((symbol) => (
                                         <Button
                                             key={symbol.display}
@@ -475,6 +475,7 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                                             className="font-mono h-7 px-2 text-base"
                                             onClick={() => insertSymbol(symbol.latex, symbol.offset || 0)}
                                             disabled={disabled}
+                                            aria-label={`Insert ${symbol.ariaLabel}`}
                                         >
                                             {symbol.display}
                                         </Button>
@@ -493,16 +494,16 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                                 className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent w-full h-full"
                             />
                             {suggestions.length > 0 && (
-                                <div className="absolute z-10 w-48 mt-1 p-1 rounded-md border bg-popover shadow-lg">
-                                    <p className="text-xs px-2 py-1 text-muted-foreground">LaTeX Suggestions</p>
-                                    <ul className="max-h-40 overflow-y-auto" role="listbox">
+                                <div className="absolute z-10 w-56 mt-1 rounded-md border bg-popover shadow-lg ring-1 ring-black ring-opacity-5">
+                                    <p className="text-xs px-3 py-2 text-muted-foreground font-semibold">LaTeX Suggestions</p>
+                                    <ul className="max-h-40 overflow-y-auto p-1" role="listbox">
                                         {suggestions.map((suggestion, index) => (
                                             <li
                                                 key={suggestion}
                                                 role="option"
                                                 aria-selected={index === activeSuggestionIndex}
                                                 className={cn(
-                                                    "w-full text-left font-mono text-sm p-2 rounded-sm cursor-pointer",
+                                                    "w-full text-left font-mono text-sm px-2 py-1.5 rounded-sm cursor-pointer",
                                                     index === activeSuggestionIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
                                                 )}
                                                 onMouseDown={(e) => {
@@ -595,3 +596,5 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
 };
 
 export default MathEditor;
+
+    
