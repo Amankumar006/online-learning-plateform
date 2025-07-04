@@ -282,22 +282,26 @@ export default function BuddyAIPage() {
           <div className="p-4 border-b space-y-2">
             <h3 className="font-semibold text-sm px-2 text-muted-foreground">Start a New Chat</h3>
             {personas.map(p => (
-                <Button key={p.id} variant="ghost" className="w-full justify-start h-auto py-2.5 px-3 text-left" onClick={() => handleNewChat(p.id)}>
-                    <div className="p-2 bg-background rounded-md shadow-sm border">
-                      {p.icon}
+                <button
+                    key={p.id}
+                    className="flex w-full items-start gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                    onClick={() => handleNewChat(p.id)}
+                >
+                    <div className="shrink-0 rounded-md border bg-background p-2 shadow-sm">
+                        {p.icon}
                     </div>
-                    <div className="ml-3">
+                    <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm">{p.name}</p>
                         <p className="text-xs text-muted-foreground">{p.description}</p>
                     </div>
-                </Button>
+                </button>
             ))}
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-2 space-y-4">
+            <div className="p-2 space-y-1">
                 {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
                   <div key={groupTitle}>
-                        <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">{groupTitle}</h3>
+                        <h3 className="text-xs font-semibold text-muted-foreground px-2 my-2">{groupTitle}</h3>
                         <div className="space-y-1">
                           {convos.map(c => (
                               <div key={c.id} className="relative group">
@@ -309,7 +313,7 @@ export default function BuddyAIPage() {
                                       {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
                                       <span className="truncate">{c.title}</span>
                                   </Button>
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
                                         <DropdownMenu>
                                           <DropdownMenuTrigger asChild>
                                               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
