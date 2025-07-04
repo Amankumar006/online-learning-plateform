@@ -58,20 +58,13 @@ function SolveMathAction() {
 	)
 }
 
-// 2. Add the component to the editor's components.
+// Add the custom component to the editor's `TopZone`.
 const components = {
-	InFrontOfTheCanvas: () => (
-    <div style={{
-      position: 'absolute',
-      top: '10px',
-      left: '70px',
-      zIndex: 999,
-      display: 'flex',
-      gap: '10px'
-    }}>
-      <SolveMathAction />
-    </div>
-  )
+	TopZone: () => (
+        <div className="p-2">
+            <SolveMathAction />
+        </div>
+    )
 }
 
 export default function CanvasPage() {
