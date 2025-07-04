@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat, BuddyChatInput, Persona } from '@/ai/flows/buddy-chat';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Study, Briefcase } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -121,7 +121,7 @@ const FormattedMessageContent = ({ content }: { content: string }) => {
 };
 
 const personas: { id: Persona; name: string; description: string; icon: React.ReactNode }[] = [
-    { id: 'buddy', name: 'Study Buddy', description: 'Friendly and encouraging learning companion.', icon: <Study className="w-5 h-5" /> },
+    { id: 'buddy', name: 'Study Buddy', description: 'Friendly and encouraging learning companion.', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'mentor', name: 'Code Mentor', description: 'Expert guidance for technical questions.', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
@@ -317,7 +317,7 @@ export default function BuddyAIPage() {
                                                 setActivePersona(c.persona || 'buddy');
                                             }}
                                         >
-                                            {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <Study className="mr-2 h-4 w-4 shrink-0" />}
+                                            {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
                                             <span className="truncate">{c.title}</span>
                                         </Button>
                                          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
