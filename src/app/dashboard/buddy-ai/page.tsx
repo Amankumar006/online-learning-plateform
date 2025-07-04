@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -385,15 +384,6 @@ export default function BuddyAIPage() {
             <div className="border-t border-white/10 -mx-4 mt-auto">
                  <Button variant="ghost" className="w-full justify-start rounded-none py-6 text-base" asChild>
                     <Link href="/dashboard/profile"><Settings className="mr-3 h-5 w-5"/> Settings</Link>
-                </Button>
-                <Button variant="ghost" className="w-full justify-start rounded-none py-6 text-base" asChild>
-                     <Link href="/dashboard/profile">
-                        <Avatar className="w-8 h-8 mr-3">
-                            <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
-                            <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
-                        </Avatar>
-                        {user?.displayName || 'User Profile'}
-                    </Link>
                 </Button>
             </div>
         </div>
