@@ -233,6 +233,7 @@ export default function BuddyAIPage() {
       const result = await buddyChat({
           userMessage: messageToSend,
           history: historyForAI,
+          userId: user.uid
       });
       const assistantMessage: Message = { role: 'model', content: result.response };
       
@@ -285,6 +286,7 @@ export default function BuddyAIPage() {
         const result = await buddyChat({
             userMessage: lastUserMessage.content,
             history: historyForAI,
+            userId: user.uid
         });
         const assistantMessage: Message = { role: 'model', content: result.response };
         
@@ -339,7 +341,7 @@ export default function BuddyAIPage() {
   return (
     <div className="flex flex-row h-full">
         {/* --- Sidebar --- */}
-        <div className="hidden md:flex flex-col w-[280px] p-4 bg-background/80 backdrop-blur-sm border-r border-border">
+        <div className="hidden md:flex flex-col w-[280px] p-4 bg-background/80 backdrop-blur-sm border-r border-border shrink-0">
             <h1 className="text-xl font-bold font-headline px-2">Buddy A.I+</h1>
             
             <div className="flex gap-2 mt-6">
@@ -422,76 +424,74 @@ export default function BuddyAIPage() {
 
         {/* --- Main Chat Area --- */}
         <div className="flex flex-col flex-1 overflow-hidden">
-            {activeConversation && activeConversation.messages.length > 0 ? (
-                 <div className="flex flex-col h-full">
-                    <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                        <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
-                            {activeConversation?.messages.map((message, index) => (
-                                <div key={index} className="flex items-start gap-4">
-                                    <Avatar className="w-8 h-8 border shadow-sm shrink-0">
-                                        <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                        <AvatarFallback>
-                                            {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 pt-1 space-y-2">
-                                        <p className="font-semibold text-sm">
-                                            {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
-                                        </p>
-                                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                            <FormattedMessageContent content={message.content} />
-                                        </div>
-                                        {message.role === 'model' && index === activeConversation.messages.length - 1 && !isLoading && (
-                                            <div className="mt-4 flex items-center gap-2">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}><Copy className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRegenerate} disabled={isLoading}><RefreshCw className="h-4 w-4" /></Button>
-                                            </div>
-                                        )}
+            <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                {activeConversation && activeConversation.messages.length > 0 ? (
+                    <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
+                        {activeConversation.messages.map((message, index) => (
+                            <div key={index} className="flex items-start gap-4">
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                    <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
+                                    <AvatarFallback>
+                                        {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 pt-1 space-y-2">
+                                    <p className="font-semibold text-sm">
+                                        {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
+                                    </p>
+                                    <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                                        <FormattedMessageContent content={message.content} />
                                     </div>
+                                    {message.role === 'model' && index === activeConversation.messages.length - 1 && !isLoading && (
+                                        <div className="mt-4 flex items-center gap-2">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}><Copy className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRegenerate} disabled={isLoading}><RefreshCw className="h-4 w-4" /></Button>
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
-                            {isLoading && (
-                                <div className="flex items-start gap-4">
-                                    <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                                    <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-                                </div>
-                            )}
-                        </div>
-                    </ScrollArea>
-                 </div>
-            ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-4">
-                    <div className="w-full max-w-2xl mx-auto text-center">
-                        <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
-                            Hello, {user?.displayName?.split(' ')[0]}
-                        </h1>
-                        <h2 className="text-xl md:text-2xl text-muted-foreground mb-12">How can I help you today?</h2>
+                            </div>
+                        ))}
+                        {isLoading && (
+                            <div className="flex items-start gap-4">
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                                <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex h-full flex-col items-center justify-center p-4">
+                        <div className="w-full max-w-2xl mx-auto text-center">
+                            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
+                                Hello, {user?.displayName?.split(' ')[0]}
+                            </h1>
+                            <h2 className="text-xl md:text-2xl text-muted-foreground mb-12">How can I help you today?</h2>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
-                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
-                                <Sparkles className="h-5 w-5 text-primary"/>
-                                <h4 className="font-semibold">Suggest topics</h4>
-                                <p className="text-xs text-muted-foreground">based on my progress</p>
-                            </Card>
-                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
-                                <HelpCircle className="h-5 w-5 text-primary"/>
-                                <h4 className="font-semibold">Explain a concept</h4>
-                                <p className="text-xs text-muted-foreground">like recursion in Python</p>
-                            </Card>
-                            <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Create a medium-difficulty C++ practice problem about pointers")}>
-                                <BrainCircuit className="h-5 w-5 text-primary"/>
-                                <h4 className="font-semibold">Create an exercise</h4>
-                                <p className="text-xs text-muted-foreground">on a specific topic</p>
-                            </Card>
-                             <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("What are the key points from my last completed lesson?")}>
-                                <BookOpen className="h-5 w-5 text-primary"/>
-                                <h4 className="font-semibold">Summarize a lesson</h4>
-                                <p className="text-xs text-muted-foreground">that I recently finished</p>
-                            </Card>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
+                                <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
+                                    <Sparkles className="h-5 w-5 text-primary"/>
+                                    <h4 className="font-semibold">Suggest topics</h4>
+                                    <p className="text-xs text-muted-foreground">based on my progress</p>
+                                </Card>
+                                <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
+                                    <HelpCircle className="h-5 w-5 text-primary"/>
+                                    <h4 className="font-semibold">Explain a concept</h4>
+                                    <p className="text-xs text-muted-foreground">like recursion in Python</p>
+                                </Card>
+                                <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Create a medium-difficulty C++ practice problem about pointers")}>
+                                    <BrainCircuit className="h-5 w-5 text-primary"/>
+                                    <h4 className="font-semibold">Create an exercise</h4>
+                                    <p className="text-xs text-muted-foreground">on a specific topic</p>
+                                </Card>
+                                 <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("What are the key points from my last completed lesson?")}>
+                                    <BookOpen className="h-5 w-5 text-primary"/>
+                                    <h4 className="font-semibold">Summarize a lesson</h4>
+                                    <p className="text-xs text-muted-foreground">that I recently finished</p>
+                                </Card>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </ScrollArea>
             <div className="shrink-0 p-4 bg-background/80 backdrop-blur-sm border-t">
                 <div className="relative mx-auto max-w-3xl">
                     <Input
