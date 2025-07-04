@@ -305,15 +305,17 @@ export default function BuddyAIPage() {
                         <div className="space-y-1">
                           {convos.map(c => (
                               <div key={c.id} className="relative group">
-                                  <Button
-                                      variant={c.id === activeConversationId ? 'secondary' : 'ghost'}
-                                      className="w-full justify-start truncate rounded-md pr-10"
+                                  <button
                                       onClick={() => setActiveConversationId(c.id)}
+                                      className={cn(
+                                        "w-full justify-start truncate rounded-md pr-10 text-left p-2 flex items-center gap-2 text-sm transition-colors",
+                                        c.id === activeConversationId ? 'bg-secondary text-secondary-foreground font-semibold' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                                      )}
                                   >
                                       {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
                                       <span className="truncate">{c.title}</span>
-                                  </Button>
-                                    <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+                                  </button>
+                                    <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
                                         <DropdownMenu>
                                           <DropdownMenuTrigger asChild>
                                               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
