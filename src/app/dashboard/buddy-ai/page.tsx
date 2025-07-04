@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -52,6 +52,19 @@ const getInitials = (name?: string | null) => {
 
 const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+};
+
+const FormattedMessageContent = ({ content }: { content: string }) => {
+    const parts = content.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return <>{parts.filter(Boolean).map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
+        }
+        return <React.Fragment key={index}>{part}</React.Fragment>;
+    })}</>;
 };
 
 export default function BuddyAIPage() {
@@ -401,7 +414,7 @@ export default function BuddyAIPage() {
                                             {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
                                         </p>
                                         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                        {message.content}
+                                            <FormattedMessageContent content={message.content} />
                                         </div>
                                         {message.role === 'model' && index === activeConversation.messages.length - 1 && (
                                             <div className="mt-4 flex items-center gap-2">
