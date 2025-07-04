@@ -270,9 +270,38 @@ export default function BuddyAIPage() {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <div className="grid grid-cols-[280px_1fr] h-[calc(100vh-8rem)] bg-background rounded-2xl border overflow-hidden shadow-sm">
+    <div className="relative grid grid-cols-1 md:grid-cols-[280px_1fr] h-[calc(100vh-8rem)] bg-white/20 dark:bg-black/25 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/20 overflow-hidden">
+        {/* --- SVG Background --- */}
+        <div className="absolute inset-0 z-0 opacity-60">
+            <svg width="100%" height="100%" className="absolute inset-0">
+                <defs>
+                    <linearGradient id="thread-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="hsl(var(--primary)/0.15)" />
+                        <stop offset="100%" stopColor="hsl(var(--accent)/0.15)" />
+                    </linearGradient>
+                     <filter id="glow">
+                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+                        <feMerge>
+                            <feMergeNode in="coloredBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <path d="M-100 100 Q 150 150, 400 -50" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                <path d="M-50 400 Q 200 200, 500 500" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
+                <path d="M 1200 100 Q 900 300, 700 600" stroke="url(#thread-gradient)" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                <path d="M 1000 800 Q 1200 600, 1400 700" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
+                <path d="M 200 800 Q 400 700, 600 900" stroke="url(#thread-gradient)" fill="none" strokeWidth="1.5" filter="url(#glow)"/>
+                <circle cx="15%" cy="20%" r="2" fill="hsl(var(--primary)/0.2)" filter="url(#glow)" />
+                <circle cx="80%" cy="10%" r="2" fill="hsl(var(--accent)/0.2)" filter="url(#glow)" />
+                <circle cx="5%" cy="85%" r="3" fill="hsl(var(--primary)/0.3)" filter="url(#glow)" />
+                <circle cx="95%" cy="80%" r="2" fill="hsl(var(--accent)/0.2)" filter="url(#glow)" />
+                <circle cx="50%" cy="50%" r="1" fill="hsl(var(--primary)/0.1)" filter="url(#glow)" />
+            </svg>
+        </div>
+
         {/* --- Sidebar --- */}
-        <div className="flex flex-col bg-muted/20 p-4 border-r">
+        <div className="z-10 hidden md:flex flex-col p-4 border-r border-white/10 bg-white/5 dark:bg-black/10 backdrop-blur-lg">
             <h1 className="text-xl font-bold font-headline px-2">Buddy A.I+</h1>
             
             <div className="flex gap-2 mt-6">
@@ -353,7 +382,7 @@ export default function BuddyAIPage() {
                 </div>
             </ScrollArea>
             
-            <div className="border-t -mx-4 mt-auto">
+            <div className="border-t border-white/10 -mx-4 mt-auto">
                  <Button variant="ghost" className="w-full justify-start rounded-none py-6 text-base" asChild>
                     <Link href="/dashboard/profile"><Settings className="mr-3 h-5 w-5"/> Settings</Link>
                 </Button>
@@ -370,7 +399,7 @@ export default function BuddyAIPage() {
         </div>
 
         {/* --- Main Chat Area --- */}
-        <div className="relative flex flex-col h-full">
+        <div className="z-10 relative flex flex-col h-full">
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
                 <div className="p-8 space-y-8 max-w-4xl mx-auto">
                     {activeConversation?.messages.map((message, index) => (
@@ -406,7 +435,7 @@ export default function BuddyAIPage() {
                 </div>
             </ScrollArea>
 
-            <div className="w-full p-4 bg-background/50">
+            <div className="w-full p-4 bg-background/60 backdrop-blur-sm border-t border-white/10">
                 <div className="relative mx-auto max-w-3xl">
                     <Input
                         value={input}
@@ -436,6 +465,3 @@ export default function BuddyAIPage() {
     </div>
   );
 }
-
-
-    
