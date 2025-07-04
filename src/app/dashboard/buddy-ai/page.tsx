@@ -5,8 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChat, BuddyChatInput } from '@/ai/flows/buddy-chat';
-import { Persona } from '@/ai/schemas/buddy-schemas';
+import { buddyChat, BuddyChatInput, Persona } from '@/ai/flows/buddy-chat';
 import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -280,26 +279,19 @@ export default function BuddyAIPage() {
     <div className="flex h-full w-full bg-background">
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-[280px] bg-muted/30 border-r shrink-0">
-          <div className='p-4 border-b'>
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                      <Button className='w-full justify-start text-base py-6'>
-                          <Plus className="mr-2 h-4 w-4" />
-                          New Chat
-                      </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-72">
-                      {personas.map(p => (
-                          <DropdownMenuItem key={p.id} onClick={() => handleNewChat(p.id)}>
-                              {p.icon}
-                              <span className="ml-2">
-                                  <p className="font-semibold">{p.name}</p>
-                                  <p className="text-xs text-muted-foreground">{p.description}</p>
-                              </span>
-                          </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="p-4 border-b space-y-2">
+            <h3 className="font-semibold text-sm px-2 text-muted-foreground">Start a New Chat</h3>
+            {personas.map(p => (
+                <Button key={p.id} variant="ghost" className="w-full justify-start h-auto py-2.5 px-3 text-left" onClick={() => handleNewChat(p.id)}>
+                    <div className="p-2 bg-background rounded-md shadow-sm border">
+                      {p.icon}
+                    </div>
+                    <div className="ml-3">
+                        <p className="font-semibold text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.description}</p>
+                    </div>
+                </Button>
+            ))}
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-4">
