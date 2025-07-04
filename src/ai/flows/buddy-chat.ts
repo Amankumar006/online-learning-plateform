@@ -13,6 +13,7 @@ import {z} from 'genkit';
 import {generateCustomExercise} from './generate-custom-exercise';
 import {generateStudyTopics} from './generate-study-topics';
 import {createExercise, getLessons, getUser, Exercise} from '@/lib/data';
+import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -23,13 +24,14 @@ const BuddyChatInputSchema = z.object({
   userMessage: z.string().describe('The message sent by the user.'),
   userId: z.string().describe("The ID of the current user, used for context-aware actions."),
   history: z.array(MessageSchema).optional().describe('The conversation history.'),
+  persona: PersonaSchema.optional().default('buddy').describe("The AI's persona, which determines its personality and expertise."),
 });
-type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
+export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
 const BuddyChatOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
 });
-type BuddyChatOutput = z.infer<typeof BuddyChatOutputSchema>;
+export type BuddyChatOutput = z.infer<typeof BuddyChatOutputSchema>;
 
 
 const createExerciseTool = ai.defineTool(
@@ -122,11 +124,29 @@ const buddyChatFlow = ai.defineFlow(
         role: msg.role as 'user' | 'model',
         parts: [{ text: msg.content }],
     }));
+    
+    let systemPrompt: string;
+    
+    switch (input.persona) {
+        case 'mentor':
+            systemPrompt = `You are a Code Mentor AI, a direct and expert software engineer. Your goal is to provide precise, technical answers and code reviews. You are not overly chatty, but you are thorough.
 
-    const llmResponse = await ai.generate({
-        model: 'googleai/gemini-2.0-flash',
-        tools: [createExerciseTool, suggestTopicsTool],
-        system: `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion. Your primary goal is to provide exceptionally clear explanations and to actively guide the user's learning journey.
+**Core Principles:**
+1.  **Be Precise & Technical:** Provide accurate, industry-standard information. Prioritize correctness and efficiency in your code examples and explanations.
+2.  **Code First:** When a user asks a coding question, provide the code solution first, followed by a clear, step-by-step explanation.
+3.  **Proactive Review:** When a user shows you code, critique it constructively. Point out potential bugs, style issues, or areas for optimization. Suggest alternatives.
+4.  **Use Tools Strategically:** When a user wants to practice a concept, use your \`createCustomExercise\` tool to generate a relevant coding problem.
+
+**Formatting Guidelines:**
+- Use Markdown extensively.
+- Use '###' for breaking down technical concepts.
+- Use '**bold text**' for key technical terms.
+- Use code blocks with language identifiers (e.g., \`\`\`python) for ALL code examples.
+- Use blockquotes '> ' for important warnings or best practices.`;
+            break;
+        case 'buddy':
+        default:
+             systemPrompt = `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion. Your primary goal is to provide exceptionally clear explanations and to actively guide the user's learning journey.
 
 **Core Principles:**
 1.  **Be Proactive:** Don't just answer questions. Anticipate the user's needs. After explaining a concept, suggest a relevant next step, such as creating a practice problem, explaining a related topic, or simplifying the concept further.
@@ -146,7 +166,15 @@ const buddyChatFlow = ai.defineFlow(
 - **createCustomExercise**: Use this tool not only when asked, but also as a suggestion after explaining a concept. When you use it, tell the user the exercise has been created and is on their "Practice" page.
 - **suggestStudyTopics**: Use this tool when the user asks for guidance (e.g., "what should I learn next?") or seems unsure.
 
-For all interactions, maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`,
+For all interactions, maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`;
+            break;
+    }
+
+
+    const llmResponse = await ai.generate({
+        model: 'googleai/gemini-2.0-flash',
+        tools: [createExerciseTool, suggestTopicsTool],
+        system: systemPrompt,
         history: history,
         prompt: input.userMessage,
     }, { auth });

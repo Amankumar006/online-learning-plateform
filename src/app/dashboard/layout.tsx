@@ -1,12 +1,13 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import DashboardNav from "@/components/dashboard/DashboardNav";
+import { cn } from "@/lib/utils";
 
 function DashboardLoader() {
   return (
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -43,7 +45,10 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen w-full flex-col font-body">
       <DashboardNav />
-      <main className="flex-1 flex flex-col">
+      <main className={cn(
+        "flex-1 flex flex-col",
+        pathname !== '/dashboard/buddy-ai' && "p-4 md:p-6 lg:p-8"
+        )}>
         {children}
       </main>
     </div>

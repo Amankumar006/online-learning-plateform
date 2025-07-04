@@ -4,9 +4,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChat, BuddyChatInput, Persona } from '@/ai/flows/buddy-chat';
+import { buddyChat, BuddyChatInput } from '@/ai/flows/buddy-chat';
+import { Persona } from '@/ai/schemas/buddy-schemas';
 import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -25,12 +25,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 
 interface Message {
@@ -135,7 +133,14 @@ export default function BuddyAIPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  const [activePersona, setActivePersona] = useState<Persona>('buddy');
+  const activeConversation = useMemo(() => {
+    return conversations.find(c => c.id === activeConversationId);
+  }, [conversations, activeConversationId]);
+
+  const activePersona = useMemo(() => {
+    return activeConversation?.persona || 'buddy';
+  }, [activeConversation]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -147,7 +152,6 @@ export default function BuddyAIPage() {
             if (parsedConvos.length > 0) {
                 setConversations(parsedConvos);
                 setActiveConversationId(parsedConvos[0].id);
-                setActivePersona(parsedConvos[0].persona || 'buddy');
                 return;
             }
         }
@@ -169,9 +173,6 @@ export default function BuddyAIPage() {
     }
   }, [conversations, user]);
   
-   const activeConversation = useMemo(() => {
-    return conversations.find(c => c.id === activeConversationId);
-  }, [conversations, activeConversationId]);
 
   const handleNewChat = (persona: Persona) => {
     const newId = Date.now().toString();
@@ -184,7 +185,6 @@ export default function BuddyAIPage() {
     };
     setConversations(prev => [newConversation, ...prev.sort((a, b) => b.createdAt - a.createdAt)]);
     setActiveConversationId(newId);
-    setActivePersona(persona);
     setInput('');
   }
   
@@ -194,7 +194,6 @@ export default function BuddyAIPage() {
     if (activeConversationId === convoId) {
         if (newConversations.length > 0) {
             setActiveConversationId(newConversations[0].id);
-            setActivePersona(newConversations[0].persona || 'buddy');
         } else {
             handleNewChat('buddy');
         }
@@ -277,15 +276,15 @@ export default function BuddyAIPage() {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <div className="flex flex-row h-full">
+    <div className="flex h-full w-full">
         {/* Sidebar */}
         <div className="hidden md:flex flex-col w-[280px] bg-background/80 backdrop-blur-sm border-r border-border shrink-0">
             <div className='p-4 border-b'>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className='w-full justify-start text-base py-6'>
-                            {personas.find(p => p.id === activePersona)?.icon}
-                            <span className="ml-2">{personas.find(p => p.id === activePersona)?.name}</span>
+                            <Plus className="mr-2 h-4 w-4" />
+                            New Chat
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-72">
@@ -301,7 +300,7 @@ export default function BuddyAIPage() {
                     </DropdownMenuContent>
                  </DropdownMenu>
             </div>
-            <ScrollArea className="flex-1 p-2">
+            <div className="flex-1 overflow-y-auto p-2">
                 <div className="space-y-4">
                      {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
                         <div key={groupTitle}>
@@ -312,10 +311,7 @@ export default function BuddyAIPage() {
                                         <Button
                                             variant={c.id === activeConversationId ? 'secondary' : 'ghost'}
                                             className="w-full justify-start truncate rounded-md pr-10"
-                                            onClick={() => {
-                                                setActiveConversationId(c.id);
-                                                setActivePersona(c.persona || 'buddy');
-                                            }}
+                                            onClick={() => setActiveConversationId(c.id)}
                                         >
                                             {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
                                             <span className="truncate">{c.title}</span>
@@ -354,7 +350,7 @@ export default function BuddyAIPage() {
                         </div>
                     ))}
                 </div>
-            </ScrollArea>
+            </div>
         </div>
 
         {/* Main Chat Area */}
@@ -391,10 +387,13 @@ export default function BuddyAIPage() {
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center p-4">
                         <div className="w-full max-w-2xl mx-auto text-center">
-                            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
-                                {personas.find(p => p.id === activePersona)?.name}
+                             <div className="p-4 bg-background/50 rounded-full inline-block mb-4 border shadow-sm">
+                                {personas.find(p => p.id === activePersona)?.icon}
+                             </div>
+                            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
+                                Chat with {personas.find(p => p.id === activePersona)?.name}
                             </h1>
-                            <h2 className="text-xl md:text-2xl text-muted-foreground mb-12">How can I help you today?</h2>
+                            <h2 className="text-lg md:text-xl text-muted-foreground mb-12">How can I help you today?</h2>
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
                                 <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
                                     <Sparkles className="h-5 w-5 text-primary"/>
