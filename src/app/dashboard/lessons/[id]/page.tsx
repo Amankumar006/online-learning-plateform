@@ -49,7 +49,7 @@ const slideVariants = {
     zIndex: 1,
     x: 0,
     opacity: 1,
-    position: 'absolute' as 'absolute',
+    position: 'relative' as 'relative',
   },
   exit: (direction: number) => ({
     zIndex: 0,
@@ -69,8 +69,8 @@ export default function LessonPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState('lesson');
-  const [direction, setDirection] = useState(0);
+  const [[activeTab, direction], setActiveTab] = useState(['lesson', 0]);
+  
   const tabItems = [
     { id: 'lesson', label: 'Lesson', icon: BookText },
     { id: 'exercise', label: 'Exercise', icon: BrainCircuit },
@@ -80,12 +80,11 @@ export default function LessonPage() {
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
 
-  const handleTabChange = (newTab: string) => {
-    if (newTab === activeTab) return;
+  const handleTabChange = (newTabId: string) => {
+    if (newTabId === activeTab) return;
     const oldIndex = tabItems.findIndex(t => t.id === activeTab);
-    const newIndex = tabItems.findIndex(t => t.id === newTab);
-    setDirection(newIndex > oldIndex ? 1 : -1);
-    setActiveTab(newTab);
+    const newIndex = tabItems.findIndex(t => t.id === newTabId);
+    setActiveTab([newTabId, newIndex > oldIndex ? 1 : -1]);
   };
 
   const fetchUserProgress = async (uid: string) => {
@@ -140,7 +139,7 @@ export default function LessonPage() {
     } else {
         setHighlighterStyle({ opacity: 0 });
     }
-  }, [activeTab, isLoading]);
+  }, [activeTab, isLoading, tabItems]);
   
   const breadcrumbItems = [
     { href: "/dashboard", label: "Dashboard" },

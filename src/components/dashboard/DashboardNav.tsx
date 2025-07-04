@@ -31,7 +31,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -68,7 +68,7 @@ export default function DashboardNav() {
   const [highlighterStyle, setHighlighterStyle] = useState({});
 
   // Find the most specific active item
-  const getActiveItem = () => {
+  const activeItem = useMemo(() => {
     const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
     if (matchingItems.length === 0) return null;
 
@@ -76,8 +76,7 @@ export default function DashboardNav() {
     return matchingItems.reduce((best, current) => {
         return current.href.length > best.href.length ? current : best;
     });
-  };
-  const activeItem = getActiveItem();
+  }, [pathname]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
