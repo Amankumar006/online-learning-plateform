@@ -40,13 +40,21 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { getUser, Announcement, getRecentAnnouncements, markAnnouncementsAsRead, AnnouncementType } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatDistanceToNow } from 'date-fns';
+import { Badge } from "@/components/ui/badge";
 
-const navItems = [
+type NavItem = {
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    isBeta?: boolean;
+};
+
+const navItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
     { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
     { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
-    { href: "/dashboard/canvas", label: "Canvas", icon: Pen },
+    { href: "/dashboard/canvas", label: "Canvas", icon: Pen, isBeta: true },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
 
@@ -113,13 +121,13 @@ export default function DashboardNav() {
     const activeLinkEl = navContainerRef.current.children[activeIndex] as HTMLElement | undefined;
 
     if (activeLinkEl) {
-      setHighlighterStyle({
-        width: `${activeLinkEl.offsetWidth}px`,
-        transform: `translateX(${activeLinkEl.offsetLeft}px)`,
-        opacity: 1,
-      });
+        setHighlighterStyle({
+            width: `${activeLinkEl.offsetWidth}px`,
+            transform: `translateX(${activeLinkEl.offsetLeft}px)`,
+            opacity: 1,
+        });
     } else {
-      setHighlighterStyle({ opacity: 0 });
+        setHighlighterStyle({ opacity: 0 });
     }
   }, [pathname, isLoading, activeItem]);
 
@@ -180,7 +188,10 @@ export default function DashboardNav() {
                     : 'text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground'
                 )}
               >
-                <Link href={item.href}>{item.label}</Link>
+                <Link href={item.href} className="flex items-center gap-1.5">
+                    {item.label}
+                    {item.isBeta && <Badge variant="outline" className="text-xs px-1.5 py-0 leading-none">Beta</Badge>}
+                </Link>
               </Button>
             ))}
           </div>
@@ -270,7 +281,10 @@ export default function DashboardNav() {
               )}
             >
               <item.icon className="h-5 w-5" />
-              {item.label}
+              <span className="flex items-center gap-1">
+                {item.label}
+                {item.isBeta && <Badge variant="outline" className="text-xs px-1 py-0 scale-90 leading-none">Beta</Badge>}
+              </span>
             </Link>
           ))}
         </div>
