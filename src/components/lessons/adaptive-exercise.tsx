@@ -19,7 +19,7 @@ import CodeEditor from "./code-editor";
 import MathEditor from "./math-editor";
 import { Input } from "../ui/input";
 
-export default function AdaptiveExercise({ exercises, userId }: { exercises: Exercise[], userId:string }) {
+export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { exercises: Exercise[], userId:string, lessonTitle: string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -95,7 +95,7 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
                 setFeedback({
                     isCorrect: previousResponse.isCorrect,
                     score: previousResponse.score,
-                    feedback: previousResponse.feedback
+                    feedback: previousResponse.feedback as string
                 });
             }
         } else if (currentExercise.type === 'true_false') {
@@ -177,9 +177,9 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
     
     try {
         await saveExerciseAttempt(
-            userId, 
-            lessonId!,
-            currentExercise.id,
+            userId,
+            lessonTitle, 
+            currentExercise,
             submittedAnswer,
             correct,
             score,
@@ -192,6 +192,8 @@ export default function AdaptiveExercise({ exercises, userId }: { exercises: Exe
             userId,
             lessonId: lessonId!,
             exerciseId: currentExercise.id,
+            question: currentExercise.type === 'fill_in_the_blanks' ? currentExercise.questionParts.join('___') : currentExercise.question,
+            lessonTitle: lessonTitle,
             submittedAnswer,
             isCorrect: correct,
             score,

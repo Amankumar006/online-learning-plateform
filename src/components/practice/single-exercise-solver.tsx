@@ -51,7 +51,7 @@ const difficultyToText = (level: number) => {
 
 const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
     <div className="space-y-6">
-        <FormattedQuestion text={exercise.question} />
+        <FormattedQuestion text={exercise.type !== 'fill_in_the_blanks' ? exercise.question : exercise.questionParts.join(' ___ ')} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <Card>
@@ -211,11 +211,11 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             } else if (typeof initialResponse.feedback === 'string') {
                  // Handle old string feedback for general long-form
                  setFeedback({
-                    isSolutionCorrect: initialResponse.isCorrect,
-                    overallScore: initialResponse.score,
-                    overallFeedback: initialResponse.feedback,
+                    isCorrect: initialResponse.isCorrect,
+                    score: initialResponse.score,
+                    feedback: initialResponse.feedback,
                     stepEvaluations: [],
-                });
+                } as any);
             }
         }
       } else if (exercise.type === 'true_false') {
@@ -232,6 +232,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     let score = 0;
     let submittedAnswer: string | boolean = selectedAnswer!;
     let aiFeedback: GradeLongFormAnswerOutput | null = null;
+    const lessonTitle = exercise.lessonId === 'custom' ? 'Custom Practice' : exercise.lessonId; // Needs a proper lookup later
 
     if (exercise.type === 'long_form') {
         if (!longFormAnswer && !imageDataUri) {
@@ -252,11 +253,11 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 imageDataUri: imageDataUri || undefined,
             });
             aiFeedback = {
-                isSolutionCorrect: result.isCorrect,
-                overallScore: result.score,
-                overallFeedback: result.feedback,
+                isCorrect: result.isCorrect,
+                score: result.score,
+                feedback: result.feedback,
                 stepEvaluations: [],
-            };
+            } as any;
             setFeedback(aiFeedback);
             correct = result.isCorrect;
             score = result.score;
@@ -288,12 +289,12 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     try {
         await saveExerciseAttempt(
             userId, 
-            exercise.lessonId || 'custom',
-            exercise.id,
+            lessonTitle,
+            exercise,
             submittedAnswer,
             correct,
             score,
-            aiFeedback || aiFeedback?.overallFeedback,
+            aiFeedback || aiFeedback?.feedback,
             imageDataUri
         );
          if (exercise.type !== 'long_form') {
@@ -309,12 +310,13 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     setFeedback(result);
     setIsAnswered(true);
     setIsCorrect(result.isSolutionCorrect);
+    const lessonTitle = exercise.lessonId === 'custom' ? 'Custom Practice' : exercise.lessonId; // Needs a proper lookup later
 
     try {
         await saveExerciseAttempt(
             userId,
-            exercise.lessonId || 'custom',
-            exercise.id,
+            lessonTitle,
+            exercise,
             studentSolution,
             result.isSolutionCorrect,
             result.overallScore,
@@ -469,9 +471,9 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                             </Card>
                         )}
                         {feedback && exercise.category !== 'math' && (
-                             <Card className={cn(feedback.isSolutionCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
-                                <CardHeader><CardTitle className="text-base flex items-center justify-between gap-2"><span>{feedback.isSolutionCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />} AI Feedback</span><Badge variant={feedback.isSolutionCorrect ? "default" : "destructive"}>Score: {feedback.overallScore}/100</Badge></CardTitle></CardHeader>
-                                <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.overallFeedback}</p></CardContent>
+                             <Card className={cn(feedback.isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                                <CardHeader><CardTitle className="text-base flex items-center justify-between gap-2"><span>{feedback.isCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />} AI Feedback</span><Badge variant={feedback.isCorrect ? "default" : "destructive"}>Score: {feedback.score}/100</Badge></CardTitle></CardHeader>
+                                <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.feedback}</p></CardContent>
                              </Card>
                         )}
                      </div>

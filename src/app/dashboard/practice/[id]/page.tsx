@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getCustomExercisesForUser, getAllUserResponses, Exercise, UserExerciseResponse } from "@/lib/data";
+import { getCustomExercisesForUser, getAllUserResponses, Exercise, UserExerciseResponse, getExercises, getLesson } from "@/lib/data";
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
@@ -53,6 +53,7 @@ export default function SolveExercisePage() {
     const [exercise, setExercise] = useState<Exercise | null>(null);
     const [response, setResponse] = useState<UserExerciseResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [lessonTitle, setLessonTitle] = useState<string>("Practice");
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -63,26 +64,51 @@ export default function SolveExercisePage() {
                     return;
                 }
                 try {
-                    // Fetch lists instead of single documents to comply with security rules
-                    const [userCustomExercises, allUserResponses] = await Promise.all([
-                        getCustomExercisesForUser(currentUser.uid),
-                        getAllUserResponses(currentUser.uid)
-                    ]);
-                    
-                    const currentExerciseData = userCustomExercises.find(ex => ex.id === exerciseId);
-
-                    if (!currentExerciseData) {
-                        // This exercise doesn't exist or doesn't belong to the user
-                        toast({ variant: "destructive", title: "Error", description: "Exercise not found or you don't have permission to view it." });
-                        router.push('/dashboard/practice');
-                        return;
-                    }
-
-                    // Find the response from the map
+                    const allUserResponses = await getAllUserResponses(currentUser.uid);
                     const responseData = allUserResponses.get(exerciseId);
-                    
-                    setExercise(currentExerciseData);
                     setResponse(responseData || null);
+
+                    let foundExercise: Exercise | undefined;
+
+                    // 1. Check if it's a custom exercise
+                    const userCustomExercises = await getCustomExercisesForUser(currentUser.uid);
+                    foundExercise = userCustomExercises.find(ex => ex.id === exerciseId);
+
+                    // 2. If not custom, try to find it via the response's lessonId
+                    if (!foundExercise && responseData) {
+                        const lessonExercises = await getExercises(responseData.lessonId);
+                        foundExercise = lessonExercises.find(ex => ex.id === exerciseId);
+                    }
+                    
+                    // 3. If still not found (e.g., first attempt on a lesson exercise), we have a problem.
+                    // This scenario is complex. For now, we assume links will primarily come from places
+                    // where a response already exists (like the SolutionBoard).
+                    
+                    if (foundExercise) {
+                        setExercise(foundExercise);
+                        if (foundExercise.lessonId !== 'custom') {
+                            const lesson = await getLesson(foundExercise.lessonId);
+                            setLessonTitle(lesson?.title || "Practice");
+                        } else {
+                            setLessonTitle("Custom Practice");
+                        }
+                    } else {
+                        // Fallback for direct access without response history (might fail permissions)
+                        const directFetchExercise = await getExercise(exerciseId);
+                        if (directFetchExercise) {
+                             setExercise(directFetchExercise);
+                             if (directFetchExercise.lessonId !== 'custom') {
+                                const lesson = await getLesson(directFetchExercise.lessonId);
+                                setLessonTitle(lesson?.title || "Practice");
+                            } else {
+                                setLessonTitle("Custom Practice");
+                            }
+                        } else {
+                            toast({ variant: "destructive", title: "Error", description: "Exercise not found or you don't have permission to view it." });
+                            router.push('/dashboard/practice');
+                            return;
+                        }
+                    }
 
                 } catch (error) {
                     console.error("Failed to load exercise data:", error);
@@ -105,7 +131,7 @@ export default function SolveExercisePage() {
     const breadcrumbItems = [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/dashboard/practice", label: "Practice" },
-        { href: `/dashboard/practice/${exerciseId}`, label: "Solve Exercise" },
+        { href: `/dashboard/practice/${exerciseId}`, label: exercise?.question ? (exercise.question.substring(0,20) + '...') : "Solve Exercise" },
     ];
     
     if (isLoading) {
@@ -132,6 +158,7 @@ export default function SolveExercisePage() {
                     userId={user.uid}
                     onSolved={handleSolved}
                     initialResponse={response}
+                    lessonTitle={lessonTitle}
                 />
             </div>
         </div>

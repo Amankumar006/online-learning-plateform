@@ -139,6 +139,8 @@ export interface UserExerciseResponse {
   score: number;
   feedback?: string | GradeMathSolutionOutput;
   submittedAt: number; // using timestamp for sorting
+  question: string;
+  lessonTitle: string;
 }
 
 export interface LessonRequest {
@@ -465,15 +467,14 @@ export async function getExercises(lessonId: string): Promise<Exercise[]> {
 }
 
 export async function getCustomExercisesForUser(userId: string): Promise<Exercise[]> {
+    if (!userId) {
+        return [];
+    }
     const userExercisesQuery = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
-    const globalExercisesQuery = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", null));
 
-    const [userSnapshot, globalSnapshot] = await Promise.all([
-        getDocs(userExercisesQuery),
-        getDocs(globalExercisesQuery)
-    ]);
+    const snapshot = await getDocs(userExercisesQuery);
 
-    const exercisesList = [...userSnapshot.docs, ...globalSnapshot.docs].map(doc => {
+    const exercisesList = snapshot.docs.map(doc => {
         const data = doc.data();
         if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
             data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
@@ -625,8 +626,8 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
 
 export async function saveExerciseAttempt(
     userId: string,
-    lessonId: string,
-    exerciseId: string,
+    lessonTitle: string,
+    exercise: Exercise,
     submittedAnswer: string | boolean | string[],
     isCorrect: boolean,
     score: number,
@@ -635,13 +636,17 @@ export async function saveExerciseAttempt(
 ) {
     const userRef = doc(db, 'users', userId);
     // Use a predictable ID to easily check for existence and avoid duplicates
-    const responseRef = doc(db, 'exerciseResponses', `${userId}_${exerciseId}`);
+    const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
     
     try {
-        const dataToSave: Partial<UserExerciseResponse> = {
+        const questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join('___') : exercise.question;
+
+        const dataToSave: Omit<UserExerciseResponse, 'id'> = {
             userId,
-            lessonId,
-            exerciseId,
+            lessonId: exercise.lessonId,
+            exerciseId: exercise.id,
+            question: questionText,
+            lessonTitle: lessonTitle,
             submittedAnswer,
             isCorrect,
             score,
@@ -867,50 +872,28 @@ export async function markAnnouncementsAsRead(userId: string): Promise<void> {
         throw new Error("Failed to update user's notification status.");
     }
 }
-export async function getSolutionHistory(userId: string): Promise<any[]> {
-    const responsesQuery = query(collection(db, "exerciseResponses"), where("userId", "==", userId), orderBy("submittedAt", "desc"));
-    
-    const responsesSnapshot = await getDocs(responsesQuery);
-    if (responsesSnapshot.empty) {
+export async function getSolutionHistory(userId: string): Promise<UserExerciseResponse[]> {
+    try {
+        const responsesQuery = query(
+            collection(db, "exerciseResponses"), 
+            where("userId", "==", userId), 
+            orderBy("submittedAt", "desc")
+        );
+        
+        const responsesSnapshot = await getDocs(responsesQuery);
+        if (responsesSnapshot.empty) {
+            return [];
+        }
+        
+        const history = responsesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as UserExerciseResponse));
+
+        return history;
+    } catch (error) {
+        console.error("Error fetching solution history:", error);
+        // Return empty array on error to prevent crashing the UI
         return [];
     }
-    
-    const exercisesMap = new Map<string, any>();
-    const lessonsMap = new Map<string, any>();
-
-    const history = await Promise.all(responsesSnapshot.docs.map(async (responseDoc) => {
-        const responseData = responseDoc.data();
-        
-        // Fetch exercise if not already fetched
-        if (!exercisesMap.has(responseData.exerciseId)) {
-            const exerciseDoc = await getDoc(doc(db, "exercises", responseData.exerciseId));
-            if(exerciseDoc.exists()) {
-                exercisesMap.set(responseData.exerciseId, exerciseDoc.data());
-            }
-        }
-        const exercise = exercisesMap.get(responseData.exerciseId);
-
-        // Fetch lesson if not already fetched and if it's not a custom exercise
-        if (exercise && exercise.lessonId !== 'custom' && !lessonsMap.has(exercise.lessonId)) {
-            const lessonDoc = await getDoc(doc(db, "lessons", exercise.lessonId));
-            if(lessonDoc.exists()){
-                lessonsMap.set(exercise.lessonId, lessonDoc.data());
-            }
-        }
-        const lesson = lessonsMap.get(exercise?.lessonId);
-
-        let questionText = "Question not found";
-        if (exercise) {
-            questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join(' ___ ') : exercise.question;
-        }
-
-        return {
-            ...responseData,
-            id: responseDoc.id,
-            question: questionText,
-            lessonTitle: lesson ? lesson.title : "Custom Practice",
-        };
-    }));
-
-    return history.filter(item => exercisesMap.has(item.exerciseId));
 }

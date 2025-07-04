@@ -237,7 +237,11 @@ export default function LessonPage() {
                             )}
                             {activeTab === 'exercise' && (
                               <ScrollArea className="h-[60vh] pr-4">
-                                <AdaptiveExercise exercises={exercises} userId={user.uid} />
+                                <AdaptiveExercise 
+                                    exercises={exercises} 
+                                    userId={user.uid} 
+                                    lessonTitle={lesson.title}
+                                />
                               </ScrollArea>
                             )}
                             {activeTab === 'ai-buddy' && (
