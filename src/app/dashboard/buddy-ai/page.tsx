@@ -270,7 +270,7 @@ export default function BuddyAIPage() {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <div className="relative grid grid-cols-1 md:grid-cols-[280px_1fr] h-full -m-4 md:-m-6 lg:-m-8 bg-white/20 dark:bg-black/25 backdrop-blur-xl overflow-hidden">
+    <div className="relative grid grid-cols-1 md:grid-cols-[280px_1fr] flex-1 -m-4 md:-m-6 lg:-m-8 bg-white/20 dark:bg-black/25 backdrop-blur-xl overflow-hidden">
         {/* --- SVG Background --- */}
         <div className="absolute inset-0 z-0 opacity-60">
             <svg width="100%" height="100%" className="absolute inset-0">
