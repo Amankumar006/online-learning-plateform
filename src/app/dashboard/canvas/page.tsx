@@ -64,7 +64,7 @@ const components = {
     <div style={{
       position: 'absolute',
       top: '10px',
-      left: '10px',
+      left: '70px',
       zIndex: 999,
       display: 'flex',
       gap: '10px'
