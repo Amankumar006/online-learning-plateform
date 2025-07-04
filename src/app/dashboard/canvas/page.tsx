@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Tldraw, useEditor, TLEditor } from '@tldraw/tldraw'
+import { Tldraw, useEditor, createShapeId } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 import { useCallback, useEffect, useState } from 'react'
 import { canvasMathFlow } from '@/ai/flows/canvas-math-flow'
@@ -112,7 +112,7 @@ function CustomUi() {
             const aiIdToTldrawId = new Map<string, string>();
 
             result.nodes.forEach(node => {
-                const newId = TLEditor.createShapeId();
+                const newId = createShapeId();
                 aiIdToTldrawId.set(node.id, newId);
                 shapesToCreate.push({
                     id: newId,
@@ -122,7 +122,6 @@ function CustomUi() {
                     props: {
                         text: node.text,
                         size: 'm',
-                        align: 'middle',
                     }
                 });
             });
