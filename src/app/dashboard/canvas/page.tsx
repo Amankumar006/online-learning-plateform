@@ -44,7 +44,6 @@ function SolveMathAction() {
 				props: {
 					text: `$${latex}$`,
 					size: 'xl',
-					align: 'middle',
 				},
 			})
 
@@ -104,7 +103,6 @@ function GradeMathAction() {
 				props: {
 					text: feedbackText,
 					size: 'm',
-					align: 'start',
                     w: 400
 				},
 			})
