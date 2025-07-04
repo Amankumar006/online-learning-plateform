@@ -1,12 +1,28 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpenCheck } from "lucide-react";
+import { BookOpenCheck, ArrowRight, Lightbulb, Bot, BrainCircuit } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
+
+const FeatureCard = ({ icon, title, children }: { icon: React.ReactNode, title: string, children: React.ReactNode }) => (
+  <div className="relative overflow-hidden rounded-lg border bg-background p-6">
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <h3 className="text-xl font-bold font-headline">{title}</h3>
+        <p className="mt-2 text-muted-foreground">{children}</p>
+      </div>
+    </div>
+  </div>
+);
+
 
 export default function Home() {
   const navContainerRef = useRef<HTMLDivElement>(null);
@@ -79,29 +95,33 @@ export default function Home() {
         </nav>
       </header>
       <main className="flex-1">
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
+        <section className="w-full py-20 md:py-24 lg:py-32 xl:py-40">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                    The Future of Learning is Adaptive
+            <div className="grid gap-6 lg:grid-cols-[1fr_500px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+              <div className="flex flex-col justify-center space-y-6">
+                <div className="space-y-4">
+                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
+                    <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      The Future of Learning
+                    </span>
+                    <br />
+                    is Adaptive.
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    AdaptEd AI personalizes your learning journey with AI-powered lessons and exercises that adjust to your pace.
+                    AdaptEd AI personalizes your learning journey with AI-powered lessons and exercises that adjust to your pace, ensuring you master every concept.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Button asChild size="lg">
-                    <Link href="/signup">Get Started</Link>
-                  </Button>
-                  <Button asChild variant="secondary" size="lg">
-                    <Link href="#features">Learn More</Link>
+                    <Link href="/signup">
+                      Get Started Free
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
                   </Button>
                 </div>
               </div>
               <Image
-                src="/images/adapted.png"
+                src="https://placehold.co/600x400.png"
                 width="600"
                 height="400"
                 alt="A student using a futuristic learning interface"
@@ -111,8 +131,50 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-secondary/50">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm">Key Features</div>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">A Smarter Way to Learn</h2>
+                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                  Our platform is packed with features designed to accelerate your learning and help you achieve your goals faster than ever before.
+                </p>
+              </div>
+            </div>
+            <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
+              <FeatureCard title="Personalized Content" icon={<Lightbulb className="h-6 w-6" />}>
+                Receive lessons and exercises dynamically generated to match your unique learning style, grade, and curriculum.
+              </FeatureCard>
+              <FeatureCard title="AI Study Buddy" icon={<Bot className="h-6 w-6" />}>
+                Never get stuck again. Chat with our AI assistant to get summaries, ask questions, and deepen your understanding.
+              </FeatureCard>
+              <FeatureCard title="Adaptive Exercises" icon={<BrainCircuit className="h-6 w-6" />}>
+                Practice with questions that automatically adjust in difficulty based on your performance, ensuring you're always challenged.
+              </FeatureCard>
+            </div>
+          </div>
+        </section>
+
+        <section className="w-full py-20 md:py-24 lg:py-32">
+          <div className="container px-4 md:px-6">
+              <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                  <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">Ready to start your journey?</h2>
+                  <p className="max-w-[600px] text-muted-foreground md:text-xl">
+                      Sign up today and experience a revolutionary new way to learn.
+                  </p>
+                  <Button asChild size="lg" className="mt-4">
+                      <Link href="/signup">
+                          Sign Up Now
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                  </Button>
+              </div>
+          </div>
+        </section>
       </main>
-      <footer className="flex items-center justify-center p-4">
+      <footer className="flex items-center justify-center p-6 border-t">
         <p className="text-sm text-muted-foreground">&copy; 2024 AdaptEd AI. All rights reserved.</p>
       </footer>
     </div>
