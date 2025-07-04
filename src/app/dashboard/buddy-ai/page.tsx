@@ -54,17 +54,75 @@ const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
 };
 
+
+const CodeBlock = ({ language, code }: { language: string; code: string }) => {
+  return (
+    <div className="my-4 rounded-md bg-muted">
+        <div className="flex items-center justify-between rounded-t-md bg-secondary px-4 py-2 text-sm text-muted-foreground">
+            <span>{language}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(code)}>
+                <Copy className="h-4 w-4" />
+            </Button>
+        </div>
+      <pre className="overflow-x-auto p-4 text-sm">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+
 const FormattedMessageContent = ({ content }: { content: string }) => {
-    const parts = content.split(/(\*\*.*?\*\*|`.*?`)/g);
-    return <>{parts.filter(Boolean).map((part, index) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={index}>{part.slice(2, -2)}</strong>;
+  // Split by major block elements like code blocks and horizontal rules
+  const blocks = content.split(/(```[\s\S]*?```|---)/g).filter(Boolean);
+
+  const renderInline = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+    return parts.filter(Boolean).map((part, k) => {
+      if (part.startsWith('**') && part.endsWith('**')) return <strong key={k}>{part.slice(2, -2)}</strong>;
+      if (part.startsWith('*') && part.endsWith('*')) return <em key={k}>{part.slice(1, -1)}</em>;
+      if (part.startsWith('`') && part.endsWith('`')) return <code key={k} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
+      return <React.Fragment key={k}>{part}</React.Fragment>;
+    });
+  };
+
+  return (
+    <>
+      {blocks.map((block, i) => {
+        if (block.trim() === '---') {
+          return <hr key={i} className="my-6 border-border/50" />;
         }
-        if (part.startsWith('`') && part.endsWith('`')) {
-            return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
+        if (block.startsWith('```')) {
+          const codeBlockContent = block.slice(3, -3).trim();
+          const lang = codeBlockContent.split('\n')[0]?.trim() || '';
+          const code = codeBlockContent.substring(codeBlockContent.indexOf('\n') + 1);
+          return <CodeBlock key={i} language={lang} code={code} />;
         }
-        return <React.Fragment key={index}>{part}</React.Fragment>;
-    })}</>;
+
+        const lines = block.trim().split('\n');
+        return lines.map((line, j) => {
+          if (line.startsWith('### ')) {
+            return <h3 key={`${i}-${j}`} className="font-headline font-semibold text-xl mt-6 mb-2">{renderInline(line.substring(4))}</h3>;
+          }
+          if (line.startsWith('> ')) {
+            return <blockquote key={`${i}-${j}`} className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground">{renderInline(line.substring(2))}</blockquote>;
+          }
+          if (line.match(/^\s*\d+\.\s/)) { // Numbered list
+            const itemContent = line.replace(/^\s*\d+\.\s/, '');
+            return <div key={`${i}-${j}`} className="flex items-start gap-3 my-2"><span className="w-5 text-right font-medium text-primary">{line.match(/^\s*(\d+\.)/)?.[1]}</span><div className="flex-1">{renderInline(itemContent)}</div></div>;
+          }
+           if (line.match(/^\s*\*\s/)) { // Bulleted list
+            const itemContent = line.replace(/^\s*\*\s/, '');
+            return <div key={`${i}-${j}`} className="flex items-start gap-3 my-2"><span className="text-primary mt-1.5">●</span><div className="flex-1">{renderInline(itemContent)}</div></div>;
+          }
+          if (line.trim()) {
+            return <p key={`${i}-${j}`}>{renderInline(line)}</p>;
+          }
+          return null;
+        });
+      })}
+    </>
+  );
 };
 
 export default function BuddyAIPage() {
