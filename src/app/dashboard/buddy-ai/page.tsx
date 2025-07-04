@@ -27,10 +27,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Message {
     role: 'user' | 'model';
@@ -166,7 +166,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [conversations, activeConversationId, isLoading]);
+  }, [activeConversation?.messages.length, isLoading]);
 
   useEffect(() => {
     if (user && conversations.length > 0) {
@@ -277,169 +277,167 @@ export default function BuddyAIPage() {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <div className="flex h-full w-full">
-        {/* Sidebar */}
-        <div className="hidden md:flex flex-col w-[280px] bg-background/80 backdrop-blur-sm border-r border-border shrink-0">
-            <div className='p-4 border-b'>
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className='w-full justify-start text-base py-6'>
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Chat
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-72">
-                        {personas.map(p => (
-                            <DropdownMenuItem key={p.id} onClick={() => handleNewChat(p.id)}>
-                                {p.icon}
-                                <span className="ml-2">
-                                    <p className="font-semibold">{p.name}</p>
-                                    <p className="text-xs text-muted-foreground">{p.description}</p>
-                                </span>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                 </DropdownMenu>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-                <div className="space-y-4">
-                     {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
-                        <div key={groupTitle}>
-                             <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">{groupTitle}</h3>
-                             <div className="space-y-1">
-                                {convos.map(c => (
-                                    <div key={c.id} className="relative group">
-                                        <Button
-                                            variant={c.id === activeConversationId ? 'secondary' : 'ghost'}
-                                            className="w-full justify-start truncate rounded-md pr-10"
-                                            onClick={() => setActiveConversationId(c.id)}
-                                        >
-                                            {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
-                                            <span className="truncate">{c.title}</span>
-                                        </Button>
-                                         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
-                                                        <Ellipsis className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                                <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                                            </DropdownMenuItem>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-                                                                <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteConversation(c.id)}>Delete</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </DropdownMenuContent>
-                                             </DropdownMenu>
-                                        </div>
-                                    </div>
-                                ))}
-                             </div>
+    <div className="flex h-full w-full bg-background">
+      {/* Sidebar */}
+      <div className="hidden md:flex flex-col w-[280px] bg-muted/30 border-r shrink-0">
+          <div className='p-4 border-b'>
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button className='w-full justify-start text-base py-6'>
+                          <Plus className="mr-2 h-4 w-4" />
+                          New Chat
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-72">
+                      {personas.map(p => (
+                          <DropdownMenuItem key={p.id} onClick={() => handleNewChat(p.id)}>
+                              {p.icon}
+                              <span className="ml-2">
+                                  <p className="font-semibold">{p.name}</p>
+                                  <p className="text-xs text-muted-foreground">{p.description}</p>
+                              </span>
+                          </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuContent>
+              </DropdownMenu>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-4">
+                {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
+                  <div key={groupTitle}>
+                        <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">{groupTitle}</h3>
+                        <div className="space-y-1">
+                          {convos.map(c => (
+                              <div key={c.id} className="relative group">
+                                  <Button
+                                      variant={c.id === activeConversationId ? 'secondary' : 'ghost'}
+                                      className="w-full justify-start truncate rounded-md pr-10"
+                                      onClick={() => setActiveConversationId(c.id)}
+                                  >
+                                      {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
+                                      <span className="truncate">{c.title}</span>
+                                  </Button>
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                                                  <Ellipsis className="h-4 w-4" />
+                                              </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent>
+                                              <AlertDialog>
+                                                  <AlertDialogTrigger asChild>
+                                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                          <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                      </DropdownMenuItem>
+                                                  </AlertDialogTrigger>
+                                                  <AlertDialogContent>
+                                                      <AlertDialogHeader>
+                                                          <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+                                                          <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
+                                                      </AlertDialogHeader>
+                                                      <AlertDialogFooter>
+                                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                          <AlertDialogAction onClick={() => handleDeleteConversation(c.id)}>Delete</AlertDialogAction>
+                                                      </AlertDialogFooter>
+                                                  </AlertDialogContent>
+                                              </AlertDialog>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                  </div>
+                              </div>
+                          ))}
                         </div>
-                    ))}
-                </div>
+                  </div>
+              ))}
             </div>
-        </div>
+          </ScrollArea>
+      </div>
 
-        {/* Main Chat Area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Message List */}
-            <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
-                 {activeConversation && activeConversation.messages.length > 0 ? (
-                    <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
-                        {activeConversation.messages.map((message, index) => (
-                            <div key={index} className="flex items-start gap-4">
-                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
-                                    <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                    <AvatarFallback>
-                                        {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 pt-1 space-y-2">
-                                    <p className="font-semibold text-sm">
-                                        {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
-                                    </p>
-                                    <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                        <FormattedMessageContent content={message.content} />
-                                    </div>
-                                </div>
+      {/* Main Chat Area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
+              {activeConversation && activeConversation.messages.length > 0 ? (
+                  <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
+                      {activeConversation.messages.map((message, index) => (
+                          <div key={index} className="flex items-start gap-4">
+                              <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                  <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
+                                  <AvatarFallback>
+                                      {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
+                                  </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 pt-1 space-y-2">
+                                  <p className="font-semibold text-sm">
+                                      {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
+                                  </p>
+                                  <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                                      <FormattedMessageContent content={message.content} />
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                      {isLoading && (
+                          <div className="flex items-start gap-4">
+                              <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                              <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                          </div>
+                      )}
+                  </div>
+              ) : (
+                  <div className="flex h-full flex-col items-center justify-center p-4">
+                      <div className="w-full max-w-2xl mx-auto text-center">
+                            <div className="p-4 bg-background rounded-full inline-block mb-4 border shadow-sm">
+                              {personas.find(p => p.id === activePersona)?.icon || <BookOpen />}
                             </div>
-                        ))}
-                        {isLoading && (
-                            <div className="flex items-start gap-4">
-                                <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                                <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex h-full flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-2xl mx-auto text-center">
-                             <div className="p-4 bg-background/50 rounded-full inline-block mb-4 border shadow-sm">
-                                {personas.find(p => p.id === activePersona)?.icon}
-                             </div>
-                            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
-                                Chat with {personas.find(p => p.id === activePersona)?.name}
-                            </h1>
-                            <h2 className="text-lg md:text-xl text-muted-foreground mb-12">How can I help you today?</h2>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
-                                <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
-                                    <Sparkles className="h-5 w-5 text-primary"/>
-                                    <h4 className="font-semibold">Suggest topics</h4>
-                                    <p className="text-xs text-muted-foreground">based on my progress</p>
-                                </Card>
-                                <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
-                                    <HelpCircle className="h-5 w-5 text-primary"/>
-                                    <h4 className="font-semibold">Explain a concept</h4>
-                                    <p className="text-xs text-muted-foreground">like recursion in Python</p>
-                                </Card>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Input Box */}
-            <div className="shrink-0 p-4 bg-background/80 backdrop-blur-sm border-t">
-                <div className="relative mx-auto max-w-3xl">
-                    <Input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="What's on your mind?..."
-                        className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend();
-                            }
-                        }}
-                        disabled={isLoading}
-                    />
-                    <Button
-                        onClick={() => handleSend()}
-                        disabled={isLoading || !input.trim()}
-                        size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
-                    >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        <span className="sr-only">Send</span>
-                    </Button>
-                </div>
-            </div>
-        </div>
+                          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
+                              Chat with {personas.find(p => p.id === activePersona)?.name}
+                          </h1>
+                          <h2 className="text-lg md:text-xl text-muted-foreground mb-12">How can I help you today?</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
+                              <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
+                                  <Sparkles className="h-5 w-5 text-primary"/>
+                                  <h4 className="font-semibold">Suggest topics</h4>
+                                  <p className="text-xs text-muted-foreground">based on my progress</p>
+                              </Card>
+                              <Card className="p-4 flex flex-col items-start gap-2 cursor-pointer hover:bg-muted transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
+                                  <HelpCircle className="h-5 w-5 text-primary"/>
+                                  <h4 className="font-semibold">Explain a concept</h4>
+                                  <p className="text-xs text-muted-foreground">like recursion in Python</p>
+                              </Card>
+                          </div>
+                      </div>
+                  </div>
+              )}
+          </div>
+          {/* Input Box */}
+          <div className="shrink-0 p-4 bg-background border-t">
+              <div className="relative mx-auto max-w-3xl">
+                  <Input
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="What's on your mind?..."
+                      className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
+                      onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSend();
+                          }
+                      }}
+                      disabled={isLoading}
+                  />
+                  <Button
+                      onClick={() => handleSend()}
+                      disabled={isLoading || !input.trim()}
+                      size="icon"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
+                  >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      <span className="sr-only">Send</span>
+                  </Button>
+              </div>
+          </div>
+      </div>
     </div>
   );
 }
