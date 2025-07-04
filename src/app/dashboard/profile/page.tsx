@@ -10,11 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock } from 'lucide-react';
+import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock, Sparkles } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 function ProfileSkeleton() {
     return (
@@ -71,10 +73,15 @@ export default function ProfilePage() {
     const { toast } = useToast();
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [userProfile, setUserProfile] = useState<User | null>(null);
-    const [name, setName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isSendingVerification, setIsSendingVerification] = useState(false);
+
+    // Form state
+    const [name, setName] = useState('');
+    const [learningStyle, setLearningStyle] = useState('unspecified');
+    const [interests, setInterests] = useState('');
+    const [goals, setGoals] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -82,10 +89,14 @@ export default function ProfilePage() {
                 setUser(currentUser);
                 const profile = await getUser(currentUser.uid);
                 setUserProfile(profile);
-                setName(profile?.name || '');
+                if (profile) {
+                    setName(profile.name || '');
+                    setLearningStyle(profile.learningStyle || 'unspecified');
+                    setInterests(profile.interests?.join(', ') || '');
+                    setGoals(profile.goals || '');
+                }
                 setIsLoading(false);
             }
-            // The layout now handles redirection if the user is not logged in.
         });
 
         return () => unsubscribe();
@@ -130,8 +141,16 @@ export default function ProfilePage() {
         };
         setIsSaving(true);
         try {
-            await updateUserProfile(user.uid, { name });
-            setUserProfile(prev => prev ? { ...prev, name } : null);
+            const dataToUpdate = {
+                name,
+                learningStyle,
+                interests: interests.split(',').map(i => i.trim()).filter(Boolean),
+                goals,
+            };
+
+            await updateUserProfile(user.uid, dataToUpdate);
+            setUserProfile(prev => prev ? { ...prev, ...dataToUpdate } : null);
+
             toast({
                 title: 'Success!',
                 description: 'Your profile has been updated.',
@@ -168,7 +187,7 @@ export default function ProfilePage() {
             <Breadcrumb items={breadcrumbItems} />
             <h1 className="text-3xl font-bold font-headline">My Profile & Stats</h1>
             
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Personal Information</CardTitle>
@@ -218,13 +237,62 @@ export default function ProfilePage() {
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter className="border-t px-6 py-4">
-                        <Button type="submit" disabled={isSaving} className="ml-auto">
-                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Changes
-                        </Button>
-                    </CardFooter>
                 </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-primary"/>
+                            Personalization Settings
+                        </CardTitle>
+                        <CardDescription>Help the AI tailor the learning experience for you. This will be used in features like the AI Canvas.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                         <div className="space-y-2">
+                            <Label htmlFor="learning-style">Preferred Learning Style</Label>
+                            <Select value={learningStyle} onValueChange={setLearningStyle} disabled={isSaving}>
+                                <SelectTrigger id="learning-style">
+                                    <SelectValue placeholder="Select your style" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unspecified">Unspecified / Balanced</SelectItem>
+                                    <SelectItem value="visual">Visual (diagrams, charts)</SelectItem>
+                                    <SelectItem value="auditory">Auditory (listening, lectures)</SelectItem>
+                                    <SelectItem value="reading/writing">Reading/Writing (text, notes)</SelectItem>
+                                    <SelectItem value="kinesthetic">Kinesthetic (hands-on, interactive)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="interests">Interests (comma-separated)</Label>
+                            <Input
+                                id="interests"
+                                value={interests}
+                                onChange={(e) => setInterests(e.target.value)}
+                                placeholder="e.g., Space, Ancient History, Machine Learning"
+                                disabled={isSaving}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="goals">Learning Goals</Label>
+                            <Textarea
+                                id="goals"
+                                value={goals}
+                                onChange={(e) => setGoals(e.target.value)}
+                                placeholder="What do you want to achieve? e.g., 'Pass my final exams', 'Learn to build a web app'"
+                                disabled={isSaving}
+                                rows={3}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <div className="flex justify-end">
+                     <Button type="submit" disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save All Changes
+                    </Button>
+                </div>
             </form>
 
             <Card>
