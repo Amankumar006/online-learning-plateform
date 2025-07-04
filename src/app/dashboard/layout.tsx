@@ -46,7 +46,7 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen w-full flex-col font-body">
-      {!isCanvasPage && <DashboardNav />}
+      <DashboardNav />
       <main className={cn(
         "flex-1 flex flex-col overflow-hidden",
         !isCanvasPage && "p-4 md:p-6 lg:p-8"
