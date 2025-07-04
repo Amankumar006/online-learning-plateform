@@ -7,7 +7,10 @@ import { canvasMathFlow } from '@/ai/flows/canvas-math-flow'
 import { toast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 
-function SolveMathAction() {
+/**
+ * A component that renders our custom UI
+ */
+function SolveMathUi() {
 	const editor = useEditor()
 
 	const handleSolve = useCallback(async () => {
@@ -54,23 +57,31 @@ function SolveMathAction() {
 	}, [editor])
 
 	return (
-		<Button onClick={handleSolve}>Solve Math</Button>
+		<div
+			style={{
+				position: 'absolute',
+				top: '10px',
+				left: '50%',
+				transform: 'translateX(-50%)',
+				zIndex: 999,
+				pointerEvents: 'all',
+			}}
+		>
+			<Button onClick={handleSolve}>Solve Math</Button>
+		</div>
 	)
 }
 
-// Add the custom component to the editor's `TopZone`.
-const components = {
-	TopZone: () => (
-        <div className="p-2">
-            <SolveMathAction />
-        </div>
-    )
-}
 
 export default function CanvasPage() {
 	return (
 		<div className="w-full h-full">
-			<Tldraw persistenceKey="tldraw-canvas-math" components={components} />
+			<Tldraw
+				persistenceKey="tldraw-canvas-math"
+				components={{
+					InFrontOfTheCanvas: SolveMathUi,
+				}}
+			/>
 		</div>
 	)
 }
