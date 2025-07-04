@@ -15,7 +15,6 @@ import { getUser, User } from '@/lib/data';
 // --- Input Schema ---
 const VisualExplainerInputSchema = z.object({
   concept: z.string().describe('The concept or term the user wants to be explained visually.'),
-  userId: z.string().describe("The ID of the user requesting the explanation, for personalization."),
 });
 export type VisualExplainerInput = z.infer<typeof VisualExplainerInputSchema>;
 
@@ -57,7 +56,7 @@ The user's profile is as follows:
 {{#if user.learningStyle}}- Preferred Learning Style: {{user.learningStyle}}{{/if}}
 {{#if user.interests}}- Interests: {{#each user.interests}}{{{this}}}{{/each}}{{/if}}
 
-Your task is to generate a diagram structure as a JSON object. The complexity and style of the diagram should be adapted to the user's profile. For example, a diagram for a 9th-grader should be simpler than one for a university student.
+Your task is to generate a diagram structure as a JSON object. The complexity and style of the diagram should be adapted to the user's profile. For example, a diagram for a 9th-grader should be much simpler than one for a university student.
 
 The JSON output MUST contain two keys: "nodes" and "edges".
 
@@ -93,9 +92,14 @@ const visualExplainerGenkitFlow = ai.defineFlow(
     name: 'visualExplainerGenkitFlow',
     inputSchema: VisualExplainerInputSchema,
     outputSchema: VisualExplainerOutputSchema,
+    authPolicy: (auth) => {
+        if (!auth) {
+            throw new Error("You must be logged in to use this feature.");
+        }
+    }
   },
-  async (input) => {
-    const user = await getUser(input.userId);
+  async (input, {auth}) => {
+    const user = await getUser(auth!.uid);
     if (!user) {
       throw new Error("User profile not found, cannot create personalized diagram.");
     }

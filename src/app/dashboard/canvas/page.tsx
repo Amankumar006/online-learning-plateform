@@ -98,7 +98,7 @@ function CustomUi() {
 		toast({ title: 'AI is thinking...', description: 'Generating a visual explanation for you.'})
 
 		try {
-			const result = await visualExplainerFlow({ concept: concept, userId: user.uid })
+			const result = await visualExplainerFlow({ concept: concept })
 
             const offsetX = bounds.maxX + 100;
             const offsetY = bounds.y;
@@ -162,7 +162,7 @@ function CustomUi() {
 			style={{
 				position: 'absolute',
 				top: '10px',
-				right: '10px',
+				left: '60px',
 				zIndex: 999,
 				pointerEvents: 'all',
                 display: 'flex',
