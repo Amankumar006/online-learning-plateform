@@ -160,8 +160,8 @@ function CustomUi() {
 		<div
 			style={{
 				position: 'absolute',
-				top: '10px',
-				right: '10px',
+				top: '60px',
+				left: '10px',
 				zIndex: 999,
 				pointerEvents: 'all',
                 display: 'flex',
