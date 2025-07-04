@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, Plus, MessageSquare, Search, Copy, RefreshCw, Trash2, Settings, Ellipsis } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, Plus, MessageSquare, Search, Copy, RefreshCw, Trash2, Settings, Ellipsis, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -31,6 +31,7 @@ import {
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Link from 'next/link';
+import { Card } from '@/components/ui/card';
 
 interface Message {
     role: 'user' | 'model';
@@ -43,8 +44,6 @@ interface Conversation {
     messages: Message[];
     createdAt: number;
 }
-
-const initialMessage: Message = { role: 'model', content: "Hello! I'm your AI study partner. How can I help you learn today? You can ask me to create an exercise, suggest a topic, or explain a concept." };
 
 const getInitials = (name?: string | null) => {
     if (!name) return "U";
@@ -110,7 +109,7 @@ export default function BuddyAIPage() {
     const newConversation: Conversation = {
         id: newId,
         title: "New Chat",
-        messages: [initialMessage],
+        messages: [],
         createdAt: Date.now(),
     };
     setConversations(prev => [newConversation, ...prev]);
@@ -144,7 +143,7 @@ export default function BuddyAIPage() {
     // Update conversation with new message
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
-            const isNewChat = c.messages.length <= 1;
+            const isNewChat = c.messages.length === 0;
             const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
             return { ...c, title: newTitle, messages: [...c.messages, userMessage] };
         }
@@ -384,68 +383,129 @@ export default function BuddyAIPage() {
         </div>
 
         {/* --- Main Chat Area --- */}
-        <div className="z-10 relative flex flex-col h-full">
-            <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                <div className="p-8 space-y-8 max-w-4xl mx-auto">
-                    {activeConversation?.messages.map((message, index) => (
-                        <div key={index} className="flex items-start gap-4">
-                            <Avatar className="w-8 h-8 border shadow-sm">
-                                <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                <AvatarFallback>
-                                    {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 pt-1">
-                                <p className="font-semibold text-sm">
-                                    {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
-                                </p>
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                   {message.content}
-                                </div>
-                                {message.role === 'model' && index === activeConversation.messages.length - 1 && (
-                                    <div className="mt-4 flex items-center gap-2">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(message.content)}><Copy className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRegenerate} disabled={isLoading}><RefreshCw className="h-4 w-4" /></Button>
+        <div className="z-10 relative flex flex-col flex-1">
+            {activeConversation && activeConversation.messages.length > 0 ? (
+                 <>
+                    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                        <div className="p-8 space-y-8 max-w-4xl mx-auto">
+                            {activeConversation?.messages.map((message, index) => (
+                                <div key={index} className="flex items-start gap-4">
+                                    <Avatar className="w-8 h-8 border shadow-sm">
+                                        <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
+                                        <AvatarFallback>
+                                            {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 pt-1">
+                                        <p className="font-semibold text-sm">
+                                            {message.role === 'user' ? user?.displayName || 'You' : 'Buddy AI'}
+                                        </p>
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                                        {message.content}
+                                        </div>
+                                        {message.role === 'model' && index === activeConversation.messages.length - 1 && (
+                                            <div className="mt-4 flex items-center gap-2">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(message.content)}><Copy className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRegenerate} disabled={isLoading}><RefreshCw className="h-4 w-4" /></Button>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ))}
+                            {isLoading && (
+                                <div className="flex items-start gap-4">
+                                    <Avatar className="w-8 h-8 border shadow-sm"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                                    <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                                </div>
+                            )}
                         </div>
-                    ))}
-                    {isLoading && (
-                        <div className="flex items-start gap-4">
-                            <Avatar className="w-8 h-8 border shadow-sm"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                            <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin" /></div>
-                        </div>
-                    )}
-                </div>
-            </ScrollArea>
+                    </ScrollArea>
 
-            <div className="w-full p-4 bg-background/60 backdrop-blur-sm border-t border-white/10">
-                <div className="relative mx-auto max-w-3xl">
-                    <Input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="What's in your mind?..."
-                        className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend();
-                            }
-                        }}
-                        disabled={isLoading}
-                    />
-                    <Button
-                        onClick={() => handleSend()}
-                        disabled={isLoading || !input.trim()}
-                        size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
-                    >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        <span className="sr-only">Send</span>
-                    </Button>
+                    <div className="w-full p-4 bg-background/60 backdrop-blur-sm border-t border-white/10">
+                        <div className="relative mx-auto max-w-3xl">
+                            <Input
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="What's in your mind?..."
+                                className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend();
+                                    }
+                                }}
+                                disabled={isLoading}
+                            />
+                            <Button
+                                onClick={() => handleSend()}
+                                disabled={isLoading || !input.trim()}
+                                size="icon"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
+                            >
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                <span className="sr-only">Send</span>
+                            </Button>
+                        </div>
+                    </div>
+                 </>
+            ) : (
+                <div className="flex-1 flex flex-col items-center justify-end p-4 pb-8">
+                    <div className="w-full max-w-4xl mx-auto text-center">
+                        <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
+                            Hello, {user?.displayName?.split(' ')[0]}
+                        </h1>
+                        <h2 className="text-xl md:text-2xl text-muted-foreground mb-12">How can I help you today?</h2>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Suggest a new topic for me to study")}>
+                                <Sparkles className="h-5 w-5 text-primary"/>
+                                <h4 className="font-semibold">Suggest topics</h4>
+                                <p className="text-xs text-muted-foreground">based on my progress</p>
+                            </Card>
+                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Explain the concept of recursion in Python like I'm 15")}>
+                                <HelpCircle className="h-5 w-5 text-primary"/>
+                                <h4 className="font-semibold">Explain a concept</h4>
+                                <p className="text-xs text-muted-foreground">like recursion in Python</p>
+                            </Card>
+                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("Create a medium-difficulty C++ practice problem about pointers")}>
+                                <BrainCircuit className="h-5 w-5 text-primary"/>
+                                <h4 className="font-semibold">Create an exercise</h4>
+                                <p className="text-xs text-muted-foreground">on a specific topic</p>
+                            </Card>
+                            <Card className="p-4 flex flex-col items-start gap-2 text-left cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSend("What are some key points from my last completed lesson?")}>
+                                <BookOpen className="h-5 w-5 text-primary"/>
+                                <h4 className="font-semibold">Summarize a lesson</h4>
+                                <p className="text-xs text-muted-foreground">that I recently finished</p>
+                            </Card>
+                        </div>
+
+                        <div className="relative">
+                            <Input
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Ask me anything, or describe a custom exercise you'd like..."
+                                className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 border-white/10 focus-visible:ring-primary/50 bg-white/5"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend();
+                                    }
+                                }}
+                                disabled={isLoading}
+                            />
+                            <Button
+                                onClick={() => handleSend()}
+                                disabled={isLoading || !input.trim()}
+                                size="icon"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
+                            >
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                <span className="sr-only">Send</span>
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     </div>
   );
