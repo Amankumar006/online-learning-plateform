@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { getLesson, updateLesson, Lesson, Section } from "@/lib/data";
-import { Loader2, Code, Video, FileText, Sparkles } from "lucide-react";
+import { getLesson, updateLesson, Lesson, Section, generateAndSaveLessonAudio } from "@/lib/data";
+import { Loader2, Code, Video, FileText, Sparkles, Headphones } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,12 +56,14 @@ export default function EditLessonPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   
   // Form state
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
+  const [audioUrl, setAudioUrl] = useState<string | undefined>("");
   const [difficulty, setDifficulty] = useState<"Beginner" | "Intermediate" | "Advanced">("Beginner");
   const [tags, setTags] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
@@ -71,10 +73,8 @@ export default function EditLessonPage() {
   const [curriculumBoard, setCurriculumBoard] = useState("");
   const [topicDepth, setTopicDepth] = useState("");
   
-  useEffect(() => {
-    if (!lessonId) return;
-
-    const fetchLessonData = async () => {
+  const fetchLessonData = async () => {
+      if (!lessonId) return;
       setIsLoading(true);
       try {
         const lessonData = await getLesson(lessonId);
@@ -84,6 +84,7 @@ export default function EditLessonPage() {
           setSubject(lessonData.subject);
           setDescription(lessonData.description);
           setImage(lessonData.image || "https://placehold.co/600x400.png");
+          setAudioUrl(lessonData.audioUrl);
           setDifficulty(lessonData.difficulty);
           setTags(lessonData.tags?.join(', ') || "");
           setSections(lessonData.sections || []);
@@ -103,9 +104,10 @@ export default function EditLessonPage() {
         setIsLoading(false);
       }
     };
-
+  
+  useEffect(() => {
     fetchLessonData();
-  }, [lessonId, router, toast]);
+  }, [lessonId]);
 
   const handleGenerateImage = async () => {
     if (!title) {
@@ -132,6 +134,20 @@ export default function EditLessonPage() {
         setIsGeneratingImage(false);
         setIsUploadingImage(false);
     }
+  };
+
+  const handleGenerateAudio = async () => {
+      setIsGeneratingAudio(true);
+      try {
+          const newAudioUrl = await generateAndSaveLessonAudio(lessonId);
+          setAudioUrl(newAudioUrl); // Update local state to show the new audio player
+          toast({ title: "Success!", description: "Lesson audio has been generated and saved." });
+      } catch (error: any) {
+          console.error(error);
+          toast({ variant: "destructive", title: "Audio Generation Error", description: error.message || "Failed to generate audio." });
+      } finally {
+          setIsGeneratingAudio(false);
+      }
   };
 
 
@@ -188,7 +204,7 @@ export default function EditLessonPage() {
     { href: `/admin/lessons/${lessonId}/edit`, label: lesson?.title || "Edit Lesson" },
   ];
   
-  const canGenerate = isGeneratingImage || isUploadingImage;
+  const canGenerate = isGeneratingImage || isUploadingImage || isGeneratingAudio;
 
   if (isLoading) {
       return (
@@ -321,10 +337,29 @@ export default function EditLessonPage() {
                 )}
               </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="tags">Tags (comma-separated)</Label>
               <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., algebra, basics, calculus" />
             </div>
+
+            <div className="pt-6 border-t space-y-4">
+                <h3 className="text-lg font-medium">Lesson Audio</h3>
+                {audioUrl ? (
+                    <div className="space-y-2">
+                        <Label>Current Audio</Label>
+                        <audio controls src={audioUrl} className="w-full">Your browser does not support the audio element.</audio>
+                        <p className="text-xs text-muted-foreground">This is the current full-lesson audio file.</p>
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">No audio has been generated for this lesson yet.</p>
+                )}
+                <Button type="button" onClick={handleGenerateAudio} disabled={canGenerate}>
+                    {isGeneratingAudio ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Headphones className="mr-2 h-4 w-4" />}
+                    {audioUrl ? 'Regenerate Audio' : 'Generate Audio'}
+                </Button>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" asChild>
                 <Link href="/admin/lessons">Cancel</Link>

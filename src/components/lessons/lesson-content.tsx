@@ -2,19 +2,16 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Lesson, UserProgress, Section, Block, TextBlock } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Headphones, Pause } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Headphones } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
 import { cn } from "@/lib/utils";
-import LessonPlayer from "./lesson-player";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
     const [copied, setCopied] = React.useState(false);
@@ -161,16 +158,10 @@ const BlockRenderer = ({ block }: { block: Block }) => {
     }
 };
 
-const SectionHeader = ({ section, onPlay, isPlaying, isGenerating, isActive }: { section: Section, onPlay: () => void, isPlaying: boolean, isGenerating: boolean, isActive: boolean }) => {
+const SectionHeader = ({ section }: { section: Section }) => {
     return (
         <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
-            <h2 className={cn("text-2xl font-bold font-headline transition-colors", isActive && "text-primary")}>{section.title}</h2>
-            <div className="flex items-center gap-2">
-                 <Button variant="ghost" size="icon" onClick={onPlay} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause className="h-5 w-5"/> : <Headphones className="h-5 w-5"/>)}
-                    <span className="sr-only">Listen to this section</span>
-                 </Button>
-            </div>
+            <h2 className={cn("text-2xl font-bold font-headline")}>{section.title}</h2>
         </div>
     );
 };
@@ -186,125 +177,9 @@ interface LessonContentProps {
 export default function LessonContent({ lesson, userId, userProgress, onLessonComplete }: LessonContentProps) {
   const { toast } = useToast();
   const [isCompleting, setIsCompleting] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
   
-  const [selectedVoice, setSelectedVoice] = useState('Algenib');
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [audioPlayerState, setAudioPlayerState] = useState<{
-    isGenerating: boolean;
-    isPlaying: boolean;
-    currentSectionIndex: number | null;
-    audioUrl: string | null;
-  }>({
-    isGenerating: false,
-    isPlaying: false,
-    currentSectionIndex: null,
-    audioUrl: null,
-  });
-
   const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id);
   const sections = lesson.sections || [];
-
-  const playSection = async (index: number) => {
-    if (index >= sections.length) {
-      handleStop();
-      return;
-    }
-    
-    setAudioPlayerState({ isPlaying: false, audioUrl: null, isGenerating: true, currentSectionIndex: index });
-
-    try {
-      const section = sections[index];
-      const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n');
-      
-      if (!textContent.trim()) {
-        playSection(index + 1); // Skip empty sections
-        return;
-      }
-      
-      const result = await generateAudioFromText({ text: textContent, voice: selectedVoice });
-      setAudioPlayerState(prev => ({ ...prev, isGenerating: false, isPlaying: true, audioUrl: result.audioDataUri }));
-    } catch (error) {
-      console.error(error);
-      toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to generate audio for this section.",
-      });
-      handleStop();
-    }
-  };
-  
-  const handlePlayPause = () => {
-    if (audioPlayerState.isGenerating) return;
-    
-    if (audioPlayerState.isPlaying) {
-      setAudioPlayerState(prev => ({ ...prev, isPlaying: false }));
-    } else {
-      if (audioPlayerState.currentSectionIndex === null) {
-        playSection(0); // Start from the beginning
-      } else {
-        setAudioPlayerState(prev => ({ ...prev, isPlaying: true }));
-      }
-    }
-  };
-
-  const handlePlaySection = (index: number) => {
-    if (audioPlayerState.currentSectionIndex === index) {
-      handlePlayPause();
-    } else {
-      playSection(index);
-    }
-  };
-  
-  const handleStop = () => {
-    setAudioPlayerState({
-      isGenerating: false,
-      isPlaying: false,
-      currentSectionIndex: null,
-      audioUrl: null
-    });
-  };
-  
-  const handleAudioEnded = () => {
-    if (audioPlayerState.currentSectionIndex !== null) {
-      playSection(audioPlayerState.currentSectionIndex + 1);
-    }
-  };
-
-  const handleDownload = () => {
-    if (!audioPlayerState.audioUrl || audioPlayerState.currentSectionIndex === null) return;
-
-    const sectionTitle = sections[audioPlayerState.currentSectionIndex].title;
-    const safeFileName = sectionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-
-    const link = document.createElement('a');
-    link.href = audioPlayerState.audioUrl;
-    link.download = `${safeFileName}.wav`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
-
-  React.useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (audioPlayerState.isPlaying && audio.src) {
-        audio.play().catch(e => console.error("Audio play failed:", e));
-    } else {
-        audio.pause();
-    }
-  }, [audioPlayerState.isPlaying, audioPlayerState.audioUrl]);
-
-  React.useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) {
-        audio.playbackRate = playbackRate;
-    }
-  }, [playbackRate]);
-
 
   const handleComplete = async () => {
     setIsCompleting(true);
@@ -330,13 +205,9 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
   const renderContent = () => {
     if (sections.length > 0) {
         return sections.map((section, sIndex) => (
-            <section key={sIndex} id={`section-${sIndex}`} className={cn("mb-8 p-4 rounded-lg transition-all", audioPlayerState.currentSectionIndex === sIndex && "bg-primary/10 ring-2 ring-primary/50")}>
+            <section key={sIndex} id={`section-${sIndex}`} className={cn("mb-8 p-4 rounded-lg transition-all")}>
                 <SectionHeader 
                     section={section}
-                    onPlay={() => handlePlaySection(sIndex)}
-                    isPlaying={audioPlayerState.isPlaying && audioPlayerState.currentSectionIndex === sIndex}
-                    isGenerating={audioPlayerState.isGenerating && audioPlayerState.currentSectionIndex === sIndex}
-                    isActive={audioPlayerState.currentSectionIndex === sIndex}
                 />
                 <div>
                     {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
@@ -356,48 +227,22 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
     
     return <p>No content available for this lesson.</p>;
   };
-  
-  const currentSectionTitle = audioPlayerState.currentSectionIndex !== null ? sections[audioPlayerState.currentSectionIndex]?.title : null;
 
   return (
     <div>
-        {sections.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-muted/50">
-             <div className="flex-1 text-center sm:text-left">
-                <p className="font-semibold text-lg flex items-center gap-2"><Headphones className="text-primary h-5 w-5"/> Read Aloud</p>
-                <p className="text-muted-foreground text-sm">Listen to the lesson and select a voice.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={audioPlayerState.isPlaying || audioPlayerState.isGenerating}>
-                  <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select a voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="Algenib">Voice Algenib</SelectItem>
-                      <SelectItem value="Achernar">Voice Achernar</SelectItem>
-                      <SelectItem value="Umbriel">Voice Umbriel</SelectItem>
-                      <SelectItem value="Puck">Voice Puck</SelectItem>
-                  </SelectContent>
-              </Select>
-              <Button onClick={() => playSection(0)} disabled={audioPlayerState.isGenerating || audioPlayerState.isPlaying}>
-                <Headphones className="mr-2 h-4 w-4"/>
-                Start
-              </Button>
-            </div>
-          </div>
+        {lesson.audioUrl && (
+          <Card className="mb-6 sticky top-20 z-30 bg-background/80 backdrop-blur-sm shadow-lg">
+              <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                 <Headphones className="h-6 w-6 text-primary" />
+                 <CardTitle className="text-lg">Listen to this Lesson</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <audio controls src={lesson.audioUrl} className="w-full">
+                      Your browser does not support the audio element.
+                  </audio>
+              </CardContent>
+          </Card>
         )}
-
-        <LessonPlayer 
-            isPlaying={audioPlayerState.isPlaying}
-            isGenerating={audioPlayerState.isGenerating}
-            currentSectionTitle={currentSectionTitle}
-            audioUrl={audioPlayerState.audioUrl}
-            onPlayPause={handlePlayPause}
-            onStop={handleStop}
-            onDownload={handleDownload}
-            playbackRate={playbackRate}
-            onPlaybackRateChange={setPlaybackRate}
-        />
 
         {lesson.image && (
             <div className="mb-6">
@@ -414,8 +259,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
         <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
             {renderContent()}
         </div>
-
-        <audio ref={audioRef} src={audioPlayerState.audioUrl || undefined} onEnded={handleAudioEnded} />
 
         <div className="mt-8 pt-6 border-t">
           {isCompleted ? (
