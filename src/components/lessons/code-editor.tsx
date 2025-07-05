@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -23,12 +24,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
     
     const handleBeforeMount = (monaco: Monaco) => {
         monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-            target: monaco.languages.typescript.ScriptTarget.ES2020,
+            target: monaco.languages.typescript.ScriptTarget.ESNext,
             allowNonTsExtensions: true,
             moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
             module: monaco.languages.typescript.ModuleKind.CommonJS,
             noEmit: true,
-            lib: ['es2020', 'dom'],
+            lib: ['esnext', 'dom', 'dom.iterable'],
             checkJs: true,
             allowJs: true,
         });
@@ -65,6 +66,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
                         bottom: 16
                     },
                     automaticLayout: true,
+                    matchBrackets: 'always',
+                    autoClosingBrackets: 'languageDefined',
+                    autoClosingQuotes: 'languageDefined',
+                    autoSurround: 'languageDefined',
                 }}
             />
              {placeholder && !value && !disabled && (
@@ -77,3 +82,4 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
 };
 
 export default CodeEditor;
+
