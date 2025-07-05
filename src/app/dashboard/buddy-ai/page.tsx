@@ -30,6 +30,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { getUser, ProactiveSuggestion, clearProactiveSuggestion } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import FormattedContent from '@/components/common/FormattedContent';
@@ -185,29 +186,52 @@ export default function BuddyAIPage() {
     return activeConversation?.persona || 'buddy';
   }, [activeConversation]);
 
+  const handleProactiveSuggestion = (suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
+        const newId = `convo_${Date.now()}_${Math.random()}`;
+        const proactiveConversation: Conversation = {
+            id: newId,
+            title: `Help with ${suggestion.topic}`,
+            messages: [{ role: 'model', content: suggestion.message }],
+            createdAt: Date.now(),
+            persona: 'buddy' // Proactive suggestions always come from the friendly buddy
+        };
+        const updatedConversations = [proactiveConversation, ...newConversations];
+        setConversations(updatedConversations);
+        setActiveConversationId(newId);
+    };
+
   // Effect to load user data and conversations from localStorage
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const savedConvos = localStorage.getItem(`conversations_${currentUser.uid}`);
+        const [userProfile, savedConvos] = await Promise.all([
+            getUser(currentUser.uid),
+            localStorage.getItem(`conversations_${currentUser.uid}`)
+        ]);
+
+        let parsedConvos: Conversation[] = [];
         if (savedConvos) {
-            let parsedConvos: Conversation[] = [];
             try {
                 parsedConvos = JSON.parse(savedConvos)
-                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] })); // Sanitize data
-                if (Array.isArray(parsedConvos) && parsedConvos.length > 0) {
-                    setConversations(parsedConvos);
-                    setActiveConversationId(parsedConvos[0].id);
-                    return;
-                }
-
+                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }));
             } catch (e) {
                 console.error("Failed to parse conversations from localStorage", e);
                 localStorage.removeItem(`conversations_${currentUser.uid}`); // Clear corrupted data
             }
         }
-        handleNewChat('buddy');
+        
+        if (userProfile?.proactiveSuggestion) {
+            handleProactiveSuggestion(userProfile.proactiveSuggestion, parsedConvos);
+            clearProactiveSuggestion(currentUser.uid).catch(console.error); // Fire-and-forget
+        } else {
+            setConversations(parsedConvos);
+            if (parsedConvos.length > 0) {
+                 setActiveConversationId(parsedConvos[0].id);
+            } else {
+                handleNewChat('buddy');
+            }
+        }
       }
     });
     return () => unsubscribe();
@@ -540,3 +564,5 @@ export default function BuddyAIPage() {
     </div>
   );
 }
+
+    

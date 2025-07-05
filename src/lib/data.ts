@@ -8,6 +8,7 @@ import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import { uploadImageFromDataUrl, uploadAudioFromDataUrl } from './storage';
 import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
+import { generateProactiveSuggestion } from '@/ai/flows/generate-proactive-suggestion';
 
 
 // Old structure
@@ -60,6 +61,12 @@ export interface Lesson {
   topicDepth?: string;
 }
 
+export interface ProactiveSuggestion {
+    message: string;
+    topic: string;
+    timestamp: number;
+}
+
 export interface UserProgress {
   completedLessons: number;
   averageScore: number;
@@ -87,6 +94,7 @@ export interface User {
   progress: UserProgress;
   lastLessonRequestAt?: number;
   lastCheckedAnnouncementsAt?: Timestamp;
+  proactiveSuggestion?: ProactiveSuggestion | null;
   learningStyle?: 'visual' | 'auditory' | 'kinesthetic' | 'reading/writing' | 'unspecified';
   interests?: string[];
   goals?: string;
@@ -148,6 +156,7 @@ export interface UserExerciseResponse {
   submittedAt: number; // using timestamp for sorting
   question: string;
   lessonTitle: string;
+  tags?: string[];
 }
 
 export interface LessonRequest {
@@ -251,6 +260,7 @@ export async function createUserInFirestore(uid: string, email: string, name: st
             role: 'student', // Default role for new signups
             lastLessonRequestAt: null,
             lastCheckedAnnouncementsAt: Timestamp.now(),
+            proactiveSuggestion: null,
             learningStyle: 'unspecified',
             interests: [],
             goals: '',
@@ -675,6 +685,63 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
     }
 }
 
+/**
+ * Checks if a user is struggling with a topic and triggers an AI suggestion.
+ */
+async function checkForStrugglesAndSuggestHelp(userId: string, failedExercise: Exercise) {
+    if (!failedExercise.tags || failedExercise.tags.length === 0) return; // Cannot check without tags
+
+    const user = await getUser(userId);
+    if (!user) return;
+
+    // Cooldown: Don't suggest if one was made in the last 24 hours.
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    if (user.proactiveSuggestion?.timestamp && user.proactiveSuggestion.timestamp > oneDayAgo) {
+        return;
+    }
+
+    const responsesQuery = query(
+        collection(db, "exerciseResponses"),
+        where("userId", "==", userId),
+        orderBy("submittedAt", "desc"),
+        limit(10)
+    );
+    const snapshot = await getDocs(responsesQuery);
+    const recentResponses = snapshot.docs.map(doc => doc.data() as UserExerciseResponse);
+
+    const incorrectResponses = recentResponses.filter(r => !r.isCorrect);
+
+    // Find tags that are common between the failed exercise and other recent failures.
+    const struggleTags: { [key: string]: number } = {};
+    incorrectResponses.forEach(response => {
+        if (!response.tags) return;
+        const commonTags = failedExercise.tags!.filter(t => response.tags!.includes(t));
+        commonTags.forEach(tag => {
+            struggleTags[tag] = (struggleTags[tag] || 0) + 1;
+        });
+    });
+
+    // Find the most struggled tag with at least 2 other recent failures (3 total).
+    const mostStruggled = Object.entries(struggleTags).find(([_, count]) => count >= 2);
+    
+    if (mostStruggled) {
+        const [topic] = mostStruggled;
+        console.log(`User ${userId} is struggling with topic: ${topic}`);
+
+        // Generate suggestion with AI
+        const { suggestion } = await generateProactiveSuggestion({ strugglingTopic: topic });
+
+        // Update user profile with the suggestion
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+            proactiveSuggestion: {
+                message: suggestion,
+                topic: topic,
+                timestamp: Date.now()
+            }
+        });
+    }
+}
 
 export async function saveExerciseAttempt(
     userId: string,
@@ -703,6 +770,7 @@ export async function saveExerciseAttempt(
             isCorrect,
             score,
             feedback: feedback || "",
+            tags: exercise.tags || [],
             submittedAt: Date.now()
         };
 
@@ -758,6 +826,13 @@ export async function saveExerciseAttempt(
                 'progress.weeklyActivity': sortedWeeklyActivity,
             });
         });
+        
+        // After saving, check for struggles if the answer was incorrect.
+        if (!isCorrect) {
+            // Run this asynchronously, no need to wait for it.
+            checkForStrugglesAndSuggestHelp(userId, exercise).catch(console.error);
+        }
+
     } catch (e) {
         console.error("Save exercise attempt failed: ", e);
         throw new Error("Failed to save exercise result.");
@@ -789,6 +864,11 @@ export async function getAllUserResponses(userId: string): Promise<Map<string, U
         responsesMap.set(data.exerciseId, { id: doc.id, ...data });
     });
     return responsesMap;
+}
+
+export async function clearProactiveSuggestion(userId: string): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { proactiveSuggestion: null });
 }
 
 // Lesson Request Functions
@@ -935,3 +1015,5 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
         return [];
     }
 }
+
+    
