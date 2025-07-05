@@ -22,19 +22,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
     };
     
     const handleBeforeMount = (monaco: Monaco) => {
-        // Configure TypeScript/JavaScript language services to enhance IntelliSense
         monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
             target: monaco.languages.typescript.ScriptTarget.ES2020,
             allowNonTsExtensions: true,
             moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
             module: monaco.languages.typescript.ModuleKind.CommonJS,
             noEmit: true,
-            // Add type definitions for common browser APIs and modern JS features
-            lib: ['es2020', 'dom'], 
+            lib: ['es2020', 'dom'],
+            checkJs: true,
+            allowJs: true,
         });
 
-        // Ensure diagnostic checks are enabled for errors and suggestions
-         monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+        monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
             noSemanticValidation: false,
             noSyntaxValidation: false,
         });
@@ -57,7 +56,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
                 loading={<Loader2 className="animate-spin" />}
                 options={{
                     readOnly: disabled,
-                    minimap: { enabled: true }, // Enable minimap for a professional feel
+                    minimap: { enabled: true },
                     fontSize: 14,
                     wordWrap: 'on',
                     scrollBeyondLastLine: false,
@@ -65,7 +64,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
                         top: 16,
                         bottom: 16
                     },
-                    automaticLayout: true, // Ensures editor resizes correctly
+                    automaticLayout: true,
                 }}
             />
              {placeholder && !value && !disabled && (
