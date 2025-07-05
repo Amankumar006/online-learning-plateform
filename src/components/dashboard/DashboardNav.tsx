@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
     { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
     { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
     { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
+    { href: "/dashboard/canvas", label: "Canvas", icon: Pen, isBeta: true },
     { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
 

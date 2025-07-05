@@ -1,26 +1,21 @@
-
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Pen } from "lucide-react";
+import dynamic from 'next/dynamic'
+import { CanvasAiMenu } from '@/components/canvas/CanvasAiMenu'
+
+// Dynamically import the tldraw component to prevent SSR issues
+const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
+  ssr: false,
+})
 
 export default function CanvasPage() {
 	return (
-		<div className="w-full h-full flex items-center justify-center p-4">
-			<Card className="w-full max-w-lg text-center">
-                <CardHeader>
-                    <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit">
-                        <Pen className="h-8 w-8 text-primary" />
-                    </div>
-                    <CardTitle className="mt-4">Canvas Mode</CardTitle>
-                    <CardDescription>This feature is currently under development.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                        An interactive workspace for visual learning and collaboration with AI is coming soon. Stay tuned!
-                    </p>
-                </CardContent>
-            </Card>
+		<div className="w-full h-full">
+            {/* The tldraw component is the core of the canvas experience.
+                We pass our custom AI menu as a child to overlay it on the canvas UI. */}
+            <Tldraw persistenceKey="adapted-canvas-v1">
+                <CanvasAiMenu />
+            </Tldraw>
 		</div>
 	)
 }
