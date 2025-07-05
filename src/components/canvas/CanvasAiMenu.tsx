@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, MessageSquareQuestion } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, MessageCircleQuestion } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -55,7 +55,7 @@ export function CanvasAiMenu() {
                     To Text
                 </Button>
                  <Button variant="ghost" size="sm" onClick={handleAskQuestion} disabled={isLoading}>
-                    <MessageSquareQuestion className="mr-2" />
+                    <MessageCircleQuestion className="mr-2" />
                     Ask
                 </Button>
             </Card>
