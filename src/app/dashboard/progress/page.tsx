@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { getUserProgress, UserProgress, getSolutionHistory } from "@/lib/data";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Zap, Activity, Clock, TrendingUp } from "lucide-react";

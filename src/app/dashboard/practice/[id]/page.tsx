@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getCustomExercisesForUser, getAllUserResponses, Exercise, UserExerciseResponse, getExercises, getLesson } from "@/lib/data";
+import { getExercise, getAllUserResponses, Exercise, UserExerciseResponse, getLesson } from "@/lib/data";
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import SingleExerciseSolver from "@/components/practice/single-exercise-solver";
@@ -64,50 +64,27 @@ export default function SolveExercisePage() {
                     return;
                 }
                 try {
-                    const allUserResponses = await getAllUserResponses(currentUser.uid);
-                    const responseData = allUserResponses.get(exerciseId);
-                    setResponse(responseData || null);
-
-                    let foundExercise: Exercise | undefined;
-
-                    // 1. Check if it's a custom exercise
-                    const userCustomExercises = await getCustomExercisesForUser(currentUser.uid);
-                    foundExercise = userCustomExercises.find(ex => ex.id === exerciseId);
-
-                    // 2. If not custom, try to find it via the response's lessonId
-                    if (!foundExercise && responseData) {
-                        const lessonExercises = await getExercises(responseData.lessonId);
-                        foundExercise = lessonExercises.find(ex => ex.id === exerciseId);
-                    }
+                    // Fetch the exercise and the specific response for it concurrently
+                    const [exerciseData, responseData] = await Promise.all([
+                        getExercise(exerciseId),
+                        getAllUserResponses(currentUser.uid).then(responses => responses.get(exerciseId))
+                    ]);
                     
-                    // 3. If still not found (e.g., first attempt on a lesson exercise), we have a problem.
-                    // This scenario is complex. For now, we assume links will primarily come from places
-                    // where a response already exists (like the SolutionBoard).
-                    
-                    if (foundExercise) {
-                        setExercise(foundExercise);
-                        if (foundExercise.lessonId !== 'custom') {
-                            const lesson = await getLesson(foundExercise.lessonId);
+                    if (exerciseData) {
+                        setExercise(exerciseData);
+                        setResponse(responseData || null);
+                        
+                        // Fetch lesson title if the exercise is part of a lesson
+                        if (exerciseData.lessonId && exerciseData.lessonId !== 'custom') {
+                            const lesson = await getLesson(exerciseData.lessonId);
                             setLessonTitle(lesson?.title || "Practice");
                         } else {
                             setLessonTitle("Custom Practice");
                         }
                     } else {
-                        // Fallback for direct access without response history (might fail permissions)
-                        const directFetchExercise = await getExercise(exerciseId);
-                        if (directFetchExercise) {
-                             setExercise(directFetchExercise);
-                             if (directFetchExercise.lessonId !== 'custom') {
-                                const lesson = await getLesson(directFetchExercise.lessonId);
-                                setLessonTitle(lesson?.title || "Practice");
-                            } else {
-                                setLessonTitle("Custom Practice");
-                            }
-                        } else {
-                            toast({ variant: "destructive", title: "Error", description: "Exercise not found or you don't have permission to view it." });
-                            router.push('/dashboard/practice');
-                            return;
-                        }
+                         toast({ variant: "destructive", title: "Error", description: "Exercise not found or you don't have permission to view it." });
+                         router.push('/dashboard/practice');
+                         return;
                     }
 
                 } catch (error) {

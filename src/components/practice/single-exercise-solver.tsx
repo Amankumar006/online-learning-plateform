@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
 import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
 import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Terminal, Play } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/lessons/code-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,6 +28,7 @@ interface SingleExerciseSolverProps {
     exercise: Exercise;
     userId: string;
     onSolved: () => void;
+    lessonTitle: string;
     initialResponse?: UserExerciseResponse | null;
 }
 
@@ -174,7 +175,7 @@ const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecution
 }
 
 
-export default function SingleExerciseSolver({ exercise, userId, onSolved, initialResponse = null }: SingleExerciseSolverProps) {
+export default function SingleExerciseSolver({ exercise, userId, onSolved, lessonTitle, initialResponse = null }: SingleExerciseSolverProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
@@ -232,8 +233,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     let score = 0;
     let submittedAnswer: string | boolean = selectedAnswer!;
     let aiFeedback: GradeLongFormAnswerOutput | null = null;
-    const lessonTitle = exercise.lessonId === 'custom' ? 'Custom Practice' : exercise.lessonId; // Needs a proper lookup later
-
+    
     if (exercise.type === 'long_form') {
         if (!longFormAnswer && !imageDataUri) {
             toast({
@@ -305,7 +305,6 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     setFeedback(result);
     setIsAnswered(true);
     setIsCorrect(result.isSolutionCorrect);
-    const lessonTitle = exercise.lessonId === 'custom' ? 'Custom Practice' : exercise.lessonId; // Needs a proper lookup later
 
     try {
         await saveExerciseAttempt(

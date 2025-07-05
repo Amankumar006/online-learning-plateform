@@ -16,8 +16,9 @@ import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "./code-editor";
-import MathEditor from "./math-editor";
+import MathSolutionGrader from "../practice/math-solution-grader";
 import { Input } from "../ui/input";
+import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
 
 export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { exercises: Exercise[], userId:string, lessonTitle: string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -30,7 +31,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [fibCorrectness, setFibCorrectness] = useState<boolean[]>([]);
   const [isGrading, setIsGrading] = useState(false);
-  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
+  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | GradeMathSolutionOutput | null>(null);
   const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
   const { toast } = useToast();
 
@@ -92,11 +93,11 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
         if (currentExercise.type === 'long_form') {
             setLongFormAnswer(previousResponse.submittedAnswer as string);
             if (previousResponse.feedback) {
-                setFeedback({
-                    isCorrect: previousResponse.isCorrect,
-                    score: previousResponse.score,
-                    feedback: previousResponse.feedback as string
-                });
+              if (typeof previousResponse.feedback === 'object' && previousResponse.feedback !== null && 'overallScore' in previousResponse.feedback) {
+                  setFeedback(previousResponse.feedback as GradeMathSolutionOutput);
+              } else if (typeof previousResponse.feedback === 'string') {
+                  setFeedback({ isCorrect: previousResponse.isCorrect, score: previousResponse.score, feedback: previousResponse.feedback } as GradeLongFormAnswerOutput);
+              }
             }
         } else if (currentExercise.type === 'true_false') {
             setSelectedAnswer(previousResponse.submittedAnswer ? 'True' : 'False');
@@ -115,6 +116,28 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     const newAnswers = [...fibAnswers];
     newAnswers[index] = value;
     setFibAnswers(newAnswers);
+  };
+
+  const handleMathGraded = async (result: GradeMathSolutionOutput, studentSolution: string) => {
+    setFeedback(result);
+    setIsAnswered(true);
+    setIsCorrect(result.isSolutionCorrect);
+
+    try {
+        await saveExerciseAttempt(
+            userId,
+            lessonTitle,
+            currentExercise,
+            studentSolution,
+            result.isSolutionCorrect,
+            result.overallScore,
+            result,
+            null
+        );
+    } catch (error) {
+        console.error("Failed to save math exercise result:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not save your progress." });
+    }
   };
 
   const handleAnswerSubmit = async () => {
@@ -297,17 +320,13 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             }
              if (lfExercise.category === 'math') {
                  return (
-                    <div>
-                         <MathEditor
-                            value={longFormAnswer}
-                            onValueChange={setLongFormAnswer}
-                            disabled={isAnswered || isGrading}
-                            placeholder="Enter your mathematical formula or explanation here... Use LaTeX for equations, e.g., $E=mc^2$ or $$
-\int_a^b f(x) \,dx = F(b) - F(a)
-$$"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
-                    </div>
+                    <MathSolutionGrader 
+                        exercise={lfExercise} 
+                        onGraded={handleMathGraded} 
+                        isAnswered={isAnswered}
+                        initialFeedback={feedback as GradeMathSolutionOutput | undefined}
+                        initialSolution={longFormAnswer}
+                    />
                 );
             }
             return (
@@ -437,7 +456,7 @@ $$"
                         </Card>
                     )}
 
-                    {feedback && (
+                    {feedback && 'feedback' in feedback && (
                          <Card className={cn(feedback.isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center justify-between">
@@ -458,7 +477,7 @@ $$"
 
             <div className="mt-6 flex justify-end">
               {!isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type === 'mcq' && !selectedAnswer) || (currentExercise.type === 'true_false' && !selectedAnswer) || (currentExercise.type === 'long_form' && !longFormAnswer) || (currentExercise.type === 'fill_in_the_blanks' && fibAnswers.some(a => a === ''))}>
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type !== 'long_form' && !selectedAnswer) || (currentExercise.type === 'long_form' && currentExercise.category !== 'math' && !longFormAnswer)}>
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit'}
                 </Button>
               ) : (

@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles, ListChecks, Trash2, Eye, Pencil, BrainCircuit, Code, FunctionSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -93,6 +92,7 @@ export default function PracticePage() {
             }
         });
         return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleGenerate = async () => {
@@ -145,7 +145,7 @@ export default function PracticePage() {
             toast({ title: "Exercise Saved!", description: "Your new custom exercise has been added to your list." });
             setPrompt("");
             setPreviewExercise(null);
-            fetchData(user.uid); // Refresh list
+            if (user) fetchData(user.uid); // Refresh list
         } catch (e: any) {
              console.error(e);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save exercise.' });
@@ -161,7 +161,7 @@ export default function PracticePage() {
         try {
             await deleteExercise(exerciseId);
             toast({ title: "Exercise Discarded", description: "The exercise has been removed." });
-            fetchData(user.uid);
+            if (user) fetchData(user.uid);
         } catch (e) {
             console.error(e);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to discard the exercise.' });
