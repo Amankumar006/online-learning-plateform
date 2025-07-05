@@ -3,11 +3,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2 } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
 
 /**
  * A menu for AI-powered actions within the tldraw canvas.
@@ -17,19 +18,65 @@ export function CanvasAiMenu() {
     const editor = useEditor();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
     // Placeholder functions for future AI implementations
     const handleGenerateDiagram = () => {
         toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
     }
 
-    const handleExplainSelection = () => {
+    const handleExplainSelection = async () => {
         const selectedShapes = editor.getSelectedShapes();
         if (selectedShapes.length === 0) {
             toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object or text on the canvas to explain." });
             return;
         }
-        toast({ title: "Coming Soon!", description: "AI Explanation for selected items is under development." });
+
+        setLoadingAction('explain');
+        setIsLoading(true);
+
+        try {
+            const svgString = await editor.getSvgString(selectedShapes, {
+                scale: 1.2,
+                background: true,
+                padding: 16,
+            });
+            if (!svgString) {
+                throw new Error("Could not generate an image from the selection.");
+            }
+
+            const svgDataUri = 'data:image/svg+xml;base64,' + btoa(svgString);
+
+            const result = await explainVisualSelection({ svgDataUri });
+            
+            const selectionBounds = editor.getSelectionPageBounds();
+            if (selectionBounds) {
+                 editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.maxX + 30,
+                    y: selectionBounds.y,
+                    props: {
+                        text: result.explanation,
+                        size: 'm',
+                        w: 300,
+                        align: 'start',
+                        font: 'sans'
+                    }
+                });
+            } else {
+                 toast({
+                    title: "AI Explanation",
+                    description: result.explanation,
+                    duration: 8000
+                });
+            }
+        } catch (error: any) {
+            console.error(error);
+            toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
+        } finally {
+            setLoadingAction(null);
+            setIsLoading(false);
+        }
     }
     
     const handleConvertToText = () => {
@@ -57,7 +104,7 @@ export function CanvasAiMenu() {
                     Generate
                 </Button>
                  <Button variant="ghost" size="sm" onClick={handleExplainSelection} disabled={isLoading}>
-                    <BrainCircuit className="mr-2" />
+                    {loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
                     Explain
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
