@@ -22,16 +22,24 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
         onValueChange(value || '');
     };
     
-    const handleBeforeMount = (monaco: Monaco) => {
+    // Fetches the DOM library type definitions and adds them to the editor
+    // to enable full IntelliSense for browser APIs.
+    const handleBeforeMount = async (monaco: Monaco) => {
+        try {
+            const domLib = await fetch('https://cdn.jsdelivr.net/npm/typescript@5.3.3/lib/lib.dom.d.ts').then(res => res.text());
+            monaco.languages.typescript.javascriptDefaults.addExtraLib(domLib, 'lib.dom.d.ts');
+        } catch (error) {
+            console.error("Failed to load Monaco's DOM library:", error);
+        }
+
         monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
             target: monaco.languages.typescript.ScriptTarget.ESNext,
             allowNonTsExtensions: true,
             moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
             module: monaco.languages.typescript.ModuleKind.CommonJS,
             noEmit: true,
-            lib: ['esnext', 'dom', 'dom.iterable'],
-            checkJs: true,
             allowJs: true,
+            checkJs: true,
         });
 
         monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
@@ -82,4 +90,3 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
 };
 
 export default CodeEditor;
-
