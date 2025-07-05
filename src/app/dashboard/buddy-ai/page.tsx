@@ -192,10 +192,22 @@ export default function BuddyAIPage() {
         setUser(currentUser);
         const savedConvos = localStorage.getItem(`conversations_${currentUser.uid}`);
         if (savedConvos) {
-            const parsedConvos: Conversation[] = JSON.parse(savedConvos);
-            if (parsedConvos.length > 0) {
-                setConversations(parsedConvos);
-                setActiveConversationId(parsedConvos[0].id);
+            let parsedConvos: Conversation[] = [];
+            try {
+                parsedConvos = JSON.parse(savedConvos);
+            } catch (e) {
+                console.error("Failed to parse conversations from localStorage", e);
+                localStorage.removeItem(`conversations_${currentUser.uid}`); // Clear corrupted data
+            }
+
+            if (Array.isArray(parsedConvos) && parsedConvos.length > 0) {
+                // Ensure data integrity, especially that 'messages' is always an array
+                const sanitizedConvos = parsedConvos.map(convo => ({
+                    ...convo,
+                    messages: convo.messages || [],
+                }));
+                setConversations(sanitizedConvos);
+                setActiveConversationId(sanitizedConvos[0].id);
                 return;
             }
         }
@@ -211,7 +223,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages?.length, isLoading]);
+  }, [activeConversation?.messages, isLoading]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
@@ -270,9 +282,10 @@ export default function BuddyAIPage() {
     
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
-            const isNewChat = c.messages.length === 0;
+            const currentMessages = c.messages || [];
+            const isNewChat = currentMessages.length === 0;
             const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-            return { ...c, title: newTitle, messages: [...c.messages, userMessage], createdAt: Date.now() };
+            return { ...c, title: newTitle, messages: [...currentMessages, userMessage], createdAt: Date.now() };
         }
         return c;
     }).sort((a,b) => b.createdAt - a.createdAt);
@@ -281,7 +294,7 @@ export default function BuddyAIPage() {
     setInput('');
     setIsLoading(true);
 
-    const historyForAI = activeConversation.messages.map(msg => ({
+    const historyForAI = (activeConversation.messages || []).map(msg => ({
         role: msg.role,
         content: msg.content,
     }));
@@ -297,7 +310,8 @@ export default function BuddyAIPage() {
       
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, assistantMessage] };
+          const currentMessages = c.messages || [];
+          return { ...c, messages: [...currentMessages, assistantMessage] };
         }
         return c;
       }));
@@ -307,7 +321,8 @@ export default function BuddyAIPage() {
       const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-            return { ...c, messages: [...c.messages, errorMessage] };
+            const currentMessages = c.messages || [];
+            return { ...c, messages: [...currentMessages, errorMessage] };
         }
         return c;
       }));
@@ -341,7 +356,7 @@ export default function BuddyAIPage() {
   const handleRegenerate = async () => {
     if (!activeConversation || !user) return;
 
-    const messages = activeConversation.messages;
+    const messages = activeConversation.messages || [];
     const lastModelIndex = messages.findLastIndex(m => m.role === 'model');
     if (lastModelIndex === -1) return;
 
@@ -429,7 +444,7 @@ export default function BuddyAIPage() {
         
         {/* Message List */}
         <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
-              {activeConversation && activeConversation.messages.length > 0 ? (
+              {activeConversation && activeConversation.messages && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => (
                           <div key={index} className="group flex items-start gap-4">
@@ -535,5 +550,3 @@ export default function BuddyAIPage() {
     </div>
   );
 }
-
-    
