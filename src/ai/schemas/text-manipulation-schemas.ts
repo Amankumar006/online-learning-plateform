@@ -1,11 +1,5 @@
-
-'use client'
 /**
  * @fileOverview This file is intentionally left empty.
  * The Canvas Mode feature has been removed for now.
  */
-import React from 'react'
-
-export function CanvasAiMenu() {
-    return null;
-}
+export {};

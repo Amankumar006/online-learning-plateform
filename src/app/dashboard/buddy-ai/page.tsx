@@ -32,9 +32,9 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
+import FormattedContent from '@/components/common/FormattedContent';
 
 interface Message {
-    id: string;
     role: 'user' | 'model';
     content: string;
 }
@@ -56,70 +56,6 @@ const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
 };
 
-const CodeBlock = ({ language, code }: { language: string; code: string }) => {
-  const { toast } = useToast();
-  return (
-    <div className="my-4 rounded-md bg-muted text-sm">
-        <div className="flex items-center justify-between rounded-t-md bg-secondary px-4 py-2 text-muted-foreground">
-            <span>{language}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(code); toast({title: "Copied to clipboard!"})}}>
-                <Copy className="h-4 w-4" />
-            </Button>
-        </div>
-      <pre className="overflow-x-auto p-4">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-};
-
-const FormattedMessageContent = ({ content }: { content: string }) => {
-  const blocks = content.split(/(```[\s\S]*?```|---)/g).filter(Boolean);
-
-  const renderInline = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
-    return parts.filter(Boolean).map((part, k) => {
-      if (part.startsWith('**') && part.endsWith('**')) return <strong key={k}>{part.slice(2, -2)}</strong>;
-      if (part.startsWith('*') && part.endsWith('*')) return <em key={k}>{part.slice(1, -1)}</em>;
-      if (part.startsWith('`') && part.endsWith('`')) return <code key={k} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
-      return <React.Fragment key={k}>{part}</React.Fragment>;
-    });
-  };
-
-  return (
-    <>
-      {blocks.map((block, i) => {
-        if (block.trim() === '---') {
-          return <hr key={i} className="my-6 border-border/50" />;
-        }
-        if (block.startsWith('```')) {
-          const codeBlockContent = block.slice(3, -3).trim();
-          const lang = codeBlockContent.split('\n')[0]?.trim() || '';
-          const code = codeBlockContent.substring(codeBlockContent.indexOf('\n') + 1);
-          return <CodeBlock key={i} language={lang} code={code} />;
-        }
-
-        const lines = block.trim().split('\n');
-        return lines.map((line, j) => {
-          if (line.startsWith('### ')) {
-            return <h3 key={`${i}-${j}`} className="font-headline font-semibold text-xl mt-6 mb-2">{renderInline(line.substring(4))}</h3>;
-          }
-          if (line.startsWith('> ')) {
-            return <blockquote key={`${i}-${j}`} className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground">{renderInline(line.substring(2))}</blockquote>;
-          }
-           if (line.match(/^\s*-\s/)) {
-            const itemContent = line.replace(/^\s*-\s/, '');
-            return <div key={`${i}-${j}`} className="flex items-start gap-3 my-2"><span className="text-primary mt-1.5">●</span><div className="flex-1">{renderInline(itemContent)}</div></div>;
-          }
-          if (line.trim()) {
-            return <p key={`${i}-${j}`}>{renderInline(line)}</p>;
-          }
-          return null;
-        });
-      })}
-    </>
-  );
-};
 
 const personas: { id: Persona; name: string; description: string; icon: React.ReactNode }[] = [
     { id: 'buddy', name: 'Study Buddy', description: 'Friendly and encouraging learning companion.', icon: <BookOpen className="w-5 h-5" /> },
@@ -330,7 +266,7 @@ export default function BuddyAIPage() {
     const messageToSend = prompt || input;
     if (!messageToSend.trim() || !user || !activeConversation) return;
 
-    const userMessage: Message = { id: `msg_${Date.now()}`, role: 'user', content: messageToSend };
+    const userMessage: Message = { role: 'user', content: messageToSend };
     
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
@@ -357,7 +293,7 @@ export default function BuddyAIPage() {
           userId: user.uid,
           persona: activeConversation.persona
       });
-      const assistantMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: result.response };
+      const assistantMessage: Message = { role: 'model', content: result.response };
       
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
@@ -368,7 +304,7 @@ export default function BuddyAIPage() {
 
     } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
+      const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
             return { ...c, messages: [...c.messages, errorMessage] };
@@ -427,7 +363,7 @@ export default function BuddyAIPage() {
             userId: user.uid,
             persona: activeConversation.persona
         });
-        const assistantMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: result.response };
+        const assistantMessage: Message = { role: 'model', content: result.response };
         setConversations(prev => prev.map(c => {
             if (c.id === activeConversationId) {
                 return { ...c, messages: [...historyForRegen, assistantMessage] };
@@ -436,7 +372,7 @@ export default function BuddyAIPage() {
         }));
     } catch (e: any) {
         console.error(e);
-        const errorMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
+        const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
         setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: [...historyForRegen, errorMessage] } : c));
     } finally {
         setIsLoading(false);
@@ -496,7 +432,7 @@ export default function BuddyAIPage() {
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => (
-                          <div key={message.id} className="group flex items-start gap-4">
+                          <div key={index} className="group flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0">
                                   <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
                                   <AvatarFallback>
@@ -508,7 +444,7 @@ export default function BuddyAIPage() {
                                       {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
                                   </p>
                                   <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                      <FormattedMessageContent content={message.content} />
+                                      <FormattedContent content={message.content} />
                                   </div>
                                    {message.role === 'model' && !isLoading && (
                                     <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
@@ -521,8 +457,8 @@ export default function BuddyAIPage() {
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
                                             <ThumbsDown className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleListen(message.id, message.content)} disabled={audioState.loadingId === message.id}>
-                                            {audioState.loadingId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : audioState.playingId === message.id ? <Pause className="h-4 w-4 text-primary"/> : <Volume2 className="h-4 w-4" />}
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleListen(String(index), message.content)} disabled={audioState.loadingId === String(index)}>
+                                            {audioState.loadingId === String(index) ? <Loader2 className="h-4 w-4 animate-spin" /> : audioState.playingId === String(index) ? <Pause className="h-4 w-4 text-primary"/> : <Volume2 className="h-4 w-4" />}
                                         </Button>
                                         {index === activeConversation.messages.length - 1 && (
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
