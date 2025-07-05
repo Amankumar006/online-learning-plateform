@@ -3,10 +3,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, MessageCircleQuestion } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 /**
  * A menu for AI-powered actions within the tldraw canvas.
@@ -40,8 +41,17 @@ export function CanvasAiMenu() {
     }
 
     return (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+        <div className="absolute top-3 left-3 z-20">
             <Card className="p-1.5 flex items-center gap-1 shadow-xl backdrop-blur-md bg-white/70 dark:bg-black/70">
+                <Button variant="ghost" size="sm" asChild>
+                    <Link href="/dashboard">
+                        <ArrowLeft className="mr-2" />
+                        Dashboard
+                    </Link>
+                </Button>
+                
+                <div className="h-6 w-px bg-border/50 mx-2"></div>
+
                 <Button variant="ghost" size="sm" onClick={handleGenerateDiagram} disabled={isLoading}>
                     <Sparkles className="mr-2" />
                     Generate
