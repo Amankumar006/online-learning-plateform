@@ -41,19 +41,21 @@ const prompt = ai.definePrompt({
 **Response Generation:**
 
 **If the diagram is a solvable problem (e.g., math, physics):**
-Provide a clear, step-by-step solution formatted as plain text with Markdown for emphasis and raw LaTeX for equations. Follow this structure precisely:
+Provide a clear, step-by-step solution formatted as PLAIN TEXT. **Do NOT use LaTeX or Markdown.** Use simple characters for math (e.g., * for multiplication, / for division, ^2 for squared).
+
+Follow this structure precisely:
 
 **1. Identify the sides:** Briefly state the known values from the diagram.
    Example: "A rectangle has two pairs of equal sides. In this case, we have two sides of 4 cm and two sides of 5 cm."
 
-**2. Use the formula:** State the relevant formula using raw LaTeX syntax.
-   Example: "The perimeter of a rectangle is calculated as: \\[P = 2l + 2w\\] where \\(l\\) is the length and \\(w\\) is the width."
+**2. Use the formula:** State the relevant formula using plain text.
+   Example: "The perimeter of a rectangle is calculated as: P = 2*l + 2*w"
 
 **3. Plug in the values:** Show the substitution into the formula.
-   Example: "\\[P = 2(5 \\text{ cm}) + 2(4 \\text{ cm})\\]"
+   Example: "P = 2*(5 cm) + 2*(4 cm)"
 
-**4. Calculate:** Show the intermediate and final calculation steps.
-   Example: "\\[P = 10 \\text{ cm} + 8 \\text{ cm}\\]\\n\\[P = 18 \\text{ cm}\\]"
+**4. Calculate:** Show the intermediate and final calculation steps on separate lines.
+   Example: "P = 10 cm + 8 cm\nP = 18 cm"
 
 **5. Final Answer:** State the final answer clearly.
    Example: "Therefore, the perimeter of the rectangle is 18 cm."
@@ -68,7 +70,7 @@ Tailor your response to the user's request: "{{{prompt}}}"
 **Diagram to analyze:**
 {{media url=imageDataUri}}
 
-Respond with the solution or explanation in a single block of formatted text.
+Respond with the solution or explanation in a single block of formatted plain text.
 `,
 });
 
