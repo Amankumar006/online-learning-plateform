@@ -7,7 +7,7 @@ import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
+import { solveVisualProblem } from "@/ai/flows/visual-explainer-flow";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
@@ -65,14 +65,14 @@ export function CanvasAiMenu() {
         toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
     }
 
-    const handleExplainSelection = async () => {
+    const handleSolveSelection = async () => {
         const selectedShapeIds = editor.getSelectedShapeIds();
         if (selectedShapeIds.length === 0) {
-            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object or text on the canvas to explain." });
+            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object or text on the canvas to solve." });
             return;
         }
 
-        setLoadingAction('explain');
+        setLoadingAction('solve');
         setIsLoading(true);
 
         try {
@@ -88,7 +88,7 @@ export function CanvasAiMenu() {
                 throw new Error("Could not generate an image from the selection.");
             }
             
-            const result = await explainVisualSelection({ imageDataUri });
+            const result = await solveVisualProblem({ imageDataUri });
             
             const selectionBounds = editor.getSelectionPageBounds();
             if (selectionBounds) {
@@ -99,21 +99,20 @@ export function CanvasAiMenu() {
                     props: {
                         text: result.explanation,
                         size: 'm',
-                        w: 350,
                         textAlign: 'start',
                         font: 'draw'
                     }
                 });
             } else {
                  toast({
-                    title: "AI Explanation",
+                    title: "AI Solution",
                     description: result.explanation,
                     duration: 10000,
                  });
             }
         } catch (error: any) {
             console.error(error);
-            toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
+            toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate solution." });
         } finally {
             setLoadingAction(null);
             setIsLoading(false);
@@ -144,9 +143,9 @@ export function CanvasAiMenu() {
                     <Sparkles className="mr-2" />
                     Generate
                 </Button>
-                 <Button variant="ghost" size="sm" onClick={handleExplainSelection} disabled={isLoading}>
-                    {loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
-                    Explain
+                 <Button variant="ghost" size="sm" onClick={handleSolveSelection} disabled={isLoading}>
+                    {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
+                    Solve
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
                     <Type className="mr-2" />

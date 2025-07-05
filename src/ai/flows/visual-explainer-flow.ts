@@ -1,38 +1,37 @@
-
 'use server';
 /**
- * @fileOverview A Genkit flow to explain a visual selection from a canvas.
+ * @fileOverview A Genkit flow to solve a problem from a visual selection on a canvas.
  *
- * - explainVisualSelection - Explains an image of a diagram provided as a data URI.
- * - ExplainVisualSelectionInput - The input type for the function.
- * - ExplainVisualSelectionOutput - The return type for the function.
+ * - solveVisualProblem - Solves a problem from an image of a diagram provided as a data URI.
+ * - SolveVisualProblemInput - The input type for the function.
+ * - SolveVisualProblemOutput - The return type for the function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const ExplainVisualSelectionInputSchema = z.object({
+const SolveVisualProblemInputSchema = z.object({
   imageDataUri: z.string().describe("A PNG image of the user's selection, as a data URI."),
   prompt: z.string().optional().describe("An optional user prompt for additional context, e.g., 'explain this for a 5th grader'."),
 });
-export type ExplainVisualSelectionInput = z.infer<typeof ExplainVisualSelectionInputSchema>;
+export type SolveVisualProblemInput = z.infer<typeof SolveVisualProblemInputSchema>;
 
-const ExplainVisualSelectionOutputSchema = z.object({
+const SolveVisualProblemOutputSchema = z.object({
   explanation: z.string().describe('A clear and concise explanation of the visual selection, or a step-by-step solution if it is a problem.'),
 });
-export type ExplainVisualSelectionOutput = z.infer<typeof ExplainVisualSelectionOutputSchema>;
+export type SolveVisualProblemOutput = z.infer<typeof SolveVisualProblemOutputSchema>;
 
-export async function explainVisualSelection(
-  input: ExplainVisualSelectionInput
-): Promise<ExplainVisualSelectionOutput> {
-  return explainVisualSelectionFlow(input);
+export async function solveVisualProblem(
+  input: SolveVisualProblemInput
+): Promise<SolveVisualProblemOutput> {
+  return solveVisualProblemFlow(input);
 }
 
 const prompt = ai.definePrompt({
-  name: 'explainVisualSelectionPrompt',
-  input: {schema: ExplainVisualSelectionInputSchema},
-  output: {schema: ExplainVisualSelectionOutputSchema},
-  prompt: `You are an expert math and science tutor. A user has selected a diagram from their digital whiteboard. Your task is to analyze the image and provide a structured response.
+  name: 'solveVisualProblemPrompt',
+  input: {schema: SolveVisualProblemInputSchema},
+  output: {schema: SolveVisualProblemOutputSchema},
+  prompt: `You are an expert math and science tutor. A user has selected a diagram from their digital whiteboard and wants it solved. Your task is to analyze the image and provide a structured response.
 
 **Analysis Steps:**
 1.  **Analyze the image:** Determine if it contains a specific question to be solved (like a math problem) or if it's a general concept.
@@ -74,11 +73,11 @@ Respond with the solution or explanation in a single block of formatted plain te
 `,
 });
 
-const explainVisualSelectionFlow = ai.defineFlow(
+const solveVisualProblemFlow = ai.defineFlow(
   {
-    name: 'explainVisualSelectionFlow',
-    inputSchema: ExplainVisualSelectionInputSchema,
-    outputSchema: ExplainVisualSelectionOutputSchema,
+    name: 'solveVisualProblemFlow',
+    inputSchema: SolveVisualProblemInputSchema,
+    outputSchema: SolveVisualProblemOutputSchema,
   },
   async input => {
     const {output} = await prompt(input);
