@@ -500,6 +500,35 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                                 <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.feedback}</p></CardContent>
                              </Card>
                         )}
+                         {feedback && 'overallFeedback' in feedback && (
+                            <Card className={cn(feedback.isSolutionCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                                <CardHeader>
+                                     <CardTitle className="text-base flex items-center justify-between gap-2">
+                                        <span className="flex items-center gap-2">
+                                            {feedback.isSolutionCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />}
+                                            AI Feedback
+                                        </span>
+                                        <Badge variant={feedback.isSolutionCorrect ? "default" : "destructive"}>Overall Score: {feedback.overallScore}/100</Badge>
+                                    </CardTitle>
+                                </CardHeader>
+                              <CardContent className="space-y-4">
+                                 <p className="text-sm font-semibold">Overall Summary:</p>
+                                 <p className="text-sm">{feedback.overallFeedback}</p>
+                                 <p className="text-sm font-semibold pt-4 border-t">Step-by-Step Analysis:</p>
+                                 <div className="space-y-2">
+                                    {feedback.stepEvaluations.map((step, index) => (
+                                        <div key={index} className="flex items-start gap-3 text-sm p-2 rounded-md bg-background/50">
+                                            {step.isCorrect ? <CheckCircle className="h-4 w-4 text-primary mt-1 shrink-0" /> : <XCircle className="h-4 w-4 text-destructive mt-1 shrink-0" />}
+                                            <div>
+                                                <p className="font-mono text-xs">{`Step ${index + 1}: ${step.step}`}</p>
+                                                <p className="text-muted-foreground">{step.feedback}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                 </div>
+                              </CardContent>
+                            </Card>
+                         )}
                      </div>
                 )}
             </div>
