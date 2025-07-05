@@ -380,20 +380,18 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
         case 'long_form':
             const lfExercise = exercise as LongFormExercise;
             if (lfExercise.category === 'code') {
-                 return (
-                    <div className="rounded-lg border bg-background overflow-hidden">
-                        <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
-                            <p className="text-sm font-semibold capitalize flex items-center gap-2"><Code className="h-4 w-4" /> {lfExercise.language || 'Code Editor'}</p>
-                        </div>
+                return (
+                    <div className="space-y-4">
                         <CodeEditor
                             value={longFormAnswer}
                             onValueChange={setLongFormAnswer}
                             disabled={isAnswered || isGrading}
                             language={lfExercise.language}
+                            placeholder="Write your code here..."
                         />
-                        <div className="border-t">
+                        <div className="rounded-lg border bg-background overflow-hidden">
                             <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
-                                <div className="flex items-center justify-between p-2 px-4 bg-muted">
+                                <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
                                     <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
                                         <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
                                         <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
