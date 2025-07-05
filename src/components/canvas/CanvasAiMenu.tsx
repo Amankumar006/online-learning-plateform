@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2 } from 'lucide-react';
-import { getSvgAsImage, useEditor } from '@tldraw/tldraw';
+import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -48,18 +48,8 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            const svg = await editor.getSvg(selectedShapes, {
-                scale: 1.5,
-                background: true,
-                padding: 20,
-            });
-
-            if (!svg) {
-                throw new Error("Could not generate an image from the selection.");
-            }
-            
-            const blob = await getSvgAsImage(svg, {
-                type: 'png',
+            const blob = await editor.getSnapshot(selectedShapes, {
+                format: 'png',
                 quality: 1,
                 scale: 2,
             });
