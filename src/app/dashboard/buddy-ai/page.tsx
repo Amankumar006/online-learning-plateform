@@ -211,7 +211,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages.length, isLoading]);
+  }, [activeConversation?.messages?.length, isLoading]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
@@ -236,7 +236,7 @@ export default function BuddyAIPage() {
   }
 
   const handleNewChat = (persona: Persona) => {
-    const newId = `convo_${Date.now()}`;
+    const newId = `convo_${Date.now()}_${Math.random()}`;
     const newConversation: Conversation = {
         id: newId,
         title: "New Chat",
@@ -535,3 +535,5 @@ export default function BuddyAIPage() {
     </div>
   );
 }
+
+    
