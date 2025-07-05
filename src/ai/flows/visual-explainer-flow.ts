@@ -47,13 +47,13 @@ Provide a clear, step-by-step solution formatted as plain text with Markdown for
    Example: "A rectangle has two pairs of equal sides. In this case, we have two sides of 4 cm and two sides of 5 cm."
 
 **2. Use the formula:** State the relevant formula using raw LaTeX syntax.
-   Example: "The perimeter of a rectangle is calculated as: \\\\[P = 2l + 2w\\\\] where \\\\(l\\\\) is the length and \\\\(w\\\\) is the width."
+   Example: "The perimeter of a rectangle is calculated as: \\[P = 2l + 2w\\] where \\(l\\) is the length and \\(w\\) is the width."
 
 **3. Plug in the values:** Show the substitution into the formula.
-   Example: "\\\\[P = 2(5 \\\\text{ cm}) + 2(4 \\\\text{ cm})\\\\]"
+   Example: "\\[P = 2(5 \\text{ cm}) + 2(4 \\text{ cm})\\]"
 
 **4. Calculate:** Show the intermediate and final calculation steps.
-   Example: "\\\\[P = 10 \\\\text{ cm} + 8 \\\\text{ cm}\\\\]\\n\\\\[P = 18 \\\\text{ cm}\\\\]"
+   Example: "\\[P = 10 \\text{ cm} + 8 \\text{ cm}\\]\\n\\[P = 18 \\text{ cm}\\]"
 
 **5. Final Answer:** State the final answer clearly.
    Example: "Therefore, the perimeter of the rectangle is 18 cm."
