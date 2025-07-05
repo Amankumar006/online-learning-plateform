@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useTheme } from 'next-themes'
 import '@tldraw/tldraw/tldraw.css'
 import { Loader2 } from 'lucide-react'
+import { CanvasAiMenu } from '@/components/canvas/CanvasAiMenu'
 
 // A simple skeleton component to show while the heavy canvas is loading.
 function CanvasLoading() {
@@ -33,7 +34,9 @@ export default function CanvasPage() {
             <Tldraw 
                 persistenceKey="adapted-canvas-v1" 
                 theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-            />
+            >
+                <CanvasAiMenu />
+            </Tldraw>
 		</div>
 	)
 }
