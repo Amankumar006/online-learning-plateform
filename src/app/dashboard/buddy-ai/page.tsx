@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Volume2, Pause } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -32,7 +32,6 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getUser, ProactiveSuggestion, clearProactiveSuggestion } from '@/lib/data';
 import { Card } from '@/components/ui/card';
-import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import FormattedContent from '@/components/common/FormattedContent';
 
 interface Message {
@@ -172,10 +171,8 @@ export default function BuddyAIPage() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [audioState, setAudioState] = useState<{ loadingId: string | null; playingId: string | null }>({ loadingId: null, playingId: null });
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   
   const activeConversation = useMemo(() => {
@@ -252,15 +249,6 @@ export default function BuddyAIPage() {
     }
   }, [conversations, user]);
 
-  // Effect to manage audio playback ending
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) {
-        const onEnded = () => setAudioState(prev => ({ ...prev, playingId: null }));
-        audio.addEventListener('ended', onEnded);
-        return () => audio.removeEventListener('ended', onEnded);
-    }
-  }, []);
   
   const handleSelectConversation = (id: string) => {
     setActiveConversationId(id);
@@ -348,28 +336,6 @@ export default function BuddyAIPage() {
     }
   };
 
-  const handleListen = async (messageId: string, text: string) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    
-    if (audioState.playingId === messageId) {
-        audio.pause();
-        setAudioState({ ...audioState, playingId: null });
-        return;
-    }
-
-    setAudioState({ loadingId: messageId, playingId: null });
-    try {
-        const { audioDataUri } = await generateAudioFromText({ text });
-        audio.src = audioDataUri;
-        audio.play();
-        setAudioState({ loadingId: null, playingId: messageId });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'TTS Error', description: 'Could not generate audio.' });
-        setAudioState({ loadingId: null, playingId: null });
-    }
-  };
-  
   const handleRegenerate = async () => {
     if (!activeConversation || !user) return;
 
@@ -486,9 +452,6 @@ export default function BuddyAIPage() {
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
                                             <ThumbsDown className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleListen(String(index), message.content)} disabled={audioState.loadingId === String(index)}>
-                                            {audioState.loadingId === String(index) ? <Loader2 className="h-4 w-4 animate-spin" /> : audioState.playingId === String(index) ? <Pause className="h-4 w-4 text-primary"/> : <Volume2 className="h-4 w-4" />}
-                                        </Button>
                                         {index === activeConversation.messages.length - 1 && (
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
                                                 <RefreshCw className="h-4 w-4" />
@@ -560,9 +523,6 @@ export default function BuddyAIPage() {
               </div>
           </div>
       </div>
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
-
-    
