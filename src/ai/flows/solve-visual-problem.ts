@@ -17,7 +17,7 @@ const SolveVisualProblemInputSchema = z.object({
 export type SolveVisualProblemInput = z.infer<typeof SolveVisualProblemInputSchema>;
 
 const SolveVisualProblemOutputSchema = z.object({
-  explanation: z.string().describe('A clear and concise step-by-step solution to the problem.'),
+  explanation: z.string().describe('A clear and concise step-by-step solution or explanation of the problem.'),
 });
 export type SolveVisualProblemOutput = z.infer<typeof SolveVisualProblemOutputSchema>;
 
@@ -31,37 +31,24 @@ const prompt = ai.definePrompt({
   name: 'solveVisualProblemPrompt',
   input: {schema: SolveVisualProblemInputSchema},
   output: {schema: SolveVisualProblemOutputSchema},
-  prompt: `You are an expert math tutor. Your task is to analyze the provided image of a math problem and provide a clear, step-by-step solution.
+  prompt: `You are a multi-disciplinary AI assistant with expertise in math, science, and computer science. Your task is to analyze an image from a user's canvas and provide a helpful, structured response based on its content.
 
 **Instructions:**
-1.  **Analyze the Image:** Carefully examine the image to understand the question being asked. Identify all given values and the geometric shape.
-2.  **Provide a Step-by-Step Solution:** Structure your answer with clear, numbered steps. Use bold text for headings (e.g., "**1. Identify the sides**").
-3.  **Use Plain Text for Formulas:** Do NOT use LaTeX or any special formatting for equations. Write them out in plain text (e.g., "P = 2l + 2w", "P = 2 * 5 cm + 2 * 4 cm").
-4.  **Be Clear and Concise:** Explain each step simply.
+1.  **Identify the Content Type:** First, determine if the image contains a math problem, a science diagram, a code diagram/flowchart, or a general drawing.
 
-**Example of desired output format:**
+2.  **Provide a Tailored Response:** Based on the content type, provide the following:
+    *   **For Math Problems (e.g., geometry, algebra):** Provide a clear, step-by-step solution. Use plain text for all formulas (e.g., "A = l * w"). Structure your answer with headings like **"Given,"** **"Formula,"** **"Solution,"** and **"Final Answer."**
+    *   **For Science Diagrams (e.g., a plant cell, water cycle):** Identify the key components in the diagram. Then, provide a brief, clear explanation of the biological or scientific process being illustrated. Use headings and bullet points for clarity.
+    *   **For Code Diagrams (e.g., flowcharts, pseudocode):** Explain the logic of the diagram. Describe what the algorithm or process is designed to do. If applicable, you can also suggest a potential improvement or an edge case to consider.
+    *   **For General Drawings or Uncategorized Content:** Provide a concise, objective description of what you see in the image.
 
-**1. Identify the sides**
-The length (l) is 5 cm.
-The width (w) is 4 cm.
-
-**2. State the formula**
-The formula for the perimeter of a rectangle is P = 2l + 2w.
-
-**3. Plug in the values**
-P = 2 * 5 cm + 2 * 4 cm
-
-**4. Calculate**
-P = 10 cm + 8 cm
-P = 18 cm
-
-**Final Answer:** The perimeter of the rectangle is 18 cm.
+3.  **Formatting:** Use simple, clean formatting. Use bold text for headings. Do NOT use LaTeX or complex markdown.
 
 ---
-**Problem to Solve:**
+**Image to Analyze:**
 {{media url=imageDataUri}}
 
-Respond with the solution in a single block of formatted plain text.
+Respond with your analysis in a single block of formatted plain text.
 `,
 });
 
