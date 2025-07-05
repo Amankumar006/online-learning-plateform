@@ -41,10 +41,12 @@ const createExerciseTool = ai.defineTool(
         inputSchema: z.object({ prompt: z.string().describe("The user's specific request for an exercise, e.g., 'a medium-difficulty question about javascript arrays'.") }),
         outputSchema: z.string(),
     },
-    async ({ prompt }, {auth}) => {
+    async (input, context) => {
+        const auth = context?.auth;
         if (!auth || !auth.uid) {
             return "I can't create an exercise because I don't know who you are. Please make sure you are logged in.";
         }
+        const { prompt } = input;
         const exercise = await generateCustomExercise({ prompt });
         
         let exerciseData: Omit<Exercise, 'id'>;
@@ -72,8 +74,9 @@ const suggestTopicsTool = ai.defineTool(
         inputSchema: z.object({}), // No specific input needed from AI
         outputSchema: z.string(),
     },
-    async (_, {auth}) => {
-         if (!auth || !auth.uid) {
+    async (_, context) => {
+        const auth = context?.auth;
+        if (!auth || !auth.uid) {
             return "I can't suggest topics without knowing your progress. Please make sure you are logged in.";
         }
         const [user, lessonsData] = await Promise.all([
