@@ -22,11 +22,7 @@ export type CanvasMathOutput = z.infer<typeof CanvasMathOutputSchema>;
 export async function canvasMathFlow(
   input: CanvasMathInput
 ): Promise<CanvasMathOutput> {
-  const result = await mathPrompt(input);
-  if (!result.output) {
-      throw new Error('The AI was unable to convert your speech to LaTeX.');
-  }
-  return result.output;
+  return canvasMathGenkitFlow(input);
 }
 
 const mathPrompt = ai.definePrompt({
@@ -41,3 +37,18 @@ const mathPrompt = ai.definePrompt({
 Query: "{{{query}}}"
 `,
 });
+
+const canvasMathGenkitFlow = ai.defineFlow(
+  {
+    name: 'canvasMathFlow',
+    inputSchema: CanvasMathInputSchema,
+    outputSchema: CanvasMathOutputSchema,
+  },
+  async input => {
+    const {output} = await mathPrompt(input);
+    if (!output) {
+      throw new Error('The AI was unable to convert your speech to LaTeX.');
+    }
+    return output;
+  }
+);
