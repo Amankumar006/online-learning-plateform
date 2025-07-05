@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -14,14 +15,23 @@ import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/s
 import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Terminal, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import CodeEditor from "@/components/lessons/code-editor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MathSolutionGrader from "./math-solution-grader";
 import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
+import { Skeleton } from "../ui/skeleton";
+
+const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+});
+
+const MathSolutionGrader = dynamic(() => import("./math-solution-grader"), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[550px] rounded-md" />,
+});
 
 
 interface SingleExerciseSolverProps {
