@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MathSolutionGrader from "./math-solution-grader";
+import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
 
 
 interface SingleExerciseSolverProps {
@@ -180,7 +181,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
-  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
+  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | GradeMathSolutionOutput | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
   const [activeOutputTab, setActiveOutputTab] = useState("console");
@@ -207,15 +208,14 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             // This is tricky because the feedback structure is different.
             // For now, we only re-populate the math grader if the feedback is in the new format.
             if (typeof initialResponse.feedback === 'object' && initialResponse.feedback !== null && 'overallScore' in initialResponse.feedback) {
-                setFeedback(initialResponse.feedback as GradeLongFormAnswerOutput);
+                setFeedback(initialResponse.feedback as GradeMathSolutionOutput);
             } else if (typeof initialResponse.feedback === 'string') {
                  // Handle old string feedback for general long-form
                  setFeedback({
                     isCorrect: initialResponse.isCorrect,
                     score: initialResponse.score,
                     feedback: initialResponse.feedback,
-                    stepEvaluations: [],
-                } as any);
+                } as GradeLongFormAnswerOutput);
             }
         }
       } else if (exercise.type === 'true_false') {
@@ -252,12 +252,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                 studentAnswer: longFormAnswer,
                 imageDataUri: imageDataUri || undefined,
             });
-            aiFeedback = {
-                isCorrect: result.isCorrect,
-                score: result.score,
-                feedback: result.feedback,
-                stepEvaluations: [],
-            } as any;
+            aiFeedback = result;
             setFeedback(aiFeedback);
             correct = result.isCorrect;
             score = result.score;
@@ -294,7 +289,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
             submittedAnswer,
             correct,
             score,
-            aiFeedback || aiFeedback?.feedback,
+            aiFeedback?.feedback,
             imageDataUri
         );
          if (exercise.type !== 'long_form') {
@@ -306,7 +301,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
     }
   };
 
-  const handleMathGraded = async (result: GradeLongFormAnswerOutput, studentSolution: string) => {
+  const handleMathGraded = async (result: GradeMathSolutionOutput, studentSolution: string) => {
     setFeedback(result);
     setIsAnswered(true);
     setIsCorrect(result.isSolutionCorrect);
@@ -429,7 +424,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                         exercise={lfExercise} 
                         onGraded={handleMathGraded} 
                         isAnswered={isAnswered}
-                        initialFeedback={feedback || undefined}
+                        initialFeedback={feedback as GradeMathSolutionOutput || undefined}
                         initialSolution={longFormAnswer}
                     />
                 );
@@ -470,7 +465,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, initi
                                 <CardContent><p className="text-sm">{exercise.explanation}</p></CardContent>
                             </Card>
                         )}
-                        {feedback && exercise.category !== 'math' && (
+                        {feedback && 'feedback' in feedback && (
                              <Card className={cn(feedback.isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
                                 <CardHeader><CardTitle className="text-base flex items-center justify-between gap-2"><span>{feedback.isCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />} AI Feedback</span><Badge variant={feedback.isCorrect ? "default" : "destructive"}>Score: {feedback.score}/100</Badge></CardTitle></CardHeader>
                                 <CardContent><p className="text-sm whitespace-pre-wrap">{feedback.feedback}</p></CardContent>
