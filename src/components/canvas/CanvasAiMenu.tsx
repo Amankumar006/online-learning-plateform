@@ -11,18 +11,6 @@ import Link from "next/link";
 import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
 
 /**
- * A utility function to convert a Blob to a data URL string.
- */
-const blobToDataUrl = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-};
-
-/**
  * A menu for AI-powered actions within the tldraw canvas.
  * It sits at the top of the screen and provides placeholder buttons for future features.
  */
@@ -48,17 +36,16 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            const blob = await editor.getSnapshot(selectedShapes, {
+            // The getSnapshot method returns a data URL string directly when format is 'png'.
+            const imageDataUri = await editor.getSnapshot(selectedShapes, {
                 format: 'png',
                 quality: 1,
                 scale: 2,
             });
 
-             if (!blob) {
-                throw new Error("Could not convert the selection to a PNG image.");
+             if (!imageDataUri || typeof imageDataUri !== 'string') {
+                throw new Error("Could not generate an image from the selection.");
             }
-            
-            const imageDataUri = await blobToDataUrl(blob);
             
             const result = await explainVisualSelection({ imageDataUri });
             
