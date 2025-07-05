@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,7 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
                 reject(new Error('Could not get canvas 2D context.'));
             }
         };
-        img.onerror = () => {
+        img.onerror = (e) => {
             URL.revokeObjectURL(url);
             reject(new Error('Failed to load the SVG into an image element for conversion.'));
         };
@@ -99,7 +98,7 @@ export function CanvasAiMenu() {
                         text: result.explanation,
                         size: 'm',
                         w: 350,
-                        align: 'start',
+                        textAlign: 'start',
                         font: 'sans'
                     }
                 });
