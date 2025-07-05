@@ -127,7 +127,7 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
   );
 };
 
-const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
+const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean, onApplySuggestion: (code: string) => void }) => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
@@ -155,14 +155,41 @@ const AiAnalysisOutput = ({ result, isLoading }: { result: SimulateCodeExecution
                         </div>
                     </CardContent>
                 </Card>
+
                 <Card className="bg-background/50 border-border/50">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Code Analysis</CardTitle>
+                        <CardTitle className="text-base">Code Analysis Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm whitespace-pre-wrap">{result.analysis}</p>
+                        <p className="text-sm whitespace-pre-wrap">{result.analysis.summary}</p>
                     </CardContent>
                 </Card>
+
+                {result.analysis.suggestions && result.analysis.suggestions.length > 0 && (
+                     <Card className="bg-background/50 border-border/50">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Suggestions</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {result.analysis.suggestions.map((suggestion, index) => (
+                                <div key={index} className="border-t pt-4 first:border-t-0 first:pt-0">
+                                    <p className="text-sm font-semibold">{suggestion.suggestion} (Line {suggestion.lineNumber})</p>
+                                    <div className="my-2 not-prose">
+                                        <div className="flex justify-between items-center bg-muted rounded-t-lg px-4 py-1">
+                                            <span className="text-xs font-semibold">Suggested Code</span>
+                                            <Button variant="ghost" size="sm" className="h-7" onClick={() => onApplySuggestion(suggestion.code)}>
+                                                Apply
+                                            </Button>
+                                        </div>
+                                        <div className="bg-background border rounded-b-lg p-2 overflow-x-auto font-mono text-xs">
+                                            <pre><code>{suggestion.code}</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         )
     }
@@ -206,12 +233,9 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
         setLongFormAnswer(initialResponse.submittedAnswer as string);
         setImageDataUri(initialResponse.imageDataUri || null);
         if (initialResponse.feedback) {
-            // This is tricky because the feedback structure is different.
-            // For now, we only re-populate the math grader if the feedback is in the new format.
             if (typeof initialResponse.feedback === 'object' && initialResponse.feedback !== null && 'overallScore' in initialResponse.feedback) {
                 setFeedback(initialResponse.feedback as GradeMathSolutionOutput);
             } else if (typeof initialResponse.feedback === 'string') {
-                 // Handle old string feedback for general long-form
                  setFeedback({
                     isCorrect: initialResponse.isCorrect,
                     score: initialResponse.score,
@@ -350,6 +374,14 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     }
   };
 
+  const handleApplySuggestion = (code: string) => {
+      setLongFormAnswer(code);
+      toast({
+          title: "Suggestion Applied!",
+          description: "The code in the editor has been updated.",
+      });
+  };
+
 
   const renderAnswerArea = () => {
     switch (exercise.type) {
@@ -407,7 +439,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                                     <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
                                 </TabsContent>
                                 <TabsContent value="analysis" className="mt-0">
-                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} />
+                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} />
                                 </TabsContent>
                             </Tabs>
                         </div>
