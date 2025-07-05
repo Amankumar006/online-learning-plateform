@@ -251,7 +251,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
                 alt={lesson.title}
                 width={800}
                 height={450}
-                data-ai-hint={`${lesson.subject.toLowerCase()} education`}
                 className="rounded-lg object-cover w-full aspect-video"
             />
             </div>

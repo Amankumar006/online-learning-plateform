@@ -116,7 +116,6 @@ export default function LessonsPage() {
                             width="600"
                             height="400"
                             alt={lesson.title}
-                            data-ai-hint={`${lesson.subject.toLowerCase()} learning`}
                             className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         </Link>
