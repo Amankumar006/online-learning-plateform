@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase, Menu, ThumbsUp, ThumbsDown, Volume2, Pause } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase, Menu, ThumbsUp, ThumbsDown, Volume2, Pause, Pen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,6 +32,7 @@ import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import FormattedContent from '@/components/common/FormattedContent';
+import Link from 'next/link';
 
 interface Message {
     role: 'user' | 'model';
@@ -195,20 +195,21 @@ export default function BuddyAIPage() {
             let parsedConvos: Conversation[] = [];
             try {
                 parsedConvos = JSON.parse(savedConvos);
+                 // Sanitize data right after parsing
+                const sanitizedConvos = parsedConvos.map(convo => ({
+                    ...convo,
+                    messages: convo.messages || [], // Ensure messages array exists
+                }));
+
+                if (Array.isArray(sanitizedConvos) && sanitizedConvos.length > 0) {
+                    setConversations(sanitizedConvos);
+                    setActiveConversationId(sanitizedConvos[0].id);
+                    return;
+                }
+
             } catch (e) {
                 console.error("Failed to parse conversations from localStorage", e);
                 localStorage.removeItem(`conversations_${currentUser.uid}`); // Clear corrupted data
-            }
-
-            if (Array.isArray(parsedConvos) && parsedConvos.length > 0) {
-                // Ensure data integrity, especially that 'messages' is always an array
-                const sanitizedConvos = parsedConvos.map(convo => ({
-                    ...convo,
-                    messages: convo.messages || [],
-                }));
-                setConversations(sanitizedConvos);
-                setActiveConversationId(sanitizedConvos[0].id);
-                return;
             }
         }
         handleNewChat('buddy');
@@ -223,7 +224,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages, isLoading]);
+  }, [activeConversation?.messages]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
@@ -444,7 +445,7 @@ export default function BuddyAIPage() {
         
         {/* Message List */}
         <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
-              {activeConversation && activeConversation.messages && activeConversation.messages.length > 0 ? (
+              {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => (
                           <div key={index} className="group flex items-start gap-4">
@@ -521,6 +522,11 @@ export default function BuddyAIPage() {
           {/* Input Box */}
           <div className="shrink-0 p-4 bg-background border-t">
               <div className="relative mx-auto max-w-3xl">
+                  <div className="text-center mb-2">
+                    <Button variant="link" asChild className="text-muted-foreground">
+                      <Link href="/dashboard/canvas"><Pen className="mr-2 h-4 w-4"/> Switch to Canvas Mode</Link>
+                    </Button>
+                  </div>
                   <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}

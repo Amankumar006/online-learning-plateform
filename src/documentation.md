@@ -59,23 +59,17 @@ Component interaction occurs at several levels:
 -   **Adaptive Exercises:** The platform provides adaptive exercises (`/dashboard/practice/[id]`) that may adjust difficulty or type based on user performance. This likely involves fetching exercise data from Firestore and submitting user answers for evaluation.
 -   **Progress Tracking:** User activity and performance on lessons and exercises are tracked and visualized (`/dashboard/progress`). This data is stored in Firestore and potentially aggregated or analyzed in the backend.
 -   **AI Study Buddy:** An AI-powered chat interface (`src/components/lessons/ai-buddy.tsx`, powered by Genkit flows in `/src/ai/flows/chat-with-ai-buddy.ts`) allows users to ask questions and receive assistance.
--   **Content Generation (Admin):** The admin interface includes features for generating lesson content, exercises, or images using AI flows (e.g., `/src/ai/flows/generate-lesson-content.ts`, `/src/ai/flows/generate-custom-exercise.ts`, `/src/ai/flows/generate-lesson-image.ts`).
+-   **Content Generation (Admin):** The admin interface includes a unified, tab-based page for generating exercises. Admins can either generate a set of exercises based on an existing lesson or generate a single, custom exercise from a detailed text prompt. This is powered by AI flows (`/src/ai/flows/generate-lesson-content.ts`, `/src/ai/flows/generate-custom-exercise.ts`, `/src/ai/flows/generate-lesson-image.ts`).
 -   **Code Execution Simulation:** A feature to simulate code execution (`src/components/lessons/code-editor.tsx`, potentially using a backend service or AI tool like `/src/ai/flows/simulate-code-execution.ts`).
 -   **Long Form Answer Grading:** An AI flow (`/src/ai/flows/grade-long-form-answer.ts`) is used to grade open-ended text responses.
--   **Lesson Request Workflow:**
-    -   **User Side:** Users can submit a request for a new lesson once per week via a form on the lessons page. A timestamp (`lastLessonRequestAt`) on the user's document in Firestore enforces this limit.
-    -   **Data Storage:** New requests are stored in a `lessonRequests` collection in Firestore with a `pending` status.
-    -   **Admin Side:** The admin dashboard displays all pending lesson requests. Admins can review the details of each request.
-    -   **Approval and Generation:** Upon approval by an admin, an AI workflow is triggered which uses the request details to generate the lesson content and a relevant image. The new lesson is then created and becomes publicly available. The request's status is updated to `approved`.
--   **Announcement System:** Admins can send custom announcements from their dashboard. These announcements appear in a notification center for all users. The system supports different types of announcements (e.g., "New Feature", "General Update") and can be configured to send emails via the "Trigger Email" Firebase Extension.
 
 ## 6. Data Flow
 
 -   **User Authentication:** User credentials from the frontend are sent to Firebase Authentication for verification. Upon successful authentication, Firebase provides a user object and token to the frontend.
 -   **Data Fetching (Frontend):** The frontend fetches data for the dashboard, lessons, and exercises by making requests to the backend API or directly querying Firestore collections using the Firebase SDK. Firestore's real-time capabilities can update the frontend automatically when data changes on the backend.
--   **Data Submission (Frontend):** User input from exercises, profile updates, or AI chat is sent from the frontend to the backend API or directly written to Firestore (depending on the sensitivity and complexity of the operation). Lesson requests are submitted via a dedicated form and stored in the `lessonRequests` collection.
+-   **Data Submission (Frontend):** User input from exercises, profile updates, or AI chat is sent from the frontend to the backend API or directly written to Firestore (depending on the sensitivity and complexity of the operation).
 -   **Backend Processing:** The Node.js backend receives data from the frontend, performs validation, applies business logic, and interacts with Firestore and Firebase Storage. For AI-related requests, the backend triggers the appropriate Genkit flows.
--   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`, `lessonRequests`, `announcements`, `emailQueue`).
+-   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`).
 -   **Firebase Storage Interactions:** The backend handles file uploads (e.g., exercise images) to Firebase Storage. The frontend receives signed URLs from the backend to display or interact with these files.
 -   **AI Data Flow:** When an AI flow is triggered from the backend, Genkit orchestrates the interaction with Google AI services. Input data from the frontend or backend is passed to the AI model, and the generated output is returned to the backend, which then sends it back to the frontend.
 
@@ -83,7 +77,7 @@ Component interaction occurs at several levels:
 
 -   **Firebase Authentication:** Secures user accounts and prevents unauthorized access to user-specific data.
 -   **Firestore Security Rules:** Fine-grained access control is enforced using Firestore Security Rules, which define who can read, write, and delete data in specific collections and documents based on authentication status, user ID, and data content. The `firestore.rules` file defines these rules.
--   **Backend Validation:** Server-side validation in the Node.js backend is crucial to ensure data integrity and prevent malicious data from being written to the database, even if frontend validation is bypassed. This includes checks like the weekly limit on lesson requests.
+-   **Backend Validation:** Server-side validation in the Node.js backend is crucial to ensure data integrity and prevent malicious data from being written to the database, even if frontend validation is bypassed.
 -   **Firebase Admin SDK Privileges:** The Firebase Admin SDK used in the backend has elevated privileges. It's essential to ensure that backend endpoints are properly secured and only expose necessary functionality to authenticated and authorized users.
 -   **API Security:** Backend API endpoints should be protected to prevent unauthorized access and potential abuse. This involves verifying user authentication tokens and implementing rate limiting where necessary.
 -   **Firebase Storage Security Rules:** Similar to Firestore, Firebase Storage uses security rules to control access to uploaded files.
@@ -111,8 +105,7 @@ The deployment process likely involves:
 -   **Internal REST APIs:** The project utilizes internal RESTful APIs exposed by the Node.js backend. These APIs are used by the frontend to interact with the backend logic, data processing, and AI functionalities. Examples might include endpoints for fetching lesson data, submitting exercise answers, or triggering AI flows.
 -   **Google AI Integration (via Genkit):** The primary external integration is with Google AI services (likely using models like Gemini) through the Genkit framework. This enables features like AI chat, content generation, and grading.
 -   **Firebase SDKs:** While used for interaction, the Firebase SDKs themselves represent an integration with the Firebase platform's various services.
--   **Email (via Trigger Email Extension):** The application is configured to queue emails in a Firestore collection named `emailQueue`. To enable sending, the "Trigger Email" Firebase extension must be installed and configured. See the detailed [Email Setup Guide](../email-setup.md) for instructions.
--   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as payment gateways or analytics platforms.
+-   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as email services, payment gateways, or analytics platforms.
 
 ## 11. Authentication
 

@@ -1,8 +1,7 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,38 +11,55 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { createExercise, getLessons, Lesson, getLesson, Exercise, createSystemAnnouncement } from "@/lib/data";
 import { generateExercise, GeneratedExercise } from "@/ai/flows/generate-exercise";
+import { generateCustomExercise } from "@/ai/flows/generate-custom-exercise";
 import { Loader2, Sparkles, Wand2, BrainCircuit } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function NewExercisePage() {
+function NewExerciseContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [selectedLessonId, setSelectedLessonId] = useState("");
   const [generatedExercises, setGeneratedExercises] = useState<GeneratedExercise[]>([]);
-  
-  // Question counts
+
+  // Tab state
+  const defaultTab = searchParams.get("tab") || "lesson";
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  // "From Lesson" tab state
+  const [selectedLessonId, setSelectedLessonId] = useState("");
   const [mcqCount, setMcqCount] = useState(2);
   const [trueFalseCount, setTrueFalseCount] = useState(1);
   const [longFormCount, setLongFormCount] = useState(0);
   const [fillInTheBlanksCount, setFillInTheBlanksCount] = useState(2);
 
+  // "Custom" tab state
+  const [prompt, setPrompt] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
+  const [curriculumBoard, setCurriculumBoard] = useState("");
+  const [difficulty, setDifficulty] = useState<number | undefined>();
+  const [questionType, setQuestionType] = useState("any");
+  const [customLinkLessonId, setCustomLinkLessonId] = useState("");
 
   useEffect(() => {
     const fetchLessons = async () => {
-        const lessonsData = await getLessons();
-        setLessons(lessonsData);
-    }
+      const lessonsData = await getLessons();
+      setLessons(lessonsData);
+    };
     fetchLessons();
   }, []);
 
   const totalQuestions = mcqCount + trueFalseCount + longFormCount + fillInTheBlanksCount;
 
-  const handleGenerateExercises = async () => {
+  const handleGenerateFromLesson = async () => {
     if (!selectedLessonId) {
         toast({ variant: "destructive", title: "Error", description: "Please select a lesson first." });
         return;
@@ -59,7 +75,6 @@ export default function NewExercisePage() {
         const lesson = await getLesson(selectedLessonId);
         if (!lesson) {
             toast({ variant: "destructive", title: "Error", description: "Could not load lesson content." });
-            setIsGenerating(false);
             return;
         }
 
@@ -69,7 +84,6 @@ export default function NewExercisePage() {
 
         if (!lessonContent || !lessonContent.trim() || lessonContent === "No text content available.") {
             toast({ variant: "destructive", title: "Error", description: "This lesson has no text content to generate exercises from." });
-            setIsGenerating(false);
             return;
         }
 
@@ -95,80 +109,86 @@ export default function NewExercisePage() {
     }
   };
 
+  const handleGenerateCustom = async () => {
+    if (!prompt.trim()) {
+      toast({ variant: "destructive", title: "Error", description: "Please enter a prompt for the AI." });
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratedExercises([]);
+    try {
+      const generatedExercise = await generateCustomExercise({
+        prompt,
+        gradeLevel,
+        ageGroup,
+        curriculumBoard,
+        difficulty,
+        questionType: questionType as any,
+      });
+      setGeneratedExercises([generatedExercise]);
+      toast({ title: "Exercise Generated!", description: "Review the exercise below. You can regenerate or save it." });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "AI Error", description: e.message || "Failed to generate exercise." });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-
     if (generatedExercises.length === 0) {
-        toast({ variant: "destructive", title: "Error", description: "Please generate exercises before saving." });
-        setIsSaving(false);
+      toast({ variant: "destructive", title: "Error", description: "Please generate exercises before saving." });
+      return;
+    }
+    
+    const finalLessonId = activeTab === 'lesson' ? selectedLessonId : customLinkLessonId;
+    if (!finalLessonId) {
+        toast({ variant: "destructive", title: "Error", description: "Please select a lesson to associate this exercise with." });
         return;
     }
-
+    
+    setIsSaving(true);
     try {
       const exercisePromises = generatedExercises.map(ex => {
         let exerciseData: Omit<Exercise, 'id'>;
         switch (ex.type) {
-            case 'mcq':
-            case 'true_false':
-                exerciseData = {
-                    ...ex,
-                    correctAnswer: String(ex.correctAnswer),
-                    lessonId: selectedLessonId,
-                    isCustom: false,
-                };
-                break;
-            case 'long_form':
-            case 'fill_in_the_blanks':
-                exerciseData = {
-                    ...ex,
-                    lessonId: selectedLessonId,
-                    isCustom: false,
-                };
-                break;
-            default:
-                // This should not happen with validated data from the AI
-                throw new Error("Unsupported exercise type");
+          case 'mcq':
+          case 'true_false':
+            exerciseData = { ...ex, correctAnswer: String(ex.correctAnswer), lessonId: finalLessonId, isCustom: false };
+            break;
+          case 'long_form':
+          case 'fill_in_the_blanks':
+            exerciseData = { ...ex, lessonId: finalLessonId, isCustom: false };
+            break;
+          default:
+            throw new Error("Unsupported exercise type");
         }
         return createExercise(exerciseData);
       });
       
       await Promise.all(exercisePromises);
 
-      const lesson = lessons.find(l => l.id === selectedLessonId);
+      const lesson = lessons.find(l => l.id === finalLessonId);
       if (lesson) {
           await createSystemAnnouncement({
               type: 'new_exercise',
               title: `New Exercises for "${lesson.title}"`,
               message: `New practice questions are available for one of your lessons.`,
-              link: `/dashboard/lessons/${selectedLessonId}`
+              link: `/dashboard/lessons/${finalLessonId}`
           });
       }
 
-      toast({
-        title: "Success!",
-        description: "New exercise set has been created.",
-      });
+      toast({ title: "Success!", description: "New exercise set has been created." });
       router.push("/admin/exercises");
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create the exercise set.",
-      });
+      toast({ variant: "destructive", title: "Error", description: "Failed to create the exercise set." });
       setIsSaving(false);
     }
   };
 
-  const breadcrumbItems = [
-    { href: "/admin/dashboard", label: "Dashboard" },
-    { href: "/admin/exercises", label: "Exercises" },
-    { href: "/admin/exercises/new", label: "New Set" },
-  ];
-  
   const getDifficultyBadge = (level: number) => {
     switch (level) {
         case 1: return <Badge variant="secondary">Easy</Badge>;
@@ -176,124 +196,113 @@ export default function NewExercisePage() {
         case 3: return <Badge variant="default">Hard</Badge>;
         default: return <Badge variant="secondary">N/A</Badge>;
     }
-  }
+  };
+
+  const breadcrumbItems = [
+    { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/exercises", label: "Exercises" },
+    { href: "/admin/exercises/new", label: "New Exercise" },
+  ];
 
   return (
     <div>
-        <Breadcrumb items={breadcrumbItems} />
-        <form onSubmit={handleSubmit}>
+      <Breadcrumb items={breadcrumbItems} />
+      <form onSubmit={handleSubmit}>
         <Card>
-            <CardHeader>
-            <CardTitle>Create New Exercise Set</CardTitle>
-            <CardDescription>Select a lesson, specify the number of questions for each type, and use AI to generate a varied set of exercises.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <CardHeader>
+            <CardTitle>Create New Exercise(s)</CardTitle>
+            <CardDescription>Use AI to generate a varied set of exercises from lesson content or a custom prompt.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="lesson">Generate from Lesson</TabsTrigger>
+                    <TabsTrigger value="custom">Generate Custom</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="lesson" className="mt-6">
+                    <Alert>
+                        <Sparkles className="h-4 w-4" />
+                        <AlertTitle>AI Exercise Set Generator</AlertTitle>
+                        <AlertDescription className="mb-4">Select a lesson and customize how many questions of each type you want the AI to generate.</AlertDescription>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className="space-y-2"><Label htmlFor="mcq-count">Multiple-Choice</Label><Input id="mcq-count" type="number" value={mcqCount} onChange={(e) => setMcqCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
+                                <div className="space-y-2"><Label htmlFor="tf-count">True / False</Label><Input id="tf-count" type="number" value={trueFalseCount} onChange={(e) => setTrueFalseCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
+                                <div className="space-y-2"><Label htmlFor="fib-count">Fill In Blanks</Label><Input id="fib-count" type="number" value={fillInTheBlanksCount} onChange={(e) => setFillInTheBlanksCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
+                                <div className="space-y-2"><Label htmlFor="lf-count">Long Form</Label><Input id="lf-count" type="number" value={longFormCount} onChange={(e) => setLongFormCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                                <div className="space-y-2 flex-grow"><Label htmlFor="lessonId" className="sr-only">Link to Lesson</Label><Select onValueChange={setSelectedLessonId} value={selectedLessonId}><SelectTrigger id="lessonId"><SelectValue placeholder="Select a lesson to generate exercises from" /></SelectTrigger><SelectContent>{lessons.map(lesson => <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>)}</SelectContent></Select></div>
+                                <Button type="button" variant="outline" onClick={handleGenerateFromLesson} disabled={isGenerating || !selectedLessonId || totalQuestions === 0} className="shrink-0">{isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} Generate Exercise Set</Button>
+                            </div>
+                        </div>
+                    </Alert>
+                </TabsContent>
 
-            <Alert>
-                <Sparkles className="h-4 w-4" />
-                <AlertTitle>AI Exercise Generator</AlertTitle>
-                <AlertDescription className="mb-4">
-                    Select a lesson and customize how many questions of each type you want the AI to generate. The AI will use the lesson's context (grade, curriculum, etc.) to create appropriate questions.
-                </AlertDescription>
-                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="mcq-count">Multiple-Choice</Label>
-                            <Input id="mcq-count" type="number" value={mcqCount} onChange={(e) => setMcqCount(Math.max(0, Number(e.target.value)))} min="0" />
+                <TabsContent value="custom" className="mt-6">
+                    <Alert>
+                        <Sparkles className="h-4 w-4" />
+                        <AlertTitle>AI Custom Exercise Generator</AlertTitle>
+                        <AlertDescription className="mb-4">Write a prompt for the AI. For best results, provide as much context as possible below.</AlertDescription>
+                        <div className="space-y-4">
+                            <div className="space-y-2"><Label htmlFor="ai-prompt">Admin Prompt</Label><Textarea id="ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., 'An MCQ about the causes of the French Revolution for 9th grade ICSE students' or 'A hard Python coding problem involving recursion...'" className="min-h-[100px]" disabled={isGenerating} /></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="space-y-2"><Label htmlFor="gradeLevel">Grade Level</Label><Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" disabled={isGenerating}/></div>
+                                <div className="space-y-2"><Label htmlFor="ageGroup">Age Group</Label><Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" disabled={isGenerating}/></div>
+                                <div className="space-y-2"><Label htmlFor="curriculumBoard">Curriculum</Label><Input id="curriculumBoard" value={curriculumBoard} onChange={(e) => setCurriculumBoard(e.target.value)} placeholder="e.g., CBSE" disabled={isGenerating}/></div>
+                                <div className="space-y-2"><Label htmlFor="difficulty">Difficulty</Label><Select onValueChange={(v) => setDifficulty(Number(v))} value={String(difficulty)} disabled={isGenerating}><SelectTrigger><SelectValue placeholder="Select Difficulty" /></SelectTrigger><SelectContent><SelectItem value="1">Easy</SelectItem><SelectItem value="2">Medium</SelectItem><SelectItem value="3">Hard</SelectItem></SelectContent></Select></div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                                <div className="space-y-2 flex-grow"><Label htmlFor="questionType">Question Type</Label><Select onValueChange={setQuestionType} value={questionType} disabled={isGenerating}><SelectTrigger id="questionType"><SelectValue placeholder="Select question type" /></SelectTrigger><SelectContent><SelectItem value="any">Any (AI Decides)</SelectItem><SelectItem value="mcq">Multiple-Choice</SelectItem><SelectItem value="true_false">True/False</SelectItem><SelectItem value="long_form">Long Form</SelectItem><SelectItem value="fill_in_the_blanks">Fill in the Blanks</SelectItem></SelectContent></Select></div>
+                                <div className="flex-shrink-0 self-end"><Button type="button" variant="outline" onClick={handleGenerateCustom} disabled={isGenerating || !prompt.trim()}>{isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} Generate Exercise</Button></div>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="tf-count">True / False</Label>
-                            <Input id="tf-count" type="number" value={trueFalseCount} onChange={(e) => setTrueFalseCount(Math.max(0, Number(e.target.value)))} min="0" />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="fib-count">Fill In Blanks</Label>
-                            <Input id="fib-count" type="number" value={fillInTheBlanksCount} onChange={(e) => setFillInTheBlanksCount(Math.max(0, Number(e.target.value)))} min="0" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="lf-count">Long Form</Label>
-                            <Input id="lf-count" type="number" value={longFormCount} onChange={(e) => setLongFormCount(Math.max(0, Number(e.target.value)))} min="0" />
-                        </div>
-                    </div>
+                    </Alert>
+                </TabsContent>
+            </Tabs>
 
-                    <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                        <div className="space-y-2 flex-grow">
-                            <Label htmlFor="lessonId" className="sr-only">Link to Lesson</Label>
-                            <Select onValueChange={setSelectedLessonId} value={selectedLessonId}>
-                                <SelectTrigger id="lessonId"><SelectValue placeholder="Select a lesson to generate exercises from" /></SelectTrigger>
-                                <SelectContent>
-                                    {lessons.map(lesson => <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button type="button" variant="outline" onClick={handleGenerateExercises} disabled={isGenerating || !selectedLessonId || totalQuestions === 0} className="shrink-0">
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Generate Exercise Set
-                        </Button>
-                    </div>
+            <div className="space-y-4 pt-6 mt-6 border-t">
+              <h3 className="text-lg font-medium flex items-center gap-2"><BrainCircuit className="h-5 w-5" /> Generated Exercises Preview</h3>
+              {isGenerating && <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+              
+              {generatedExercises.length > 0 && (
+                <div className="space-y-4">
+                  {activeTab === 'custom' && <div className="space-y-2"><Label htmlFor="custom-link-lesson">Link to Lesson</Label><Select onValueChange={setCustomLinkLessonId} value={customLinkLessonId}><SelectTrigger id="custom-link-lesson"><SelectValue placeholder="Select a lesson to associate this exercise with" /></SelectTrigger><SelectContent>{lessons.map(lesson => <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>)}</SelectContent></Select></div>}
+                  {generatedExercises.map((ex, index) => (
+                    <Card key={index} className="bg-secondary/30">
+                      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
+                        <div className="flex-1"><CardDescription>Question {index + 1}</CardDescription><CardTitle className="text-base font-normal">{ex.type === 'fill_in_the_blanks' ? ex.questionParts.join(' ___ ') : (ex as any).question}</CardTitle></div>
+                        <div className="flex gap-2 shrink-0">{getDifficultyBadge(ex.difficulty)}<Badge variant="default" className="capitalize">{ex.type.replace(/_/g, ' ')}</Badge></div>
+                      </CardHeader>
+                      <CardContent>
+                        {ex.type === 'mcq' && <ul className="text-sm text-muted-foreground list-disc pl-5">{ex.options.map(opt => <li key={opt} className={ex.correctAnswer === opt ? 'font-semibold text-primary' : ''}>{opt}</li>)}</ul>}
+                        {ex.type === 'true_false' && <p className="text-sm text-muted-foreground">Correct Answer: <span className="font-semibold text-primary">{String(ex.correctAnswer)}</span></p>}
+                        {ex.type === 'fill_in_the_blanks' && <p className="text-sm text-muted-foreground">Correct Answers: <span className="font-semibold text-primary">{ex.correctAnswers.join(', ')}</span></p>}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-            </Alert>
-
-            <div className="space-y-4 pt-6 border-t">
-                <h3 className="text-lg font-medium flex items-center gap-2">
-                    <BrainCircuit className="h-5 w-5" />
-                    Generated Exercises
-                </h3>
-                {isGenerating && <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
-
-                {generatedExercises.length > 0 && (
-                    <div className="space-y-4">
-                        {generatedExercises.map((ex, index) => (
-                            <Card key={index} className="bg-secondary/30">
-                                <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
-                                    <div className="flex-1">
-                                        <CardDescription>Question {index + 1}</CardDescription>
-                                        <CardTitle className="text-base font-normal">
-                                            {ex.type === 'fill_in_the_blanks' ? ex.questionParts.join(' ___ ') : (ex as any).question}
-                                        </CardTitle>
-                                    </div>
-                                    <div className="flex gap-2 shrink-0">
-                                        {getDifficultyBadge(ex.difficulty)}
-                                        <Badge variant="default" className="capitalize">{ex.type.replace(/_/g, ' ')}</Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    {ex.type === 'mcq' && (
-                                        <ul className="text-sm text-muted-foreground list-disc pl-5">
-                                            {ex.options.map(opt => <li key={opt} className={ex.correctAnswer === opt ? 'font-semibold text-primary' : ''}>{opt}</li>)}
-                                        </ul>
-                                    )}
-                                    {ex.type === 'true_false' && (
-                                        <p className="text-sm text-muted-foreground">Correct Answer: <span className="font-semibold text-primary">{String(ex.correctAnswer)}</span></p>
-                                    )}
-                                     {ex.type === 'fill_in_the_blanks' && (
-                                        <p className="text-sm text-muted-foreground">Correct Answers: <span className="font-semibold text-primary">{ex.correctAnswers.join(', ')}</span></p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-
-                 {!isGenerating && generatedExercises.length === 0 && (
-                     <div className="text-center text-muted-foreground py-8">
-                        Exercises will appear here after generation.
-                    </div>
-                 )}
+              )}
+              {!isGenerating && generatedExercises.length === 0 && <div className="text-center text-muted-foreground py-8">Exercises will appear here after generation.</div>}
             </div>
             
             <div className="flex justify-end gap-2 pt-6 border-t">
-                <Button variant="outline" asChild>
-                    <Link href="/admin/exercises">Cancel</Link>
-                </Button>
-                <Button type="submit" disabled={isSaving || isGenerating || generatedExercises.length === 0}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save All Exercises
-                </Button>
+              <Button variant="outline" asChild><Link href="/admin/exercises">Cancel</Link></Button>
+              <Button type="submit" disabled={isSaving || isGenerating || generatedExercises.length === 0 || (activeTab === 'custom' && !customLinkLessonId)}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save All Exercises</Button>
             </div>
-            </CardContent>
+          </CardContent>
         </Card>
-        </form>
+      </form>
     </div>
   );
 }
 
+
+export default function NewExercisePage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <NewExerciseContent />
+        </Suspense>
+    )
+}

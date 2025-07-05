@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit } from 'firebase/firestore';
@@ -517,7 +516,6 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
         const exerciseList = exercisesSnapshot.docs.map(doc => {
             const data = doc.data() as Omit<Exercise, 'id'>;
             
-            // To accommodate FillInTheBlanksExercise which has no `question` prop
             const questionText = data.type === 'fill_in_the_blanks' 
                 ? (data as FillInTheBlanksExercise).questionParts.join('___') 
                 : (data as BaseExercise).question;

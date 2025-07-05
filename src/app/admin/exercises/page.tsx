@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -103,16 +102,10 @@ export default function AdminExercisesPage() {
                     </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                    <Button asChild variant="outline">
-                        <Link href="/admin/exercises/new-custom">
-                            <Sparkles className="mr-2"/>
-                            Create Custom Exercise
-                        </Link>
-                    </Button>
                     <Button asChild>
                         <Link href="/admin/exercises/new">
                             <PlusCircle className="mr-2"/>
-                            Create Exercise Set
+                            New Exercise
                         </Link>
                     </Button>
                 </div>
