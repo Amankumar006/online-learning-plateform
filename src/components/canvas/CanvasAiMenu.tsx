@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2, Lightbulb } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2 } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -79,6 +79,12 @@ export function CanvasAiMenu() {
             return;
         }
 
+        const selectionBounds = editor.getSelectionPageBounds();
+        if (!selectionBounds) {
+            toast({ variant: "destructive", title: "Error", description: "Could not determine the position of the selected object." });
+            return;
+        }
+
         setLoadingAction('solve');
         setIsLoading(true);
 
@@ -97,26 +103,18 @@ export function CanvasAiMenu() {
             
             const result = await solveVisualProblem({ imageDataUri });
             
-            const selectionBounds = editor.getSelectionPageBounds();
-            if (selectionBounds) {
-                 editor.createShape({
-                    type: 'text',
-                    x: selectionBounds.maxX + 40,
-                    y: selectionBounds.y,
-                    props: {
-                        text: result.explanation,
-                        size: 'm',
-                        font: 'draw',
-                        textAlign: 'start',
-                    }
-                });
-            } else {
-                 toast({
-                    title: "AI Solution",
-                    description: result.explanation,
-                    duration: 10000,
-                 });
-            }
+            editor.createShape({
+                type: 'text',
+                x: selectionBounds.maxX + 40,
+                y: selectionBounds.y,
+                props: {
+                    text: result.explanation,
+                    size: 'm',
+                    font: 'draw',
+                    textAlign: 'start',
+                }
+            });
+
         } catch (error: any) {
             console.error(error);
             toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate solution." });
@@ -130,6 +128,12 @@ export function CanvasAiMenu() {
         const selectedShapeIds = editor.getSelectedShapeIds();
         if (selectedShapeIds.length === 0) {
             toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object on the canvas before explaining." });
+            return;
+        }
+
+        const selectionBounds = editor.getSelectionPageBounds();
+        if (!selectionBounds) {
+            toast({ variant: "destructive", title: "Error", description: "Could not determine the position of the selected object." });
             return;
         }
 
@@ -152,26 +156,17 @@ export function CanvasAiMenu() {
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
-            const selectionBounds = editor.getSelectionPageBounds();
-            if (selectionBounds) {
-                 editor.createShape({
-                    type: 'text',
-                    x: selectionBounds.x,
-                    y: selectionBounds.maxY + 40,
-                    props: {
-                        text: result.explanation,
-                        size: 'm',
-                        font: 'draw',
-                        textAlign: 'start',
-                    }
-                });
-            } else {
-                 toast({
-                    title: "AI Explanation",
-                    description: result.explanation,
-                    duration: 10000,
-                 });
-            }
+            editor.createShape({
+                type: 'text',
+                x: selectionBounds.x,
+                y: selectionBounds.maxY + 40,
+                props: {
+                    text: result.explanation,
+                    size: 'm',
+                    font: 'draw',
+                    textAlign: 'start',
+                }
+            });
         } catch (error: any) {
             console.error(error);
             toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
