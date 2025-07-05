@@ -3,6 +3,7 @@
 
 import dynamic from 'next/dynamic'
 import { useTheme } from 'next-themes'
+import '@tldraw/tldraw/tldraw.css'
 
 // Dynamically import the tldraw component to prevent SSR issues
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
