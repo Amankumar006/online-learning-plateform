@@ -119,6 +119,33 @@ const searchTheWebTool = ai.defineTool(
     }
 );
 
+const generateImageForExplanationTool = ai.defineTool(
+    {
+        name: 'generateImageForExplanation',
+        description: 'Generates an image, diagram, or chart to visually explain a concept. Use this when a user asks for a visual explanation or when a concept is highly visual (e.g., "show me a diagram of a plant cell", "what does a solar eclipse look like?"). Do not use it for generating user avatars or other non-educational images.',
+        inputSchema: z.object({ 
+            prompt: z.string().describe("A detailed, descriptive text prompt for the image generation model. For example: 'A labeled diagram of a plant cell showing the cell wall, cell membrane, nucleus, and chloroplasts.'") 
+        }),
+        outputSchema: z.string().describe("A markdown string for the generated image, in the format '![<prompt>](<data_uri>)'.")
+    },
+    async ({ prompt }) => {
+        const { media } = await ai.generate({
+            model: 'googleai/gemini-2.0-flash-preview-image-generation',
+            prompt: prompt,
+            config: {
+                responseModalities: ['TEXT', 'IMAGE'],
+            },
+        });
+
+        if (!media || !media.url) {
+            return "Sorry, I was unable to generate an image for that prompt. Please try rephrasing your request.";
+        }
+        
+        // Return the image as a markdown string
+        return `![${prompt}](${media.url})`;
+    }
+);
+
 
 export async function buddyChat(input: BuddyChatInput): Promise<BuddyChatOutput> {
   return buddyChatFlow(input);
@@ -152,6 +179,7 @@ const buddyChatFlow = ai.defineFlow(
 3.  **Proactive Review:** When a user shows you code, critique it constructively. Point out potential bugs, style issues, or areas for optimization. Suggest alternatives.
 4.  **Use Tools Strategically:** When a user wants to practice a concept, use your \`createCustomExercise\` tool to generate a relevant coding problem.
 5.  **Leverage External Knowledge:** If the user's question goes beyond the provided code or common software engineering principles, use the \`searchTheWeb\` tool to find relevant documentation, articles, or official sources.
+6.  **Illustrate Concepts Visually:** When explaining a complex data structure, algorithm, or system architecture, use the \`generateImageForExplanation\` tool to create a diagram.
 
 **Formatting Guidelines:**
 - Use Markdown extensively.
@@ -169,6 +197,7 @@ const buddyChatFlow = ai.defineFlow(
 2.  **Be Conversational:** End every response with an engaging, open-ended question to encourage dialogue. Make the user feel like they are in a real conversation with a helpful tutor. (e.g., "Does that make sense?", "Would you like to try a practice problem on this?", "What should we explore next?").
 3.  **Be a Guide:** Use your tools strategically. If a user asks a question about a concept, answer it, and then offer to create a custom exercise using your \`createCustomExercise\` tool. If a user seems unsure of what to do, proactively use the \`suggestStudyTopics\` tool.
 4.  **Be Knowledgeable:** If the user asks a general knowledge question or something about a current event, use your \`searchTheWeb\` tool to find an answer.
+5.  **Visualize to Clarify:** When explaining a concept that would benefit from a visual aid (like a biological process, a historical map, or a mathematical graph), use the \`generateImageForExplanation\` tool to create and display a helpful image.
 
 **Formatting Guidelines:**
 - Use Markdown to structure your responses for maximum clarity and engagement.
@@ -183,6 +212,7 @@ const buddyChatFlow = ai.defineFlow(
 - **createCustomExercise**: Use this tool not only when asked, but also as a suggestion after explaining a concept. When you use it, tell the user the exercise has been created and is on their "Practice" page.
 - **suggestStudyTopics**: Use this tool when the user asks for guidance (e.g., "what should I learn next?") or seems unsure.
 - **searchTheWeb**: Use this tool for general knowledge questions or topics not directly related to the user's study material.
+- **generateImageForExplanation**: Use this to create diagrams, charts, or illustrations to make complex topics easier to understand.
 
 For all interactions, maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`;
             break;
@@ -191,7 +221,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
 
     const llmResponse = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool],
+        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool],
         system: systemPrompt,
         history: history,
         prompt: input.userMessage,

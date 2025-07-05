@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Code, Copy, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -38,17 +39,38 @@ const CodeBlockDisplay = ({ language, code }: { language: string, code: string }
 const FormattedContent = ({ content }: { content: string }) => {
     if (!content) return null;
 
-    const blocks = content.split(/(```[\s\S]*?```)/g).filter(Boolean);
+    // Regex to split by code blocks OR markdown images (specifically data URIs)
+    const blocks = content.split(/(```[\s\S]*?```|!\[.*?\]\(data:image\/[a-zA-Z]*;base64,.*?\))/g).filter(Boolean);
 
     return (
         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
             {blocks.map((block, index) => {
+                // Handle code blocks
                 if (block.startsWith('```') && block.endsWith('```')) {
                     const codeBlock = block.slice(3, -3);
                     const firstLineBreak = codeBlock.indexOf('\n');
                     const language = firstLineBreak !== -1 ? codeBlock.substring(0, firstLineBreak).trim() : 'plaintext';
                     const code = firstLineBreak !== -1 ? codeBlock.substring(firstLineBreak + 1) : codeBlock;
                     return <CodeBlockDisplay key={index} language={language} code={code} />;
+                }
+
+                // Handle images
+                const imageMatch = block.match(/!\[(.*?)\]\((data:.*?)\)/);
+                if (imageMatch) {
+                    const alt = imageMatch[1];
+                    const src = imageMatch[2];
+                    return (
+                        <div key={index} className="my-4 not-prose">
+                            <p className="text-xs text-muted-foreground italic mb-2">{alt}</p>
+                             <Image
+                                src={src}
+                                alt={alt}
+                                width={512}
+                                height={512}
+                                className="rounded-lg border shadow-md object-contain"
+                            />
+                        </div>
+                    );
                 }
 
                 // Process regular text blocks line by line
