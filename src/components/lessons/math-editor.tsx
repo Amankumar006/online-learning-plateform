@@ -9,8 +9,7 @@ import { BlockMath, InlineMath } from 'react-katex';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Loader2, Download } from 'lucide-react';
-import { convertSpeechToLatex } from '@/ai/flows/convert-speech-to-latex';
+import { Loader2, Download } from 'lucide-react';
 import { convertLatexToSpeech } from '@/ai/flows/convert-latex-to-speech';
 import katex from 'katex';
 import { Label } from '../ui/label';
@@ -211,8 +210,6 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
     const [currentCommand, setCurrentCommand] = useState<{word: string, start: number} | null>(null);
-    const [isListening, setIsListening] = useState(false);
-    const speechRecognitionRef = useRef<any>(null);
     const { toast } = useToast();
 
     const [exportFormat, setExportFormat] = useState('mathml');
@@ -299,67 +296,6 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
         }
     };
 
-    const handleListenClick = () => {
-        if (isListening) {
-            speechRecognitionRef.current?.stop();
-            setIsListening(false);
-            return;
-        }
-
-        const SpeechRecognitionAPI = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognitionAPI) {
-            toast({
-                variant: 'destructive',
-                title: 'Browser Not Supported',
-                description: 'Speech recognition is not supported in your browser.',
-            });
-            return;
-        }
-
-        const recognition = new SpeechRecognitionAPI();
-        speechRecognitionRef.current = recognition;
-        recognition.continuous = false;
-        recognition.lang = 'en-US';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onstart = () => {
-            setIsListening(true);
-            toast({ title: 'Listening...', description: 'Start speaking your equation.' });
-        };
-
-        recognition.onresult = async (event: any) => {
-            const speechResult = event.results[0][0].transcript;
-            toast({ title: 'Processing your speech...', description: `Recognized: "${speechResult}"` });
-            
-            try {
-                const { latex } = await convertSpeechToLatex({ query: speechResult });
-                insertSymbol(` ${latex} `);
-            } catch (e: any) {
-                console.error(e);
-                toast({ variant: 'destructive', title: 'AI Error', description: e.message || 'Could not convert speech to math.' });
-            }
-        };
-
-        recognition.onerror = (event: any) => {
-            console.error('Speech recognition error', event.error);
-            let errorMessage = 'An unknown error occurred during speech recognition.';
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                errorMessage = 'Microphone access was denied. Please allow microphone access in your browser settings.';
-            } else if (event.error === 'no-speech') {
-                errorMessage = 'No speech was detected. Please try again.';
-            }
-            toast({ variant: 'destructive', title: 'Speech Recognition Error', description: errorMessage });
-        };
-
-        recognition.onend = () => {
-            setIsListening(false);
-            speechRecognitionRef.current = null;
-        };
-
-        recognition.start();
-    };
-
     const handleGenerateExport = async () => {
         if (!value.trim()) {
             toast({ variant: 'destructive', title: 'Input Required', description: 'Please enter a LaTeX expression to export.' });
@@ -440,26 +376,6 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
                 <Card className="flex flex-col">
                      <CardHeader className="p-3 border-b flex flex-row items-center justify-between">
                         <CardTitle className="text-base font-medium">Equation Editor</CardTitle>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant={isListening ? 'destructive' : 'outline'}
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={handleListenClick}
-                                        disabled={disabled}
-                                        aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-                                    >
-                                        {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Voice-to-Math Input</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
                     </CardHeader>
                     <CardContent className="p-0 flex flex-col flex-grow">
                         <div className="p-2 border-b">
@@ -596,5 +512,3 @@ const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled,
 };
 
 export default MathEditor;
-
-    
