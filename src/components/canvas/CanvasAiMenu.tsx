@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { solveVisualProblem } from "@/ai/flows/solve-visual-problem";
 import { explainVisualConcept } from "@/ai/flows/visual-explainer-flow";
-import Image from "next/image";
 import {
   Dialog,
   DialogContent,
