@@ -1,15 +1,28 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2 } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2, Lightbulb } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { solveVisualProblem } from "@/ai/flows/visual-explainer-flow";
+import { solveVisualProblem } from "@/ai/flows/solve-visual-problem";
+import { explainVisualConcept } from "@/ai/flows/visual-explainer-flow";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+
 
 // Helper function to convert an SVG element to a PNG data URI
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
@@ -21,14 +34,12 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            // Add a small margin for better rendering and to avoid clipping
             const margin = 20;
             canvas.width = img.width + margin * 2;
             canvas.height = img.height + margin * 2;
             const ctx = canvas.getContext('2d');
 
             if (ctx) {
-                // Set a white background, as the default is transparent which can be problematic
                 ctx.fillStyle = 'white'; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, margin, margin);
@@ -50,17 +61,14 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
 }
 
 
-/**
- * A menu for AI-powered actions within the tldraw canvas.
- * It sits at the top of the screen and provides placeholder buttons for future features.
- */
 export function CanvasAiMenu() {
     const editor = useEditor();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
+    const [explainPrompt, setExplainPrompt] = useState("");
 
-    // Placeholder functions for future AI implementations
     const handleGenerateDiagram = () => {
         toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
     }
@@ -99,8 +107,8 @@ export function CanvasAiMenu() {
                     props: {
                         text: result.explanation,
                         size: 'm',
+                        font: 'draw',
                         textAlign: 'start',
-                        font: 'draw'
                     }
                 });
             } else {
@@ -119,12 +127,64 @@ export function CanvasAiMenu() {
         }
     }
     
-    const handleConvertToText = () => {
-        toast({ title: "Coming Soon!", description: "AI text conversion is under development." });
+    const handleExplainSelection = async () => {
+        const selectedShapeIds = editor.getSelectedShapeIds();
+        if (selectedShapeIds.length === 0) {
+            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object on the canvas before explaining." });
+            return;
+        }
+
+        setLoadingAction('explain');
+        setIsLoading(true);
+        setIsExplainDialogOpen(false); 
+
+        try {
+            const svg = await editor.getSvg(selectedShapeIds);
+
+            if (!svg) {
+                throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
+            }
+            
+            const imageDataUri = await svgToPngDataUri(svg);
+            
+            if (!imageDataUri || typeof imageDataUri !== 'string') {
+                throw new Error("Could not generate an image from the selection.");
+            }
+            
+            const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
+            
+            const selectionBounds = editor.getSelectionPageBounds();
+            if (selectionBounds) {
+                 editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.x,
+                    y: selectionBounds.maxY + 40,
+                    props: {
+                        text: result.explanation,
+                        size: 'm',
+                        font: 'draw',
+                        textAlign: 'start',
+                    }
+                });
+            } else {
+                 toast({
+                    title: "AI Explanation",
+                    description: result.explanation,
+                    duration: 10000,
+                 });
+            }
+        } catch (error: any) {
+            console.error(error);
+            toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
+        } finally {
+            setLoadingAction(null);
+            setIsLoading(false);
+            setExplainPrompt(""); 
+        }
     }
     
-     const handleAskQuestion = () => {
-        toast({ title: "Coming Soon!", description: "AI Q&A is under development." });
+    const handleConvertToText = () => {
+        toast({ title: "Coming Soon!", description: "AI text conversion is under development." });
     }
 
     return (
@@ -143,17 +203,46 @@ export function CanvasAiMenu() {
                     <Sparkles className="mr-2" />
                     Generate
                 </Button>
-                 <Button variant="ghost" size="sm" onClick={handleSolveSelection} disabled={isLoading}>
+                <Button variant="ghost" size="sm" onClick={handleSolveSelection} disabled={isLoading}>
                     {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
                     Solve
                 </Button>
+                 <Dialog open={isExplainDialogOpen} onOpenChange={setIsExplainDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" disabled={isLoading}>
+                            <Lightbulb className="mr-2" />
+                            Explain
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                        <DialogTitle>Explain Selection</DialogTitle>
+                        <DialogDescription>
+                            Provide additional context for the AI, or leave blank for a general explanation.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <Label htmlFor="explain-prompt" className="text-left">
+                                Prompt (Optional)
+                            </Label>
+                            <Textarea
+                            id="explain-prompt"
+                            value={explainPrompt}
+                            onChange={(e) => setExplainPrompt(e.target.value)}
+                            placeholder="e.g., 'Explain this for a 5th grader'"
+                            />
+                        </div>
+                        <DialogFooter>
+                        <Button onClick={handleExplainSelection} disabled={isLoading}>
+                            {isLoading && loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                            Generate Explanation
+                        </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
                 <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
                     <Type className="mr-2" />
                     To Text
-                </Button>
-                 <Button variant="ghost" size="sm" onClick={handleAskQuestion} disabled={isLoading}>
-                    <MessageCircleQuestion className="mr-2" />
-                    Ask
                 </Button>
             </Card>
         </div>
