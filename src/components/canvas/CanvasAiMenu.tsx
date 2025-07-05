@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,44 @@ import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
+
+// Helper function to convert an SVG element to a PNG data URI
+async function svgToPngDataUri(svg: SVGElement): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const svgString = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // Add a small margin for better rendering and to avoid clipping
+            const margin = 20;
+            canvas.width = img.width + margin * 2;
+            canvas.height = img.height + margin * 2;
+            const ctx = canvas.getContext('2d');
+
+            if (ctx) {
+                // Set a white background, as the default is transparent which can be problematic
+                ctx.fillStyle = 'white'; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, margin, margin);
+                const pngDataUri = canvas.toDataURL('image/png');
+                URL.revokeObjectURL(url);
+                resolve(pngDataUri);
+            } else {
+                URL.revokeObjectURL(url);
+                reject(new Error('Could not get canvas 2D context.'));
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load the SVG into an image element for conversion.'));
+        };
+
+        img.src = url;
+    });
+}
 
 /**
  * A menu for AI-powered actions within the tldraw canvas.
@@ -36,13 +73,15 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            const imageDataUri = await editor.getSnapshot(selectedShapeIds, {
-                format: 'png',
-                quality: 1,
-                scale: 2,
-            });
+            const svg = editor.getSvg(selectedShapeIds);
 
-             if (!imageDataUri || typeof imageDataUri !== 'string') {
+            if (!svg) {
+                throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
+            }
+            
+            const imageDataUri = await svgToPngDataUri(svg);
+            
+            if (!imageDataUri || typeof imageDataUri !== 'string') {
                 throw new Error("Could not generate an image from the selection.");
             }
             
