@@ -19,4 +19,5 @@ import '@/ai/flows/buddy-chat.ts';
 import '@/ai/flows/canvas-math-flow.ts';
 import '@/ai/flows/visual-explainer-flow.ts';
 import '@/ai/flows/grade-math-solution.ts';
+import '@/ai/flows/generate-audio-from-text.ts';
 

@@ -5,9 +5,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChat, BuddyChatInput } from '@/ai/flows/buddy-chat';
+import { buddyChat } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase, Menu } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase, Menu, ThumbsUp, ThumbsDown, Volume2, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -31,8 +31,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTr
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
+import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 
 interface Message {
+    id: string;
     role: 'user' | 'model';
     content: string;
 }
@@ -233,7 +235,10 @@ export default function BuddyAIPage() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [audioState, setAudioState] = useState<{ loadingId: string | null; playingId: string | null }>({ loadingId: null, playingId: null });
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   
   const activeConversation = useMemo(() => {
@@ -244,7 +249,7 @@ export default function BuddyAIPage() {
     return activeConversation?.persona || 'buddy';
   }, [activeConversation]);
 
-
+  // Effect to load user data and conversations from localStorage
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -262,19 +267,32 @@ export default function BuddyAIPage() {
       }
     });
     return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Effect to scroll to the bottom of the chat on new messages
   useEffect(() => {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
   }, [activeConversation?.messages.length, isLoading]);
-
+  
+  // Effect to save conversations to localStorage when they change
   useEffect(() => {
     if (user && conversations.length > 0) {
         localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
     }
   }, [conversations, user]);
+
+  // Effect to manage audio playback ending
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+        const onEnded = () => setAudioState(prev => ({ ...prev, playingId: null }));
+        audio.addEventListener('ended', onEnded);
+        return () => audio.removeEventListener('ended', onEnded);
+    }
+  }, []);
   
   const handleSelectConversation = (id: string) => {
     setActiveConversationId(id);
@@ -282,7 +300,7 @@ export default function BuddyAIPage() {
   }
 
   const handleNewChat = (persona: Persona) => {
-    const newId = Date.now().toString();
+    const newId = `convo_${Date.now()}`;
     const newConversation: Conversation = {
         id: newId,
         title: "New Chat",
@@ -312,7 +330,7 @@ export default function BuddyAIPage() {
     const messageToSend = prompt || input;
     if (!messageToSend.trim() || !user || !activeConversation) return;
 
-    const userMessage: Message = { role: 'user', content: messageToSend };
+    const userMessage: Message = { id: `msg_${Date.now()}`, role: 'user', content: messageToSend };
     
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
@@ -339,7 +357,7 @@ export default function BuddyAIPage() {
           userId: user.uid,
           persona: activeConversation.persona
       });
-      const assistantMessage: Message = { role: 'model', content: result.response };
+      const assistantMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: result.response };
       
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
@@ -350,7 +368,7 @@ export default function BuddyAIPage() {
 
     } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
+      const errorMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
             return { ...c, messages: [...c.messages, errorMessage] };
@@ -359,6 +377,69 @@ export default function BuddyAIPage() {
       }));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleListen = async (messageId: string, text: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    if (audioState.playingId === messageId) {
+        audio.pause();
+        setAudioState({ ...audioState, playingId: null });
+        return;
+    }
+
+    setAudioState({ loadingId: messageId, playingId: null });
+    try {
+        const { audioDataUri } = await generateAudioFromText({ text });
+        audio.src = audioDataUri;
+        audio.play();
+        setAudioState({ loadingId: null, playingId: messageId });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'TTS Error', description: 'Could not generate audio.' });
+        setAudioState({ loadingId: null, playingId: null });
+    }
+  };
+  
+  const handleRegenerate = async () => {
+    if (!activeConversation || !user) return;
+
+    const messages = activeConversation.messages;
+    const lastModelIndex = messages.findLastIndex(m => m.role === 'model');
+    if (lastModelIndex === -1) return;
+
+    const historyForRegen = messages.slice(0, lastModelIndex);
+    const lastUserMessage = historyForRegen.at(-1);
+
+    if (!lastUserMessage || lastUserMessage.role !== 'user') {
+        toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
+        return;
+    }
+    
+    setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
+    setIsLoading(true);
+
+    try {
+        const result = await buddyChat({
+            userMessage: lastUserMessage.content,
+            history: historyForRegen.map(msg => ({ role: msg.role, content: msg.content })),
+            userId: user.uid,
+            persona: activeConversation.persona
+        });
+        const assistantMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: result.response };
+        setConversations(prev => prev.map(c => {
+            if (c.id === activeConversationId) {
+                return { ...c, messages: [...historyForRegen, assistantMessage] };
+            }
+            return c;
+        }));
+    } catch (e: any) {
+        console.error(e);
+        const errorMessage: Message = { id: `msg_${Date.now()}`, role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
+        setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: [...historyForRegen, errorMessage] } : c));
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -415,20 +496,41 @@ export default function BuddyAIPage() {
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => (
-                          <div key={index} className="flex items-start gap-4">
+                          <div key={message.id} className="group flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0">
                                   <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
                                   <AvatarFallback>
                                       {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
                                   </AvatarFallback>
                               </Avatar>
-                              <div className="flex-1 pt-1 space-y-2">
+                              <div className="flex-1 pt-1 space-y-1">
                                   <p className="font-semibold text-sm">
                                       {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
                                   </p>
                                   <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
                                       <FormattedMessageContent content={message.content} />
                                   </div>
+                                   {message.role === 'model' && !isLoading && (
+                                    <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                            <ThumbsUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                            <ThumbsDown className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleListen(message.id, message.content)} disabled={audioState.loadingId === message.id}>
+                                            {audioState.loadingId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : audioState.playingId === message.id ? <Pause className="h-4 w-4 text-primary"/> : <Volume2 className="h-4 w-4" />}
+                                        </Button>
+                                        {index === activeConversation.messages.length - 1 && (
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                  )}
                               </div>
                           </div>
                       ))}
@@ -493,6 +595,7 @@ export default function BuddyAIPage() {
               </div>
           </div>
       </div>
+      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
