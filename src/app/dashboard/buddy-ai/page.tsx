@@ -25,6 +25,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -193,7 +194,8 @@ export default function BuddyAIPage() {
         if (savedConvos) {
             let parsedConvos: Conversation[] = [];
             try {
-                parsedConvos = JSON.parse(savedConvos);
+                parsedConvos = JSON.parse(savedConvos)
+                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] })); // Sanitize data
                 if (Array.isArray(parsedConvos) && parsedConvos.length > 0) {
                     setConversations(parsedConvos);
                     setActiveConversationId(parsedConvos[0].id);
@@ -217,7 +219,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages, isLoading]);
+  }, [activeConversation?.messages?.length, isLoading]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
