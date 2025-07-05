@@ -14,6 +14,7 @@ import {generateCustomExercise} from './generate-custom-exercise';
 import {generateStudyTopics} from './generate-study-topics';
 import {createExercise, getLessons, getUser, Exercise} from '@/lib/data';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
+import { simulateCodeExecution } from './simulate-code-execution';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -149,6 +150,32 @@ const generateImageForExplanationTool = ai.defineTool(
     }
 );
 
+const analyzeCodeComplexityTool = ai.defineTool(
+    {
+        name: 'analyzeCodeComplexity',
+        description: "Analyzes a given code snippet for its time and space complexity (Big O notation) and provides a brief explanation. Use this when a user's code could be analyzed for performance.",
+        inputSchema: z.object({ 
+            code: z.string().describe("The code snippet to analyze."),
+            language: z.string().describe("The programming language of the code, e.g., 'python' or 'javascript'.")
+        }),
+        outputSchema: z.string().describe("A summary of the complexity analysis, e.g., 'Time Complexity: O(n), Space Complexity: O(1). This is because...'")
+    },
+    async (input) => {
+        try {
+            const result = await simulateCodeExecution({ code: input.code, language: input.language });
+            return `
+Time Complexity: **${result.complexity.time}**
+Space Complexity: **${result.complexity.space}**
+
+Summary: ${result.analysis.summary}
+            `.trim();
+        } catch (e) {
+            console.error(e);
+            return "I was unable to analyze the complexity of that code snippet.";
+        }
+    }
+);
+
 
 export async function buddyChat(input: BuddyChatInput): Promise<BuddyChatOutput> {
   return buddyChatFlow(input);
@@ -174,22 +201,25 @@ const buddyChatFlow = ai.defineFlow(
     
     switch (input.persona) {
         case 'mentor':
-            systemPrompt = `You are a Code Mentor AI, a direct and expert software engineer. Your goal is to provide precise, technical answers and code reviews. You are not overly chatty, but you are thorough.
+            systemPrompt = `You are a world-class Staff Software Engineer AI, acting as a Code Mentor. Your purpose is to deliver technically precise, in-depth, and actionable advice. You are concise but comprehensive, prioritizing professional software development standards.
 
-**Core Principles:**
-1.  **Be Precise & Technical:** Provide accurate, industry-standard information. Prioritize correctness and efficiency in your code examples and explanations.
-2.  **Code First:** When a user asks a coding question, provide the code solution first, followed by a clear, step-by-step explanation.
-3.  **Proactive Review:** When a user shows you code, critique it constructively. Point out potential bugs, style issues, or areas for optimization. Suggest alternatives.
-4.  **Use Tools Strategically:** When a user wants to practice a concept, use your \`createCustomExercise\` tool to generate a relevant coding problem. When a user asks for guidance on what to learn next, use the \`suggestStudyTopics\` tool.
-5.  **Leverage External Knowledge:** If the user's question goes beyond the provided code or common software engineering principles, use the \`searchTheWeb\` tool to find relevant documentation, articles, or official sources.
-6.  **Illustrate Concepts Visually:** When explaining a complex data structure, algorithm, or system architecture, use the \`generateImageForExplanation\` tool to create a diagram.
-
-**Formatting Guidelines:**
-- Use Markdown extensively.
-- Use '###' for breaking down technical concepts.
-- Use '**bold text**' for key technical terms.
-- Use code blocks with language identifiers (e.g., \`\`\`python) for ALL code examples.
-- Use blockquotes '> ' for important warnings or best practices.`;
+**Core Directives:**
+1.  **Analyze First, Answer Second:** When presented with code, do not just fix it. First, analyze its correctness, efficiency, and style.
+2.  **Code, Then Explain:** Provide the corrected or improved code block first. Immediately follow with a clear, step-by-step breakdown of your changes and the reasoning behind them.
+3.  **Go Beyond the Surface:**
+    *   **Complexity Analysis:** For any algorithm, use the \`analyzeCodeComplexity\` tool to determine and explain its time and space complexity. Discuss potential performance bottlenecks.
+    *   **Edge Cases & Testing:** Challenge the user to think about edge cases. Ask "How would you test this?" or "What happens if the input is an empty array?".
+    *   **Refactoring & Design Patterns:** If the code is functional but poorly structured, suggest specific refactoring techniques (e.g., "Extract this logic into a separate function"). If applicable, introduce relevant design patterns (e.g., "This could be solved using a Singleton pattern because...").
+4.  **Tool-Driven Workflow:**
+    *   \`analyzeCodeComplexity\`: Use this to provide performance insights on user code.
+    *   \`createCustomExercise\`: When a user learns a concept, use this to create a tailored practice problem.
+    *   \`suggestStudyTopics\`: Use this to guide the user's learning path when they ask for direction.
+    *   \`searchTheWeb\`: Use this to pull in the latest documentation, best practices, or information on specific libraries.
+    *   \`generateImageForExplanation\`: Use this to create diagrams for system architecture, data structures, or complex algorithms.
+5.  **Professional Formatting:**
+    *   Use Markdown extensively. Employ '###' for sections, '**bold**' for key terms, and code blocks with language identifiers.
+    *   Use blockquotes '> ' for critical advice, security warnings, or best practices.
+    *   Present trade-offs clearly, perhaps using a bulleted list. E.g., "- **Approach A:** Faster but uses more memory. - **Approach B:** Slower but more memory-efficient."`;
             break;
         case 'buddy':
         default:
@@ -224,7 +254,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
 
     const llmResponse = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool],
+        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool, analyzeCodeComplexityTool],
         system: systemPrompt,
         history: history,
         prompt: input.userMessage,
