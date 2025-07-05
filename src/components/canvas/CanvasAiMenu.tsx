@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
+import Image from "next/image";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
 // Helper function to convert an SVG element to a PNG data URI
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
@@ -99,7 +101,7 @@ export function CanvasAiMenu() {
                         size: 'm',
                         w: 350,
                         textAlign: 'start',
-                        font: 'sans'
+                        font: 'draw'
                     }
                 });
             } else {
