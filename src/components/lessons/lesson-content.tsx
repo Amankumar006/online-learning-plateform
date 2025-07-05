@@ -8,7 +8,7 @@ import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Headphones } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -230,20 +230,6 @@ export default function LessonContent({ lesson, userId, userProgress, onLessonCo
 
   return (
     <div>
-        {lesson.audioUrl && (
-          <Card className="mb-6 sticky top-20 z-30 bg-background/80 backdrop-blur-sm shadow-lg">
-              <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                 <Headphones className="h-6 w-6 text-primary" />
-                 <CardTitle className="text-lg">Listen to this Lesson</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <audio controls src={lesson.audioUrl} className="w-full">
-                      Your browser does not support the audio element.
-                  </audio>
-              </CardContent>
-          </Card>
-        )}
-
         {lesson.image && (
             <div className="mb-6">
             <Image

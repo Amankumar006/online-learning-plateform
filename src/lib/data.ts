@@ -5,7 +5,6 @@ import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteD
 import { format, startOfWeek, subDays } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
-import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import { uploadImageFromDataUrl, uploadAudioFromDataUrl } from './storage';
 import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
 import { generateProactiveSuggestion } from '@/ai/flows/generate-proactive-suggestion';
@@ -49,7 +48,6 @@ export interface Lesson {
   image: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   tags?: string[];
-  audioUrl?: string;
   // New structure
   sections?: Section[];
   // Old structure for backward compatibility
@@ -379,40 +377,6 @@ export async function updateLesson(lessonId: string, lessonData: Partial<Omit<Le
     console.error("Error updating lesson: ", error);
     throw new Error("Failed to update lesson");
   }
-}
-
-export async function generateAndSaveLessonAudio(lessonId: string): Promise<string> {
-    // 1. Get lesson data
-    const lesson = await getLesson(lessonId);
-    if (!lesson) {
-        throw new Error("Lesson not found.");
-    }
-
-    // 2. Concatenate all text content
-    const fullTextContent = lesson.sections
-        ?.map(section => 
-            section.blocks
-                .filter(block => block.type === 'text')
-                .map(block => (block as TextBlock).content)
-                .join('\n\n')
-        )
-        .join('\n\n---\n\n') || "This lesson has no textual content to read.";
-    
-    if (fullTextContent.length < 10) {
-        throw new Error("Lesson has insufficient text content to generate audio.");
-    }
-    
-    // 3. Generate audio using the AI flow
-    const { audioDataUri } = await generateAudioFromText({ text: fullTextContent });
-
-    // 4. Upload audio to storage
-    const fileName = `lesson_audio_${lessonId}_${Date.now()}`;
-    const audioUrl = await uploadAudioFromDataUrl(audioDataUri, fileName);
-
-    // 5. Update lesson document with the new URL
-    await updateLesson(lessonId, { audioUrl });
-
-    return audioUrl;
 }
 
 export async function deleteLesson(lessonId: string): Promise<void> {
@@ -1015,5 +979,3 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
         return [];
     }
 }
-
-    
