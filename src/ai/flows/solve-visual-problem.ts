@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SolveVisualProblemInputSchema = z.object({
-  imageDataUri: z.string().describe("A PNG image of the user's selection, as a data URI."),
+  imageDataUris: z.array(z.string()).describe("A list of PNG images of the user's selection, as data URIs."),
 });
 export type SolveVisualProblemInput = z.infer<typeof SolveVisualProblemInputSchema>;
 
@@ -36,34 +36,14 @@ const prompt = ai.definePrompt({
 **Instructions:**
 
 1. **Identify the Content Type:**
-   - Math problem (geometry, algebra, calculus, statistics, graphs, etc.)
-   - Science diagram (biology, physics, chemistry, earth science)
-   - Code diagram (flowchart, pseudocode, logic diagram)
-   - Technical/engineering diagram (circuits, mechanical parts, architecture)
-   - Conceptual map (mind maps, process diagrams)
-   - General drawing or other visual content
+   - Analyze the provided image(s). There may be one or more images for a single problem.
+   - Determine the content type: Math problem (geometry, algebra, calculus, statistics, graphs, etc.), Science diagram (biology, physics, chemistry), Code diagram (flowchart, logic), Technical diagram (circuits, mechanical parts), or General drawing.
 
 2. **Provide a Tailored Solution:**
-   - **Math problems:**
-     - Break down the problem step by step.
-     - Clearly list given values, formulas, intermediate steps, and the final answer.
-     - Support not just perimeter or area but also algebraic solutions, graph interpretations, calculus steps, and statistical analysis.
-   - **Science diagrams:**
-     - Identify key components or labeled parts.
-     - Describe the scientific or natural process illustrated.
-     - Highlight important functions or interactions.
-   - **Code or logic diagrams:**
-     - Explain the logic and flow.
-     - Describe what the system or algorithm does.
-     - Suggest improvements or edge cases to consider.
-   - **Technical/engineering diagrams:**
-     - Identify components and explain how they work together.
-     - Explain purpose and possible improvements or safety considerations.
-   - **Conceptual maps:**
-     - Summarize key ideas and their relationships.
-     - Point out potential gaps or missing connections.
-   - **General drawings:**
-     - Provide a concise, objective description of what is shown.
+   - **Math problems:** Break down the problem step by step. Clearly list given values, formulas, intermediate steps, and the final answer. Support not just perimeter or area but also algebraic solutions, graph interpretations, calculus steps, and statistical analysis.
+   - **Science diagrams:** Identify key components or labeled parts. Describe the scientific or natural process illustrated. Highlight important functions or interactions.
+   - **Code or logic diagrams:** Explain the logic and flow. Describe what the system or algorithm does. Suggest improvements or edge cases to consider.
+   - **General drawings:** Provide a concise, objective description of what is shown.
 
 3. **Formatting Rules:**
    - Use plain text only (no LaTeX, no complex markdown).
@@ -72,8 +52,10 @@ const prompt = ai.definePrompt({
    - Keep language simple and student-friendly.
 
 ---
-**Image to Analyze:**
-{{media url=imageDataUri}}
+**Image(s) to Analyze:**
+{{#each imageDataUris}}
+{{media url=this}}
+{{/each}}
 
 Respond with a single, fully formatted text block.
 `,

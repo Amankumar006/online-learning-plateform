@@ -101,7 +101,7 @@ export function CanvasAiMenu() {
                 throw new Error("Could not generate an image from the selection.");
             }
             
-            const result = await solveVisualProblem({ imageDataUri });
+            const result = await solveVisualProblem({ imageDataUris: [imageDataUri] });
             
             editor.createShape({
                 type: 'text',
@@ -132,11 +132,7 @@ export function CanvasAiMenu() {
         }
 
         const selectionBounds = editor.getSelectionPageBounds();
-        if (!selectionBounds) {
-            toast({ variant: "destructive", title: "Error", description: "Could not determine the position of the selected object." });
-            return;
-        }
-
+        
         setLoadingAction('explain');
         setIsLoading(true);
         setIsExplainDialogOpen(false); 
@@ -156,17 +152,25 @@ export function CanvasAiMenu() {
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
-            editor.createShape({
-                type: 'text',
-                x: selectionBounds.x,
-                y: selectionBounds.maxY + 40,
-                props: {
-                    text: result.explanation,
-                    size: 'm',
-                    font: 'draw',
-                    textAlign: 'start',
-                }
-            });
+            if (selectionBounds) {
+                editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.x,
+                    y: selectionBounds.maxY + 40,
+                    props: {
+                        text: result.explanation,
+                        size: 'm',
+                        font: 'draw',
+                        textAlign: 'start',
+                    }
+                });
+            } else {
+                 toast({
+                    title: "AI Explanation",
+                    description: result.explanation,
+                    duration: 10000,
+                });
+            }
         } catch (error: any) {
             console.error(error);
             toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
