@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChat } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, BrainCircuit, HelpCircle, MessageSquare, Trash2, Settings, Ellipsis, BookOpen, Plus, Code, Copy, RefreshCw, Briefcase, Menu, ThumbsUp, ThumbsDown, Volume2, Pause, Pen } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Volume2, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,7 +25,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -32,7 +32,6 @@ import { auth } from "@/lib/firebase";
 import { Card } from '@/components/ui/card';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import FormattedContent from '@/components/common/FormattedContent';
-import Link from 'next/link';
 
 interface Message {
     role: 'user' | 'model';
@@ -195,15 +194,9 @@ export default function BuddyAIPage() {
             let parsedConvos: Conversation[] = [];
             try {
                 parsedConvos = JSON.parse(savedConvos);
-                 // Sanitize data right after parsing
-                const sanitizedConvos = parsedConvos.map(convo => ({
-                    ...convo,
-                    messages: convo.messages || [], // Ensure messages array exists
-                }));
-
-                if (Array.isArray(sanitizedConvos) && sanitizedConvos.length > 0) {
-                    setConversations(sanitizedConvos);
-                    setActiveConversationId(sanitizedConvos[0].id);
+                if (Array.isArray(parsedConvos) && parsedConvos.length > 0) {
+                    setConversations(parsedConvos);
+                    setActiveConversationId(parsedConvos[0].id);
                     return;
                 }
 
@@ -224,7 +217,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages]);
+  }, [activeConversation?.messages, isLoading]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
@@ -283,10 +276,9 @@ export default function BuddyAIPage() {
     
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
-            const currentMessages = c.messages || [];
-            const isNewChat = currentMessages.length === 0;
+            const isNewChat = c.messages.length === 0;
             const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-            return { ...c, title: newTitle, messages: [...currentMessages, userMessage], createdAt: Date.now() };
+            return { ...c, title: newTitle, messages: [...c.messages, userMessage], createdAt: Date.now() };
         }
         return c;
     }).sort((a,b) => b.createdAt - a.createdAt);
@@ -295,7 +287,7 @@ export default function BuddyAIPage() {
     setInput('');
     setIsLoading(true);
 
-    const historyForAI = (activeConversation.messages || []).map(msg => ({
+    const historyForAI = activeConversation.messages.map(msg => ({
         role: msg.role,
         content: msg.content,
     }));
@@ -311,8 +303,7 @@ export default function BuddyAIPage() {
       
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-          const currentMessages = c.messages || [];
-          return { ...c, messages: [...currentMessages, assistantMessage] };
+          return { ...c, messages: [...c.messages, assistantMessage] };
         }
         return c;
       }));
@@ -322,8 +313,7 @@ export default function BuddyAIPage() {
       const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-            const currentMessages = c.messages || [];
-            return { ...c, messages: [...currentMessages, errorMessage] };
+            return { ...c, messages: [...c.messages, errorMessage] };
         }
         return c;
       }));
@@ -357,11 +347,10 @@ export default function BuddyAIPage() {
   const handleRegenerate = async () => {
     if (!activeConversation || !user) return;
 
-    const messages = activeConversation.messages || [];
-    const lastModelIndex = messages.findLastIndex(m => m.role === 'model');
+    const lastModelIndex = activeConversation.messages.findLastIndex(m => m.role === 'model');
     if (lastModelIndex === -1) return;
 
-    const historyForRegen = messages.slice(0, lastModelIndex);
+    const historyForRegen = activeConversation.messages.slice(0, lastModelIndex);
     const lastUserMessage = historyForRegen.at(-1);
 
     if (!lastUserMessage || lastUserMessage.role !== 'user') {
@@ -459,9 +448,7 @@ export default function BuddyAIPage() {
                                   <p className="font-semibold text-sm">
                                       {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
                                   </p>
-                                  <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                                      <FormattedContent content={message.content} />
-                                  </div>
+                                  <FormattedContent content={message.content} />
                                    {message.role === 'model' && !isLoading && (
                                     <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
@@ -522,11 +509,6 @@ export default function BuddyAIPage() {
           {/* Input Box */}
           <div className="shrink-0 p-4 bg-background border-t">
               <div className="relative mx-auto max-w-3xl">
-                  <div className="text-center mb-2">
-                    <Button variant="link" asChild className="text-muted-foreground">
-                      <Link href="/dashboard/canvas"><Pen className="mr-2 h-4 w-4"/> Switch to Canvas Mode</Link>
-                    </Button>
-                  </div>
                   <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
