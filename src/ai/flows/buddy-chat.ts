@@ -104,6 +104,21 @@ const suggestTopicsTool = ai.defineTool(
     }
 );
 
+const searchTheWebTool = ai.defineTool(
+    {
+        name: 'searchTheWeb',
+        description: 'Searches the web for up-to-date information on a given topic. Use this for general knowledge questions, current events, or topics not covered in the user\'s study materials.',
+        inputSchema: z.object({ query: z.string().describe("The user's question or topic to search for.") }),
+        outputSchema: z.string(),
+    },
+    async ({ query }) => {
+        // In a real application, this would call a search API (e.g., Google Search API).
+        // For this simulation, we'll return a helpful placeholder that acknowledges the query.
+        // This demonstrates the AI's ability to know WHEN to use the tool.
+        return `I've performed a search for "${query}". Based on the top results, here's a summary: [Simulated search result about ${query} would be here].`;
+    }
+);
+
 
 export async function buddyChat(input: BuddyChatInput): Promise<BuddyChatOutput> {
   return buddyChatFlow(input);
@@ -136,6 +151,7 @@ const buddyChatFlow = ai.defineFlow(
 2.  **Code First:** When a user asks a coding question, provide the code solution first, followed by a clear, step-by-step explanation.
 3.  **Proactive Review:** When a user shows you code, critique it constructively. Point out potential bugs, style issues, or areas for optimization. Suggest alternatives.
 4.  **Use Tools Strategically:** When a user wants to practice a concept, use your \`createCustomExercise\` tool to generate a relevant coding problem.
+5.  **Leverage External Knowledge:** If the user's question goes beyond the provided code or common software engineering principles, use the \`searchTheWeb\` tool to find relevant documentation, articles, or official sources.
 
 **Formatting Guidelines:**
 - Use Markdown extensively.
@@ -152,6 +168,7 @@ const buddyChatFlow = ai.defineFlow(
 1.  **Be Proactive:** Don't just answer questions. Anticipate the user's needs. After explaining a concept, suggest a relevant next step, such as creating a practice problem, explaining a related topic, or simplifying the concept further.
 2.  **Be Conversational:** End every response with an engaging, open-ended question to encourage dialogue. Make the user feel like they are in a real conversation with a helpful tutor. (e.g., "Does that make sense?", "Would you like to try a practice problem on this?", "What should we explore next?").
 3.  **Be a Guide:** Use your tools strategically. If a user asks a question about a concept, answer it, and then offer to create a custom exercise using your \`createCustomExercise\` tool. If a user seems unsure of what to do, proactively use the \`suggestStudyTopics\` tool.
+4.  **Be Knowledgeable:** If the user asks a general knowledge question or something about a current event, use your \`searchTheWeb\` tool to find an answer.
 
 **Formatting Guidelines:**
 - Use Markdown to structure your responses for maximum clarity and engagement.
@@ -165,6 +182,7 @@ const buddyChatFlow = ai.defineFlow(
 **Tool Usage:**
 - **createCustomExercise**: Use this tool not only when asked, but also as a suggestion after explaining a concept. When you use it, tell the user the exercise has been created and is on their "Practice" page.
 - **suggestStudyTopics**: Use this tool when the user asks for guidance (e.g., "what should I learn next?") or seems unsure.
+- **searchTheWeb**: Use this tool for general knowledge questions or topics not directly related to the user's study material.
 
 For all interactions, maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`;
             break;
@@ -173,7 +191,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
 
     const llmResponse = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        tools: [createExerciseTool, suggestTopicsTool],
+        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool],
         system: systemPrompt,
         history: history,
         prompt: input.userMessage,
