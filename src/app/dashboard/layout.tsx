@@ -24,7 +24,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -38,19 +37,10 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, [router]);
 
-  const isCanvasPage = pathname === '/dashboard/canvas';
-
   if (isLoading) {
     return <DashboardLoader />;
   }
   
-  // If it's the canvas page, render it directly without the main layout chrome
-  // to allow for a true full-screen experience.
-  if (isCanvasPage) {
-    return <>{children}</>;
-  }
-
-  // Otherwise, render with the standard dashboard navigation and layout
   return (
     <div className="flex h-screen w-full flex-col font-body">
       <DashboardNav />
