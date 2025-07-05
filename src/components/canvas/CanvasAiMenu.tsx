@@ -1,13 +1,26 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, MessageCircleQuestion, ArrowLeft, Loader2 } from 'lucide-react';
-import { useEditor } from '@tldraw/tldraw';
+import { getSvgAsImage, useEditor } from '@tldraw/tldraw';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { explainVisualSelection } from "@/ai/flows/visual-explainer-flow";
+
+/**
+ * A utility function to convert a Blob to a data URL string.
+ */
+const blobToDataUrl = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
 
 /**
  * A menu for AI-powered actions within the tldraw canvas.
@@ -35,29 +48,40 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            const svgString = await editor.getSvgString(selectedShapes, {
-                scale: 1.2,
+            const svg = await editor.getSvg(selectedShapes, {
+                scale: 1.5,
                 background: true,
-                padding: 16,
+                padding: 20,
             });
-            if (!svgString) {
+
+            if (!svg) {
                 throw new Error("Could not generate an image from the selection.");
             }
+            
+            const blob = await getSvgAsImage(svg, {
+                type: 'png',
+                quality: 1,
+                scale: 2,
+            });
 
-            const svgDataUri = 'data:image/svg+xml;base64,' + btoa(svgString);
-
-            const result = await explainVisualSelection({ svgDataUri });
+             if (!blob) {
+                throw new Error("Could not convert the selection to a PNG image.");
+            }
+            
+            const imageDataUri = await blobToDataUrl(blob);
+            
+            const result = await explainVisualSelection({ imageDataUri });
             
             const selectionBounds = editor.getSelectionPageBounds();
             if (selectionBounds) {
                  editor.createShape({
                     type: 'text',
-                    x: selectionBounds.maxX + 30,
+                    x: selectionBounds.maxX + 40,
                     y: selectionBounds.y,
                     props: {
                         text: result.explanation,
                         size: 'm',
-                        w: 300,
+                        w: 350,
                         align: 'start',
                         font: 'sans'
                     }
@@ -66,8 +90,8 @@ export function CanvasAiMenu() {
                  toast({
                     title: "AI Explanation",
                     description: result.explanation,
-                    duration: 8000
-                });
+                    duration: 10000,
+                 });
             }
         } catch (error: any) {
             console.error(error);
