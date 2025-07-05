@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
     });
 }
 
+
 /**
  * A menu for AI-powered actions within the tldraw canvas.
  * It sits at the top of the screen and provides placeholder buttons for future features.
@@ -73,7 +75,7 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            const svg = editor.getSvg(selectedShapeIds);
+            const svg = await editor.getSvg(selectedShapeIds);
 
             if (!svg) {
                 throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
