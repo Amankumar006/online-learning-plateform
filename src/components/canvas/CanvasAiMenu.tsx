@@ -26,8 +26,8 @@ export function CanvasAiMenu() {
     }
 
     const handleExplainSelection = async () => {
-        const selectedShapes = editor.getSelectedShapes();
-        if (selectedShapes.length === 0) {
+        const selectedShapeIds = editor.getSelectedShapeIds();
+        if (selectedShapeIds.length === 0) {
             toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object or text on the canvas to explain." });
             return;
         }
@@ -36,8 +36,7 @@ export function CanvasAiMenu() {
         setIsLoading(true);
 
         try {
-            // The getSnapshot method returns a data URL string directly when format is 'png'.
-            const imageDataUri = await editor.getSnapshot(selectedShapes, {
+            const imageDataUri = await editor.getSnapshot(selectedShapeIds, {
                 format: 'png',
                 quality: 1,
                 scale: 2,
