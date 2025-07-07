@@ -32,7 +32,7 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
         const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(svgBlob);
 
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const margin = 20;
@@ -62,7 +62,7 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
 }
 
 function formatExplanation(result: ExplainVisualConceptOutput): string {
-    let text = `## ${result.title}\n\n`;
+    let text = `# ${result.title}\n\n`;
     text += `**Summary:** ${result.summary}\n\n`;
     text += "### Explanation\n";
     text += `${result.explanation}\n\n`;
