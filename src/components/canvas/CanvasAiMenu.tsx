@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { evaluate } from 'mathjs';
+import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
 
 
@@ -61,7 +61,7 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
     });
 }
 
-function formatExplanation(result: SolveVisualProblemOutput): string {
+function formatSolveResult(result: SolveVisualProblemOutput): string {
     let text = "";
      if (result.identifiedType) {
         text += `**Type:** ${result.identifiedType}\n\n`;
@@ -82,6 +82,21 @@ function formatExplanation(result: SolveVisualProblemOutput): string {
 }
 
 
+function formatExplainResult(result: ExplainVisualConceptOutput): string {
+    let text = `### ${result.title}\n\n`;
+    text += `**Summary:** ${result.summary}\n\n---\n\n`;
+    text += `${result.explanation}\n\n`;
+    
+    if (result.keyConcepts && result.keyConcepts.length > 0) {
+        text += `### Key Concepts\n${result.keyConcepts.map(concept => `- **${concept.name}:** ${concept.description}`).join('\n')}\n\n`;
+    }
+    if (result.analogy) {
+        text += `**Analogy:** *${result.analogy}*`;
+    }
+    return text;
+}
+
+
 export function CanvasAiMenu() {
     const editor = useEditor();
     const { toast } = useToast();
@@ -96,6 +111,17 @@ export function CanvasAiMenu() {
     useEffect(() => {
         if (!isLiveMode) return;
 
+        const keywords: { [key: string]: (expr: string) => string | number } = {
+            'simplify': (expr) => simplify(expr).toString(),
+            'factor': (expr) => rationalize(expr).toString(),
+            'derive': (expr) => derivative(expr, 'x').toString(),
+            '=': (expr) => {
+                const res = evaluate(expr);
+                return (Number.isInteger(res) ? res : Number(res.toFixed(3)));
+            },
+        };
+        const sortedKeywords = Object.keys(keywords).sort((a, b) => b.length - a.length);
+
         const unsubscribe = editor.store.listen(
             (entry) => {
                 if (entry.source !== 'user' || !entry.changes.updated) {
@@ -103,33 +129,36 @@ export function CanvasAiMenu() {
                 }
 
                 for (const [from, to] of Object.values(entry.changes.updated)) {
-                    if (
-                        to.typeName === 'shape' &&
-                        to.type === 'text' &&
-                        from.type === 'text' &&
-                        from.props.text !== to.props.text
-                    ) {
-                        const newText = to.props.text.trim();
-                        
-                        // Condition: ends with '=' and doesn't already have an answer
-                        if (newText.endsWith('=') && !/=\s\S/.test(newText)) {
-                            const expression = newText.slice(0, -1).trim();
-                            if (!expression) continue;
+                    if (to.typeName !== 'shape' || to.type !== 'text' || from.props.text === to.props.text) {
+                        continue;
+                    }
 
+                    const newText = to.props.text.trim();
+                    const lowerText = newText.toLowerCase();
+
+                    for (const keyword of sortedKeywords) {
+                        if (lowerText.endsWith(keyword)) {
+                            const regex = new RegExp(`\\s*${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\S+`, 'i');
+                            if (regex.test(lowerText.substring(lowerText.lastIndexOf(keyword)))) continue;
+
+                            const expression = newText.slice(0, newText.toLowerCase().lastIndexOf(keyword)).trim();
+                            if (!expression) continue;
+                            
                             try {
-                                const result = evaluate(expression);
-                                const resultString = String(Number.isInteger(result) ? result : result.toFixed(3));
-                                
+                                const action = keywords[keyword as keyof typeof keywords];
+                                const result = action(expression);
+                                const resultString = String(result);
+
                                 editor.updateShape({
                                     id: to.id,
                                     type: 'text',
                                     props: {
-                                        text: `${newText} ${resultString}`,
+                                        text: `${expression} ${keyword} ${resultString}`,
                                     },
                                 });
+                                break;
                             } catch (e) {
-                                // Silently fail on evaluation error
-                                console.error("Auto-solve error:", e);
+                                console.error(`Auto-solve error for keyword '${keyword}':`, e);
                             }
                         }
                     }
@@ -169,7 +198,7 @@ export function CanvasAiMenu() {
             
             const result = await solveVisualProblem({ imageDataUris, context: solveContext });
 
-            const solutionText = formatExplanation(result);
+            const solutionText = formatSolveResult(result);
 
             if (selectionBounds) {
                  editor.createShape({
@@ -223,13 +252,15 @@ export function CanvasAiMenu() {
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
+            const explanationText = formatExplainResult(result);
+            
             if (selectionBounds) {
                 editor.createShape({
                     type: 'text',
                     x: selectionBounds.x,
                     y: selectionBounds.maxY + 40,
                     props: {
-                        text: result.explanation,
+                        text: explanationText,
                         size: 'm',
                         font: 'draw',
                         textAlign: 'start',
@@ -238,7 +269,7 @@ export function CanvasAiMenu() {
             } else {
                  toast({
                     title: "AI Explanation",
-                    description: result.explanation,
+                    description: explanationText,
                     duration: 10000,
                 });
             }
