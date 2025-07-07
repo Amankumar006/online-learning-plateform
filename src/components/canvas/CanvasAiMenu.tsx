@@ -63,18 +63,13 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
 
 function formatSolveResult(result: SolveVisualProblemOutput): string {
     let text = "";
-     if (result.identifiedType) {
+    if (result.identifiedType) {
         text += `**Type:** ${result.identifiedType}\n\n`;
     }
-
+    
+    // Use the whiteboard-style explanation directly
     text += `### Explanation\n${result.explanation}\n\n`;
 
-    if (result.steps && result.steps.length > 0) {
-        text += `### Steps\n${result.steps.map(step => `- ${step}`).join('\n')}\n\n`;
-    }
-    if (result.finalAnswer) {
-        text += `### Final Answer\n**${result.finalAnswer}**\n\n`;
-    }
     if (result.tags && result.tags.length > 0) {
         text += `**Tags:** ${result.tags.join(', ')}`;
     }
@@ -108,7 +103,7 @@ export function CanvasAiMenu() {
     const [explainPrompt, setExplainPrompt] = useState("");
     const [isLiveMode, setIsLiveMode] = useState(false);
 
-    useEffect(() => {
+     useEffect(() => {
         if (!isLiveMode) return;
 
         const keywords: { [key: string]: (expr: string) => string | number } = {
@@ -117,31 +112,33 @@ export function CanvasAiMenu() {
             'derive': (expr) => derivative(expr, 'x').toString(),
             '=': (expr) => {
                 const res = evaluate(expr);
+                // Format to 3 decimal places if it's a float
                 return (Number.isInteger(res) ? res : Number(res.toFixed(3)));
             },
         };
+        // Make sure longer keywords are checked first to avoid partial matches (e.g., 'simplify' before '=')
         const sortedKeywords = Object.keys(keywords).sort((a, b) => b.length - a.length);
 
         const unsubscribe = editor.store.listen(
             (entry) => {
+                // Only act on user-initiated changes that update a shape
                 if (entry.source !== 'user' || !entry.changes.updated) {
                     return;
                 }
 
                 for (const [from, to] of Object.values(entry.changes.updated)) {
+                    // Ensure it's a text shape and the text has actually changed
                     if (to.typeName !== 'shape' || to.type !== 'text' || from.props.text === to.props.text) {
                         continue;
                     }
 
                     const newText = to.props.text.trim();
-                    const lowerText = newText.toLowerCase();
-
+                    
                     for (const keyword of sortedKeywords) {
-                        if (lowerText.endsWith(keyword)) {
-                            const regex = new RegExp(`\\s*${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\S+`, 'i');
-                            if (regex.test(lowerText.substring(lowerText.lastIndexOf(keyword)))) continue;
-
+                        if (newText.toLowerCase().endsWith(keyword)) {
                             const expression = newText.slice(0, newText.toLowerCase().lastIndexOf(keyword)).trim();
+                            
+                            // If there's no expression before the keyword, do nothing
                             if (!expression) continue;
                             
                             try {
@@ -149,6 +146,7 @@ export function CanvasAiMenu() {
                                 const result = action(expression);
                                 const resultString = String(result);
 
+                                // Update the shape with the expression and the result
                                 editor.updateShape({
                                     id: to.id,
                                     type: 'text',
@@ -156,9 +154,11 @@ export function CanvasAiMenu() {
                                         text: `${expression} ${keyword} ${resultString}`,
                                     },
                                 });
-                                break;
+                                // Once a keyword is matched and processed, stop checking for others
+                                break; 
                             } catch (e) {
-                                console.error(`Auto-solve error for keyword '${keyword}':`, e);
+                                // Silently fail, as the user might still be typing an invalid expression
+                                continue;
                             }
                         }
                     }
