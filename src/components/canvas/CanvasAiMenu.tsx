@@ -106,7 +106,7 @@ export function CanvasAiMenu() {
 
     const confirmResult = useCallback(() => {
         if (!preview) return;
-        const shape = editor.getShapeById(preview.shapeId);
+        const shape = editor.getShape(preview.shapeId);
         if (shape?.type === 'text') {
             const originalText = shape.props.text.trim();
             const expression = originalText.substring(0, originalText.length - preview.keyword.length).trim();
