@@ -3,13 +3,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2 } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator } from 'lucide-react';
 import { useEditor } from '@tldraw/tldraw';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { solveVisualProblem } from "@/ai/flows/solve-visual-problem";
-import { explainVisualConcept } from "@/ai/flows/visual-explainer-flow";
+import { solveVisualProblem, SolveVisualProblemOutput } from "@/ai/flows/solve-visual-problem";
+import { explainVisualConcept, ExplainVisualConceptOutput } from "@/ai/flows/visual-explainer-flow";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { evaluate } from 'mathjs';
+import { cn } from "@/lib/utils";
 
 
 // Helper function to convert an SVG element to a PNG data URI
@@ -59,6 +61,22 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
     });
 }
 
+function formatExplanation(result: ExplainVisualConceptOutput): string {
+    let text = `## ${result.title}\n\n`;
+    text += `**Summary:** ${result.summary}\n\n`;
+    text += "### Explanation\n";
+    text += `${result.explanation}\n\n`;
+    if (result.keyConcepts && result.keyConcepts.length > 0) {
+        text += "### Key Concepts\n";
+        text += result.keyConcepts.map(c => `- ${c}`).join('\n');
+        text += "\n\n";
+    }
+    if (result.analogy) {
+        text += `**Analogy:** ${result.analogy}`;
+    }
+    return text;
+}
+
 
 export function CanvasAiMenu() {
     const editor = useEditor();
@@ -69,6 +87,57 @@ export function CanvasAiMenu() {
     const [solveContext, setSolveContext] = useState("");
     const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
     const [explainPrompt, setExplainPrompt] = useState("");
+    const [isLiveMode, setIsLiveMode] = useState(false);
+
+    useEffect(() => {
+        if (!isLiveMode) return;
+
+        const unsubscribe = editor.store.listen(
+            (entry) => {
+                if (entry.source !== 'user' || !entry.changes.updated) {
+                    return;
+                }
+
+                for (const [from, to] of Object.values(entry.changes.updated)) {
+                    if (
+                        to.typeName === 'shape' &&
+                        to.type === 'text' &&
+                        from.type === 'text' &&
+                        from.props.text !== to.props.text
+                    ) {
+                        const newText = to.props.text.trim();
+                        
+                        // Condition: ends with '=' and doesn't already have an answer
+                        if (newText.endsWith('=') && !/=\s\S/.test(newText)) {
+                            const expression = newText.slice(0, -1).trim();
+                            if (!expression) continue;
+
+                            try {
+                                const result = evaluate(expression);
+                                const resultString = String(Number.isInteger(result) ? result : result.toFixed(3));
+                                
+                                editor.updateShape({
+                                    id: to.id,
+                                    type: 'text',
+                                    props: {
+                                        text: `${newText} ${resultString}`,
+                                    },
+                                });
+                            } catch (e) {
+                                // Silently fail on evaluation error
+                                console.error("Auto-solve error:", e);
+                            }
+                        }
+                    }
+                }
+            },
+            { source: 'user', scope: 'document' }
+        );
+
+        return () => {
+            unsubscribe();
+        };
+    }, [editor, isLiveMode]);
 
     const handleGenerateDiagram = () => {
         toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
@@ -91,10 +160,10 @@ export function CanvasAiMenu() {
             const svg = await editor.getSvg(selectedShapeIds);
             if (!svg) throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
             
-            const imageDataUri = await svgToPngDataUri(svg);
-            if (!imageDataUri) throw new Error("Could not generate an image from the selection.");
+            const imageDataUris = [await svgToPngDataUri(svg)];
+            if (!imageDataUris[0]) throw new Error("Could not generate an image from the selection.");
             
-            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: solveContext });
+            const result = await solveVisualProblem({ imageDataUris, context: solveContext });
 
             let solutionText = "";
             if (result.identifiedType) {
@@ -163,13 +232,15 @@ export function CanvasAiMenu() {
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
+            const formattedResult = formatExplanation(result);
+            
             if (selectionBounds) {
                 editor.createShape({
                     type: 'text',
                     x: selectionBounds.x,
                     y: selectionBounds.maxY + 40,
                     props: {
-                        text: result.explanation,
+                        text: formattedResult,
                         size: 'm',
                         font: 'draw',
                         textAlign: 'start',
@@ -178,7 +249,7 @@ export function CanvasAiMenu() {
             } else {
                  toast({
                     title: "AI Explanation",
-                    description: result.explanation,
+                    description: formattedResult,
                     duration: 10000,
                 });
             }
@@ -283,6 +354,16 @@ export function CanvasAiMenu() {
                 <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
                     <Type className="mr-2" />
                     To Text
+                </Button>
+                 <div className="h-6 w-px bg-border/50 mx-2"></div>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsLiveMode(!isLiveMode)} 
+                    className={cn(isLiveMode && "bg-primary/20 text-primary-foreground hover:bg-primary/30")}
+                >
+                    <Calculator className="mr-2" />
+                    Auto Solve
                 </Button>
             </Card>
         </div>

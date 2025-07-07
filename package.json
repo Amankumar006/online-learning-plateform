@@ -49,6 +49,7 @@
     "genkit": "^1.13.0",
     "katex": "^0.16.10",
     "lucide-react": "^0.475.0",
+    "mathjs": "^12.4.2",
     "monaco-editor": "^0.50.0",
     "next": "15.3.3",
     "next-themes": "^0.3.0",
