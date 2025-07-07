@@ -17,8 +17,17 @@ const ExplainVisualConceptInputSchema = z.object({
 });
 export type ExplainVisualConceptInput = z.infer<typeof ExplainVisualConceptInputSchema>;
 
+const KeyConceptSchema = z.object({
+    name: z.string().describe("The name of the key concept."),
+    description: z.string().describe("A brief description of the concept."),
+});
+
 const ExplainVisualConceptOutputSchema = z.object({
-  explanation: z.string().describe('A clear and concise explanation of the visual selection.'),
+  title: z.string().describe("A concise title for the explanation."),
+  summary: z.string().describe("A one-sentence summary of the concept."),
+  explanation: z.string().describe('A clear and concise explanation of the visual selection, formatted in Markdown.'),
+  keyConcepts: z.array(KeyConceptSchema).optional().describe("A list of key concepts related to the diagram."),
+  analogy: z.string().optional().describe("A simple analogy to help understand the concept."),
 });
 export type ExplainVisualConceptOutput = z.infer<typeof ExplainVisualConceptOutputSchema>;
 
@@ -35,10 +44,14 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert educator with a talent for making complex topics easy to understand. A user has selected a diagram or concept from their digital whiteboard and wants an explanation.
 
 **Your Task:**
-1.  **Analyze the Image:** Carefully examine the provided image to understand the core concept it illustrates. This could be anything from a scientific diagram (like a plant cell) to a historical map or a mathematical graph.
-2.  **Generate a Clear Explanation:** Write a clear, concise, and easy-to-digest explanation of the concept. Use analogies and simple language where appropriate.
+1.  **Analyze the Image:** Carefully examine the provided image to understand the core concept it illustrates.
+2.  **Generate a Structured Explanation:** Create a comprehensive explanation with the following fields:
+    *   **title**: A concise, engaging title for the topic.
+    *   **summary**: A single sentence that summarizes the core idea.
+    *   **explanation**: A clear, multi-paragraph explanation. Use Markdown for formatting (bold, italics).
+    *   **keyConcepts**: Identify 2-3 key concepts or terms from the diagram and provide a brief description for each.
+    *   **analogy**: Create a simple, relatable analogy to help the user understand the main concept.
 3.  **Tailor the Response:** If the user has provided an additional prompt (e.g., "explain this for a 5th grader" or "focus on the mitochondria"), you MUST tailor your explanation to meet their specific request. If no prompt is given, provide a general, high-level explanation suitable for a high school student.
-4.  **Formatting:** Use plain text with simple paragraphs and line breaks. Do NOT use Markdown, LaTeX, or any other special formatting.
 
 {{#if prompt}}
 **User's Request:** "{{{prompt}}}"
@@ -47,7 +60,7 @@ const prompt = ai.definePrompt({
 **Diagram to explain:**
 {{media url=imageDataUri}}
 
-Respond with the explanation in a single block of formatted plain text.
+Respond with a single JSON object conforming to the output schema.
 `,
 });
 

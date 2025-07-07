@@ -1,10 +1,11 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
 import { useEditor, type Box, type TLShapeId } from '@tldraw/tldraw';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { solveVisualProblem, SolveVisualProblemOutput } from "@/ai/flows/solve-visual-problem";
@@ -20,10 +21,194 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { evaluate, simplify, derivative, rationalize } from 'mathjs';
+import { evaluate, simplify, derivative, rationalize, parse } from 'mathjs';
 import { cn } from "@/lib/utils";
-import { debounce } from 'lodash';
 
+// Enhanced calculation engine with caching and optimizations
+class PremiumCalculateEngine {
+  private cache = new Map<string, any>();
+  private lastEvaluationTime = 0;
+  
+  constructor() {
+    // Pre-warm mathjs parser for better performance
+    try {
+      evaluate('1+1');
+    } catch {}
+  }
+
+  private getCacheKey(expression: string, operation: string): string {
+    return `${operation}:${expression.toLowerCase().trim()}`;
+  }
+
+  async evaluateExpression(expression: string, operation: string): Promise<string | null> {
+    const cacheKey = this.getCacheKey(expression, operation);
+    
+    // Check cache first
+    if (this.cache.has(cacheKey)) {
+      this.lastEvaluationTime = 0; // Cached results are effectively instant
+      return this.cache.get(cacheKey);
+    }
+
+    const startTime = performance.now();
+    
+    try {
+      let result: any;
+      
+      switch (operation) {
+        case '=':
+        case 'evaluate':
+        case 'calc':
+        case 'calculate':
+        case 'solve':
+        case 'find x':
+          result = evaluate(expression);
+          break;
+        case 'simplify':
+          result = simplify(expression).toString();
+          break;
+        case 'factor':
+          result = rationalize(expression).toString();
+          break;
+        case 'derive':
+          result = derivative(expression, 'x').toString();
+          break;
+        default:
+          return null;
+      }
+
+      // Format result intelligently
+      const formattedResult = this.formatResult(result);
+      
+      // Cache the result
+      this.cache.set(cacheKey, formattedResult);
+      
+      // Limit cache size to prevent memory issues
+      if (this.cache.size > 100) {
+        const firstKey = this.cache.keys().next().value;
+        this.cache.delete(firstKey);
+      }
+      
+      this.lastEvaluationTime = performance.now() - startTime;
+      return formattedResult;
+      
+    } catch (error) {
+      // Cache failed attempts to avoid repeated failures
+      this.cache.set(cacheKey, null);
+      return null;
+    }
+  }
+
+  private formatResult(result: any): string {
+    if (typeof result === 'number') {
+      if (Number.isInteger(result)) {
+        return result.toString();
+      }
+      if (Math.abs(result) < 0.0001 || Math.abs(result) > 1000000) {
+        return result.toExponential(3);
+      }
+      const precision = result < 1 ? 6 : 4;
+      return parseFloat(result.toFixed(precision)).toString();
+    }
+    
+    return String(result);
+  }
+
+  getLastEvaluationTime(): number {
+    return this.lastEvaluationTime;
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+}
+
+// Enhanced preview component with better animations and positioning
+interface PreviewProps {
+  shapeId: TLShapeId;
+  result: string;
+  keyword: string;
+  bounds: Box;
+  onConfirm: () => void;
+  evaluationTime?: number;
+}
+
+function EnhancedPreview({ shapeId, result, keyword, bounds, onConfirm, evaluationTime }: PreviewProps) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    // Smart positioning to avoid viewport edges
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const previewWidth = 200; // estimated width
+    const previewHeight = 60; // estimated height
+    
+    let x = bounds.maxX + 12;
+    let y = bounds.y - 40;
+    
+    // Adjust if preview would go off-screen
+    if (x + previewWidth > viewportWidth) {
+      x = bounds.x - previewWidth - 12;
+    }
+    if (y < 0) {
+      y = bounds.maxY + 12;
+    }
+    if (y + previewHeight > viewportHeight) {
+      y = bounds.y - previewHeight - 12;
+    }
+    
+    setPosition({ x, y });
+    
+    // Trigger entrance animation
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
+  }, [bounds]);
+
+  return (
+    <div
+      className={cn(
+        "absolute z-50 transition-all duration-200 ease-out",
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+      )}
+      style={{
+        top: `${position.y}px`,
+        left: `${position.x}px`,
+        transform: 'translateZ(0)', // Hardware acceleration
+      }}
+    >
+      <div
+        className="group relative cursor-pointer rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3 shadow-2xl backdrop-blur-sm transition-all duration-150 hover:shadow-3xl hover:scale-105"
+        onClick={onConfirm}
+      >
+        {/* Glow effect */}
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        
+        <div className="relative flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary animate-pulse" />
+            <span className="font-mono text-sm font-semibold text-primary">
+              {keyword === '=' ? `= ${result}` : `→ ${result}`}
+            </span>
+          </div>
+          
+          <div className="h-4 w-px bg-border/50" />
+          
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Check className="h-3 w-3" />
+            <span>Enter</span>
+          </div>
+        </div>
+        
+        {/* Performance indicator */}
+        {evaluationTime !== undefined && evaluationTime < 10 && (
+          <div className="absolute -top-2 -right-2 rounded-full bg-green-500 px-2 py-1 text-xs font-bold text-white">
+            {evaluationTime.toFixed(1)}ms
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -62,14 +247,14 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
 
 function formatSolveResult(result: SolveVisualProblemOutput): string {
     let text = "";
-    text += `${result.explanation}\n\n`;
-
-    if (result.finalAnswer) {
-        text += `**Final Answer:** ${result.finalAnswer}\n`;
+    if (result.identifiedType) {
+        text += `**Type:** ${result.identifiedType}\n\n`;
     }
+    
+    text += `### Explanation\n${result.explanation}\n\n`;
 
     if (result.tags && result.tags.length > 0) {
-        text += `\n**Tags:** ${result.tags.join(', ')}`;
+        text += `**Tags:** ${result.tags.join(', ')}`;
     }
     return text;
 }
@@ -89,8 +274,14 @@ function formatExplainResult(result: ExplainVisualConceptOutput): string {
 }
 
 
-
-const INVOKE_KEYWORDS = ['=', 'simplify', 'factor', 'derive'];
+// Enhanced keywords with better detection patterns
+const ENHANCED_KEYWORDS = [
+  { keyword: 'simplify', pattern: /\b(simplify|factor)\s*$/i },
+  { keyword: 'derive', pattern: /\b(derive|differentiate|d\/dx)\s*$/i },
+  { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate|solve|find x)\s*$/i },
+  // Keep the equals sign check separate and last as a fallback
+  { keyword: '=', pattern: /=\s*$/ },
+];
 
 export function CanvasAiMenu() {
     const editor = useEditor();
@@ -102,16 +293,39 @@ export function CanvasAiMenu() {
     const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
     const [explainPrompt, setExplainPrompt] = useState("");
     const [isLiveMode, setIsLiveMode] = useState(false);
-    const [preview, setPreview] = useState<{ shapeId: TLShapeId; result: string; keyword: string; bounds: Box } | null>(null);
+    const [preview, setPreview] = useState<{ 
+        shapeId: TLShapeId; 
+        result: string; 
+        keyword: string; 
+        bounds: Box;
+        evaluationTime?: number;
+    } | null>(null);
+
+    // Enhanced calculation engine
+    const calculationEngine = useMemo(() => new PremiumCalculateEngine(), []);
+    
+    // Performance monitoring
+    const lastProcessTime = useRef<number>(0);
+    const processCount = useRef<number>(0);
 
     const confirmResult = useCallback(() => {
         if (!preview) return;
+        
         const shape = editor.getShape(preview.shapeId);
         if (shape?.type === 'text') {
             const originalText = shape.props.text.trim();
-            const expression = originalText.substring(0, originalText.length - preview.keyword.length).trim();
-            let newText: string;
             
+            // Find the actual keyword match in the text
+            const detectedKeyword = ENHANCED_KEYWORDS.find(k => 
+                k.pattern.test(originalText)
+            );
+            
+            if (!detectedKeyword) return;
+            
+            // Extract expression more intelligently
+            const expression = originalText.replace(detectedKeyword.pattern, '').trim();
+            
+            let newText: string;
             if (preview.keyword === '=') {
                 newText = `${originalText} ${preview.result}`;
             } else {
@@ -123,64 +337,101 @@ export function CanvasAiMenu() {
                 type: 'text',
                 props: { text: newText },
             });
+            
+            // Show success toast with performance info
+            toast({
+                title: "Calculation Applied",
+                description: `Processed in ${preview.evaluationTime?.toFixed(1)}ms`,
+                duration: 2000,
+            });
+            
             setPreview(null);
         }
-    }, [editor, preview]);
+    }, [editor, preview, toast]);
     
-    // Keydown listener for confirming the preview with 'Enter'
+    // Enhanced keydown listener with additional shortcuts
     useEffect(() => {
         if (!preview) return;
         
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 confirmResult();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setPreview(null);
             }
         };
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-
     }, [preview, confirmResult]);
 
-    // Main effect for the "Auto Solve" live mode
+    // Enhanced live mode with better performance and detection
     useEffect(() => {
         if (!isLiveMode) {
             setPreview(null);
             return;
         }
 
-        const debouncedHandleExpression = debounce((shapeId: TLShapeId, text: string, bounds: Box | null) => {
-            const trimmedText = text.trim().toLowerCase();
-            const keyword = INVOKE_KEYWORDS.find(k => trimmedText.endsWith(k));
-
-            if (!keyword || !bounds) {
+        // Optimized expression handler with immediate feedback
+        const handleExpression = async (shapeId: TLShapeId, text: string, bounds: Box | null) => {
+            const startTime = performance.now();
+            processCount.current++;
+            
+            if (!bounds) {
                 setPreview(null);
                 return;
             }
 
-            const expr = trimmedText.substring(0, trimmedText.length - keyword.length).trim();
-            if (!expr) {
+            const trimmedText = text.trim();
+            if (trimmedText.length < 2) {
                 setPreview(null);
                 return;
             }
 
-            try {
-                let result;
-                switch (keyword) {
-                    case '=': result = evaluate(expr); break;
-                    case 'simplify': result = simplify(expr).toString(); break;
-                    case 'factor': result = rationalize(expr).toString(); break;
-                    case 'derive': result = derivative(expr, 'x').toString(); break;
-                    default: setPreview(null); return;
-                }
-                const formattedResult = (typeof result === 'number' && !Number.isInteger(result)) ? result.toFixed(3) : String(result);
-                setPreview({ shapeId, result: formattedResult, keyword, bounds });
-            } catch (e) {
+            // Enhanced keyword detection
+            const detectedKeyword = ENHANCED_KEYWORDS.find(k => k.pattern.test(trimmedText));
+            if (!detectedKeyword) {
+                setPreview(null);
+                return;
+            }
+
+            // Extract expression
+            const expression = trimmedText.replace(detectedKeyword.pattern, '').trim();
+            if (!expression) {
+                setPreview(null);
+                return;
+            }
+
+            // Use enhanced calculation engine
+            let operation = detectedKeyword.keyword;
+            if(operation === 'evaluate' || operation === 'calc' || operation === 'calculate' || operation === 'solve' || operation === 'find x') {
+                operation = '=';
+            }
+            if(operation === 'factor') {
+                operation = 'simplify'; // mathjs can simplify to factors
+            }
+
+            const result = await calculationEngine.evaluateExpression(expression, operation);
+            
+            if (result !== null) {
+                const processingTime = performance.now() - startTime;
+                lastProcessTime.current = processingTime;
+                
+                setPreview({ 
+                    shapeId, 
+                    result, 
+                    keyword: detectedKeyword.keyword, 
+                    bounds,
+                    evaluationTime: processingTime
+                });
+            } else {
                 setPreview(null);
             }
-        }, 300);
+        };
 
+        // Immediate processing for ultra-responsive feel
         const unsubscribe = editor.store.listen(
             (entry) => {
                 if (entry.source !== 'user' || !entry.changes.updated) return;
@@ -194,19 +445,47 @@ export function CanvasAiMenu() {
                 for (const [, to] of Object.values(entry.changes.updated)) {
                     if (to.id === selectedShape.id && to.type === 'text') {
                         const bounds = editor.getShapePageBounds(to.id);
-                        debouncedHandleExpression(to.id, to.props.text, bounds);
+                        // Process immediately for premium feel
+                        handleExpression(to.id, to.props.text, bounds);
                     }
                 }
-            }, { source: 'user', scope: 'document' }
+            }, 
+            { source: 'user', scope: 'document' }
         );
 
         return () => {
             unsubscribe();
-            debouncedHandleExpression.cancel();
         };
+    }, [editor, isLiveMode, calculationEngine]);
 
-    }, [editor, isLiveMode]);
-
+    // Enhanced live mode toggle with performance feedback
+    const toggleLiveMode = useCallback(() => {
+        const newMode = !isLiveMode;
+        setIsLiveMode(newMode);
+        
+        if (newMode) {
+            calculationEngine.clearCache();
+            toast({
+                title: "🚀 Live Math Mode: ON",
+                description: "Type expressions ending with =, simplify, derive, etc.",
+                duration: 3000,
+            });
+        } else {
+            setPreview(null);
+            const avgTime = lastProcessTime.current;
+            const count = processCount.current;
+            
+            toast({
+                title: "Live Math Mode: OFF",
+                description: count > 0 ? `Processed ${count} expressions (avg: ${avgTime.toFixed(1)}ms)` : "Ready for next session",
+                duration: 2000,
+            });
+            
+            // Reset performance counters
+            processCount.current = 0;
+            lastProcessTime.current = 0;
+        }
+    }, [isLiveMode, calculationEngine, toast]);
 
     const handleGenerateDiagram = () => toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
 
@@ -300,50 +579,95 @@ export function CanvasAiMenu() {
                         <Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link>
                     </Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <Button variant="ghost" size="sm" onClick={handleGenerateDiagram} disabled={isLoading}><Sparkles className="mr-2" />Generate</Button>
+                    <Button variant="ghost" size="sm" onClick={handleGenerateDiagram} disabled={isLoading}>
+                        <Sparkles className="mr-2" />Generate
+                    </Button>
                     <Dialog open={isSolveDialogOpen} onOpenChange={setIsSolveDialogOpen}>
-                        <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}>{loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}Solve</Button></DialogTrigger>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" disabled={isLoading}>
+                                {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
+                                Solve
+                            </Button>
+                        </DialogTrigger>
                         <DialogContent>
-                            <DialogHeader><DialogTitle>Solve Selection</DialogTitle><DialogDescription>Optionally provide context to help the AI understand what you want to solve.</DialogDescription></DialogHeader>
-                            <div className="grid gap-4 py-4"><Label htmlFor="solve-context" className="text-left">Context (Optional)</Label><Textarea id="solve-context" value={solveContext} onChange={(e) => setSolveContext(e.target.value)} placeholder="e.g., 'Find the area', 'What does this flowchart do?'"/></div>
-                            <DialogFooter><Button onClick={handleSolveSelection} disabled={isLoading}>{isLoading && loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : null}Solve with AI</Button></DialogFooter>
+                            <DialogHeader>
+                                <DialogTitle>Solve Selection</DialogTitle>
+                                <DialogDescription>Optionally provide context to help the AI understand what you want to solve.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Label htmlFor="solve-context" className="text-left">Context (Optional)</Label>
+                                <Textarea 
+                                    id="solve-context" 
+                                    value={solveContext} 
+                                    onChange={(e) => setSolveContext(e.target.value)} 
+                                    placeholder="e.g., 'Find the area', 'What does this flowchart do?'"
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleSolveSelection} disabled={isLoading}>
+                                    {isLoading && loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    Solve with AI
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
                     <Dialog open={isExplainDialogOpen} onOpenChange={setIsExplainDialogOpen}>
-                        <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}><Lightbulb className="mr-2" />Explain</Button></DialogTrigger>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" disabled={isLoading}>
+                                <Lightbulb className="mr-2" />Explain
+                            </Button>
+                        </DialogTrigger>
                         <DialogContent>
-                            <DialogHeader><DialogTitle>Explain Selection</DialogTitle><DialogDescription>Provide additional context for the AI, or leave blank for a general explanation.</DialogDescription></DialogHeader>
-                            <div className="grid gap-4 py-4"><Label htmlFor="explain-prompt" className="text-left">Prompt (Optional)</Label><Textarea id="explain-prompt" value={explainPrompt} onChange={(e) => setExplainPrompt(e.target.value)} placeholder="e.g., 'Explain this for a 5th grader'"/></div>
-                            <DialogFooter><Button onClick={handleExplainSelection} disabled={isLoading}>{isLoading && loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : null}Generate Explanation</Button></DialogFooter>
+                            <DialogHeader>
+                                <DialogTitle>Explain Selection</DialogTitle>
+                                <DialogDescription>Provide additional context for the AI, or leave blank for a general explanation.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Label htmlFor="explain-prompt" className="text-left">Prompt (Optional)</Label>
+                                <Textarea 
+                                    id="explain-prompt" 
+                                    value={explainPrompt} 
+                                    onChange={(e) => setExplainPrompt(e.target.value)} 
+                                    placeholder="e.g., 'Explain this for a 5th grader'"
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleExplainSelection} disabled={isLoading}>
+                                    {isLoading && loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    Generate Explanation
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
-                    <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}><Type className="mr-2" />To Text</Button>
+                    <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
+                        <Type className="mr-2" />To Text
+                    </Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <Button variant="ghost" size="sm" onClick={() => setIsLiveMode(!isLiveMode)} className={cn(isLiveMode && "bg-primary/20 text-primary hover:bg-primary/30 font-semibold")}><Calculator className="mr-2" />Auto Solve</Button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={toggleLiveMode}
+                        className={cn(
+                            "transition-all duration-200",
+                            isLiveMode && "bg-gradient-to-r from-primary/20 to-primary/10 text-primary hover:from-primary/30 hover:to-primary/20 font-semibold shadow-lg"
+                        )}
+                    >
+                        {isLiveMode ? <Zap className="mr-2 animate-pulse" /> : <Calculator className="mr-2" />}
+                        {isLiveMode ? 'Live Math' : 'Auto Solve'}
+                    </Button>
                 </Card>
             </div>
+            
             {preview && (
-                 <div
-                    className="absolute z-30 animate-in fade-in-50"
-                    style={{
-                        top: `${preview.bounds.y - 40}px`,
-                        left: `${preview.bounds.maxX + 8}px`,
-                    }}
-                 >
-                    <div
-                        className="flex items-center gap-2 cursor-pointer rounded-lg border bg-background p-2 px-3 text-sm font-medium shadow-lg transition-colors hover:bg-muted"
-                        onClick={confirmResult}
-                    >
-                        {preview.keyword === '=' ? (
-                            <span className="font-mono text-primary"> = {preview.result}</span>
-                        ) : (
-                             <span className="font-mono text-primary"> → {preview.result}</span>
-                        )}
-                        <span className="mx-2 h-4 w-px bg-border" />
-                        <span className="flex items-center gap-1 text-muted-foreground"><Check className="h-4 w-4" /> Confirm</span>
-                    </div>
-                </div>
+                <EnhancedPreview
+                    shapeId={preview.shapeId}
+                    result={preview.result}
+                    keyword={preview.keyword}
+                    bounds={preview.bounds}
+                    onConfirm={confirmResult}
+                    evaluationTime={preview.evaluationTime}
+                />
             )}
         </>
-    )
+    );
 }
