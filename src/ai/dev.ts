@@ -19,5 +19,6 @@ import '@/ai/flows/grade-math-solution.ts';
 import '@/ai/flows/generate-proactive-suggestion.ts';
 import '@/ai/flows/solve-visual-problem.ts';
 import '@/ai/flows/visual-explainer-flow.ts';
+import '@/ai/flows/generate-audio-from-text.ts';
 
     

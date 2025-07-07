@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock, Section } from "@/lib/data";
 import { notFound, useRouter, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
@@ -17,6 +17,10 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
+import { useToast } from "@/hooks/use-toast";
+import LessonPlayer from "@/components/lessons/lesson-player";
+import { uploadAudioFromDataUrl } from "@/lib/storage";
 
 
 function LessonPageSkeleton() {
@@ -79,6 +83,16 @@ export default function LessonPage() {
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
+  const { toast } = useToast();
+
+  // Audio state
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [currentSection, setCurrentSection] = useState<{ title: string; content: string } | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
 
   const handleTabChange = (newTabId: string) => {
     if (newTabId === activeTab) return;
@@ -91,6 +105,105 @@ export default function LessonPage() {
     const progress = await getUserProgress(uid);
     setUserProgress(progress);
   };
+  
+  const getSectionTextContent = (section: Section): string => {
+    return section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n\n');
+  };
+
+  const handlePlaySection = async (section: Section) => {
+    if (isGeneratingAudio) return;
+    const content = getSectionTextContent(section);
+    if (!content) {
+        toast({ variant: "destructive", title: "No Content", description: "This section has no text to read aloud." });
+        return;
+    }
+    
+    setCurrentSection({ title: section.title, content });
+    setIsGeneratingAudio(true);
+    setAudioUrl(null);
+    if (audioRef.current) {
+        audioRef.current.pause();
+    }
+    
+    try {
+        const result = await generateAudioFromText({ sectionTitle: section.title, sectionContent: content });
+        setAudioUrl(result.audioDataUri);
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Audio Error", description: e.message || "Failed to generate audio." });
+    } finally {
+        setIsGeneratingAudio(false);
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+  };
+
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setAudioUrl(null);
+    setCurrentSection(null);
+  };
+
+  const handleDownload = async () => {
+    if (!audioUrl || !currentSection) return;
+    
+    toast({ title: 'Preparing Download', description: 'Uploading audio to secure storage...' });
+    try {
+        const fileName = `${lesson?.title || 'lesson'}_${currentSection.title}`.replace(/[^a-zA-Z0-9]/g, '_');
+        const publicUrl = await uploadAudioFromDataUrl(audioUrl, fileName);
+        
+        // Create a temporary link to trigger the download
+        const link = document.createElement('a');
+        link.href = publicUrl;
+        link.download = `${fileName}.wav`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Download Failed", description: e.message || "Could not prepare the audio file for download." });
+    }
+  };
+  
+   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onEnded = () => {
+        setIsPlaying(false);
+        // Optional: play next section automatically
+    };
+
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('ended', onEnded);
+
+    return () => {
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [audioRef.current]);
+
+  useEffect(() => {
+    if (audioUrl && audioRef.current) {
+      audioRef.current.src = audioUrl;
+      audioRef.current.playbackRate = playbackRate;
+      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+    }
+  }, [audioUrl, playbackRate]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -163,10 +276,7 @@ export default function LessonPage() {
   const textContentForAI = lesson.sections && lesson.sections.length > 0
     ? lesson.sections.map(section => {
         const sectionTitle = `## ${section.title}\n\n`;
-        const sectionContent = section.blocks
-            .filter(block => block.type === 'text')
-            .map(block => (block as TextBlock).content)
-            .join('\n\n');
+        const sectionContent = getSectionTextContent(section);
         return sectionTitle + sectionContent;
       }).join('\n\n---\n\n')
     : "This lesson has no textual content.";
@@ -174,11 +284,23 @@ export default function LessonPage() {
 
   return (
     <div>
+      <audio ref={audioRef} />
       <Breadcrumb items={breadcrumbItems} />
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
         <p className="text-lg text-muted-foreground">{lesson.subject}</p>
       </div>
+       <LessonPlayer
+          isPlaying={isPlaying}
+          isGenerating={isGeneratingAudio}
+          currentSectionTitle={currentSection?.title || null}
+          audioUrl={audioUrl}
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          onDownload={handleDownload}
+          playbackRate={playbackRate}
+          onPlaybackRateChange={setPlaybackRate}
+        />
       <Card>
           <CardContent className="p-4 sm:p-6">
             <div className="w-full">
@@ -231,6 +353,9 @@ export default function LessonPage() {
                                     userId={user.uid}
                                     userProgress={userProgress}
                                     onLessonComplete={() => fetchUserProgress(user.uid)}
+                                    onPlaySection={handlePlaySection}
+                                    isGeneratingAudio={isGeneratingAudio}
+                                    currentSectionTitle={currentSection?.title || null}
                                 />
                               </ScrollArea>
                             )}
