@@ -65,6 +65,8 @@ export function CanvasAiMenu() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [isSolveDialogOpen, setIsSolveDialogOpen] = useState(false);
+    const [solveContext, setSolveContext] = useState("");
     const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
     const [explainPrompt, setExplainPrompt] = useState("");
 
@@ -80,40 +82,54 @@ export function CanvasAiMenu() {
         }
 
         const selectionBounds = editor.getSelectionPageBounds();
-        if (!selectionBounds) {
-            toast({ variant: "destructive", title: "Error", description: "Could not determine the position of the selected object." });
-            return;
-        }
-
+        
         setLoadingAction('solve');
         setIsLoading(true);
+        setIsSolveDialogOpen(false);
 
         try {
             const svg = await editor.getSvg(selectedShapeIds);
-
-            if (!svg) {
-                throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
-            }
+            if (!svg) throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
             
             const imageDataUri = await svgToPngDataUri(svg);
+            if (!imageDataUri) throw new Error("Could not generate an image from the selection.");
             
-            if (!imageDataUri || typeof imageDataUri !== 'string') {
-                throw new Error("Could not generate an image from the selection.");
+            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: solveContext });
+
+            let solutionText = "";
+            if (result.identifiedType) {
+                solutionText += `**Type:** ${result.identifiedType}\n\n`;
             }
-            
-            const result = await solveVisualProblem({ imageDataUris: [imageDataUri] });
-            
-            editor.createShape({
-                type: 'text',
-                x: selectionBounds.maxX + 40,
-                y: selectionBounds.y,
-                props: {
-                    text: result.explanation,
-                    size: 'm',
-                    font: 'draw',
-                    textAlign: 'start',
-                }
-            });
+            solutionText += result.explanation;
+            if (result.steps && result.steps.length > 0) {
+                solutionText += `\n\n**Steps:**\n${result.steps.map(step => `- ${step}`).join('\n')}`;
+            }
+            if (result.finalAnswer) {
+                solutionText += `\n\n**Final Answer:**\n${result.finalAnswer}`;
+            }
+            if (result.tags && result.tags.length > 0) {
+                solutionText += `\n\n**Tags:** ${result.tags.join(', ')}`;
+            }
+
+            if (selectionBounds) {
+                 editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.maxX + 40,
+                    y: selectionBounds.y,
+                    props: {
+                        text: solutionText,
+                        size: 'm',
+                        font: 'draw',
+                        textAlign: 'start',
+                    }
+                });
+            } else {
+                toast({
+                    title: "AI Solution",
+                    description: solutionText.substring(0, 100) + "...",
+                    duration: 10000,
+                });
+            }
 
         } catch (error: any) {
             console.error(error);
@@ -121,6 +137,7 @@ export function CanvasAiMenu() {
         } finally {
             setLoadingAction(null);
             setIsLoading(false);
+            setSolveContext("");
         }
     }
     
@@ -139,16 +156,10 @@ export function CanvasAiMenu() {
 
         try {
             const svg = await editor.getSvg(selectedShapeIds);
-
-            if (!svg) {
-                throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
-            }
+            if (!svg) throw new Error("Could not generate an SVG from the selection. Please try selecting the items again.");
             
             const imageDataUri = await svgToPngDataUri(svg);
-            
-            if (!imageDataUri || typeof imageDataUri !== 'string') {
-                throw new Error("Could not generate an image from the selection.");
-            }
+            if (!imageDataUri) throw new Error("Could not generate an image from the selection.");
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
@@ -201,10 +212,41 @@ export function CanvasAiMenu() {
                     <Sparkles className="mr-2" />
                     Generate
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleSolveSelection} disabled={isLoading}>
-                    {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
-                    Solve
-                </Button>
+                
+                 <Dialog open={isSolveDialogOpen} onOpenChange={setIsSolveDialogOpen}>
+                    <DialogTrigger asChild>
+                         <Button variant="ghost" size="sm" disabled={isLoading}>
+                            {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
+                            Solve
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                        <DialogTitle>Solve Selection</DialogTitle>
+                        <DialogDescription>
+                            Optionally provide context to help the AI understand what you want to solve.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <Label htmlFor="solve-context" className="text-left">
+                                Context (Optional)
+                            </Label>
+                            <Textarea
+                                id="solve-context"
+                                value={solveContext}
+                                onChange={(e) => setSolveContext(e.target.value)}
+                                placeholder="e.g., 'Find the area', 'What does this flowchart do?', 'Identify the parts of the cell'"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={handleSolveSelection} disabled={isLoading}>
+                                {isLoading && loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                Solve with AI
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                  <Dialog open={isExplainDialogOpen} onOpenChange={setIsExplainDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="ghost" size="sm" disabled={isLoading}>
