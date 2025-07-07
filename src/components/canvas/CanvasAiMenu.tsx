@@ -1,11 +1,10 @@
-
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check } from 'lucide-react';
 import { useEditor, type Box, type TLShapeId } from '@tldraw/tldraw';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { solveVisualProblem, SolveVisualProblemOutput } from "@/ai/flows/solve-visual-problem";
@@ -23,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
-import debounce from 'lodash.debounce';
+import { debounce } from 'lodash';
 
 
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
@@ -63,31 +62,32 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
 
 function formatSolveResult(result: SolveVisualProblemOutput): string {
     let text = "";
-    if (result.identifiedType) {
-        text += `**Type:** ${result.identifiedType}\n\n`;
+    text += `${result.explanation}\n\n`;
+
+    if (result.finalAnswer) {
+        text += `**Final Answer:** ${result.finalAnswer}\n`;
     }
-    
-    text += `### Explanation\n${result.explanation}\n\n`;
 
     if (result.tags && result.tags.length > 0) {
-        text += `**Tags:** ${result.tags.join(', ')}`;
+        text += `\n**Tags:** ${result.tags.join(', ')}`;
     }
     return text;
 }
 
-function formatExplainResult(result: any): string {
+function formatExplainResult(result: ExplainVisualConceptOutput): string {
     let text = `### ${result.title}\n\n`;
     text += `**Summary:** ${result.summary}\n\n---\n\n`;
     text += `${result.explanation}\n\n`;
     
     if (result.keyConcepts && result.keyConcepts.length > 0) {
-        text += `### Key Concepts\n${result.keyConcepts.map((concept: any) => `- **${concept.name}:** ${concept.description}`).join('\n')}\n\n`;
+        text += `### Key Concepts\n${result.keyConcepts.map((concept) => `- **${concept.name}:** ${concept.description}`).join('\n')}\n\n`;
     }
     if (result.analogy) {
         text += `**Analogy:** *${result.analogy}*`;
     }
     return text;
 }
+
 
 
 const INVOKE_KEYWORDS = ['=', 'simplify', 'factor', 'derive'];
