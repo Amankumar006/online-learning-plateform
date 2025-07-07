@@ -51,12 +51,18 @@ const prompt = ai.definePrompt({
    - **General drawings:** Provide a concise, objective description of what is shown.
    - Populate the 'explanation' field with your main response.
 
-3. **Generate Tags:**
+3. **Explanation Style (Whiteboard Feel):**
+   - The main 'explanation' field should feel as if it was explained step-by-step on a whiteboard in a classroom.
+   - Use a casual, student-friendly tone with simple words and short sentences.
+   - Add natural transition phrases like "so," "next," "here we get," "therefore," "let's find," etc., to make it sound conversational.
+   - **Crucially, avoid long continuous paragraphs.** Use frequent line breaks to mimic how a person writes on a board. A new line for each thought or step is ideal.
+   - Keep numbers, equations, and formulas on their own lines to make them stand out visually.
+
+4. **Generate Tags:**
    - List a few short keywords (tags) that summarize the core topics in this problem. Populate the 'tags' field.
 
-4. **Formatting Rules:**
+5. **Formatting Rules:**
    - Use plain text only (no LaTeX, no complex markdown).
-   - Keep language simple and student-friendly.
 
 ---
 **Image(s) to Analyze:**
