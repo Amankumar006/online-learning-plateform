@@ -48,6 +48,7 @@
     "framer-motion": "^11.3.11",
     "genkit": "^1.13.0",
     "katex": "^0.16.10",
+    "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.475.0",
     "mathjs": "^12.4.2",
     "monaco-editor": "^0.50.0",
@@ -66,6 +67,7 @@
   },
   "devDependencies": {
     "@types/katex": "^0.16.7",
+    "@types/lodash.debounce": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
