@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap, Eye, EyeOff } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId } from '@tldraw/tldraw';
+import { useEditor, type Box, type TLShapeId, type TLEditor } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -21,109 +21,35 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { evaluate, simplify, derivative, rationalize } from 'mathjs';
-import { debounce } from 'lodash';
+import { evaluate, simplify, derivative, rationalize, parse } from 'mathjs';
 import { cn } from "@/lib/utils";
 
-// Ultra-optimized calculation engine
-class UltraFastCalculateEngine {
-  private cache = new Map<string, string | null>();
-  private pendingCalculations = new Map<string, Promise<string | null>>();
-  private isWarmedUp = false;
+// Enhanced calculation engine with caching and optimizations
+class PremiumCalculateEngine {
+  private cache = new Map<string, any>();
+  private lastEvaluationTime = 0;
   
   constructor() {
-    this.preWarmMath();
-  }
-
-  private preWarmMath() {
-    if (this.isWarmedUp) return;
-    
-    // Pre-warm mathjs for better performance
+    // Pre-warm mathjs parser for better performance
     try {
       evaluate('1+1');
-      simplify('x+x');
-      derivative('x^2', 'x');
-      this.isWarmedUp = true;
     } catch {}
   }
 
-  // Smart expression detection with confidence scoring
-  detectMathExpression(text: string): { expression: string; operation: string; confidence: number } | null {
-    const triggers = [
-      { pattern: /^(.+?)\s*=\s*$/m, operation: '=', confidence: 90 },
-      { pattern: /^(.+?)\s*\?\s*$/m, operation: '=', confidence: 80 },
-      { pattern: /^simplify\s*\(\s*(.+?)\s*\)$/im, operation: 'simplify', confidence: 95 },
-      { pattern: /^derive\s*\(\s*(.+?)\s*\)$/im, operation: 'derive', confidence: 95 },
-      { pattern: /^factor\s*\(\s*(.+?)\s*\)$/im, operation: 'factor', confidence: 95 },
-      { pattern: /^expand\s*\(\s*(.+?)\s*\)$/im, operation: 'expand', confidence: 95 },
-      { pattern: /^(.+?)\s*→\s*$/m, operation: '=', confidence: 85 },
-    ];
-
-    for (const trigger of triggers) {
-      const match = text.trim().match(trigger.pattern);
-      if (match) {
-        const expression = match[1].trim();
-        const mathConfidence = this.calculateMathConfidence(expression);
-        
-        return {
-          expression,
-          operation: trigger.operation,
-          confidence: Math.min(trigger.confidence, mathConfidence)
-        };
-      }
-    }
-    
-    return null;
-  }
-
-  private calculateMathConfidence(expr: string): number {
-    // Heuristic scoring for math expressions
-    const mathOperators = /[+\-*/^()=<>√∫∂]/g;
-    const numbers = /\d/g;
-    const variables = /[a-zA-Z]/g;
-    const functions = /\b(sin|cos|tan|log|ln|sqrt|abs|exp)\b/g;
-    
-    const operatorScore = (expr.match(mathOperators) || []).length * 20;
-    const numberScore = (expr.match(numbers) || []).length * 10;
-    const variableScore = (expr.match(variables) || []).length * 5;
-    const functionScore = (expr.match(functions) || []).length * 30;
-    
-    return Math.min(100, operatorScore + numberScore + variableScore + functionScore);
+  private getCacheKey(expression: string, operation: string): string {
+    return `${operation}:${expression.toLowerCase().trim()}`;
   }
 
   async evaluateExpression(expression: string, operation: string): Promise<string | null> {
-    const cacheKey = `${operation}:${expression.toLowerCase().trim()}`;
+    const cacheKey = this.getCacheKey(expression, operation);
     
-    // Return cached result immediately
+    // Check cache first
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
 
-    // Prevent duplicate calculations
-    if (this.pendingCalculations.has(cacheKey)) {
-      return this.pendingCalculations.get(cacheKey);
-    }
-
-    const calculationPromise = this.performCalculation(expression, operation);
-    this.pendingCalculations.set(cacheKey, calculationPromise);
-
-    try {
-      const result = await calculationPromise;
-      this.cache.set(cacheKey, result);
-      
-      // Manage cache size
-      if (this.cache.size > 150) {
-        const firstKey = this.cache.keys().next().value;
-        this.cache.delete(firstKey);
-      }
-      
-      return result;
-    } finally {
-      this.pendingCalculations.delete(cacheKey);
-    }
-  }
-
-  private async performCalculation(expression: string, operation: string): Promise<string | null> {
+    const startTime = performance.now();
+    
     try {
       let result: any;
       
@@ -132,238 +58,166 @@ class UltraFastCalculateEngine {
           result = evaluate(expression);
           break;
         case 'simplify':
-          result = simplify(expression);
+          result = simplify(expression).toString();
           break;
         case 'factor':
-          result = rationalize(expression);
-          break;
-        case 'expand':
-          result = simplify(expression, [], { expand: true });
+          result = rationalize(expression).toString();
           break;
         case 'derive':
-          result = derivative(expression, 'x');
+          result = derivative(expression, 'x').toString();
           break;
         default:
           return null;
       }
 
-      return this.formatResult(result);
+      // Format result intelligently
+      const formattedResult = this.formatResult(result);
+      
+      // Cache the result
+      this.cache.set(cacheKey, formattedResult);
+      
+      // Limit cache size to prevent memory issues
+      if (this.cache.size > 100) {
+        const firstKey = this.cache.keys().next().value;
+        this.cache.delete(firstKey);
+      }
+      
+      this.lastEvaluationTime = performance.now() - startTime;
+      return formattedResult;
+      
     } catch (error) {
+      // Cache failed attempts to avoid repeated failures
+      this.cache.set(cacheKey, null);
       return null;
     }
   }
 
   private formatResult(result: any): string {
     if (typeof result === 'number') {
-      if (Number.isInteger(result)) return result.toString();
-      if (Math.abs(result) < 0.0001) return '≈ 0';
-      if (Math.abs(result) > 1000000) return result.toExponential(2);
-      return parseFloat(result.toFixed(6)).toString();
-    }
-    
-    if (result && typeof result.toString === 'function') {
-      return result.toString();
+      // Handle integers
+      if (Number.isInteger(result)) {
+        return result.toString();
+      }
+      // Handle very small or very large numbers
+      if (Math.abs(result) < 0.0001 || Math.abs(result) > 1000000) {
+        return result.toExponential(3);
+      }
+      // Handle decimals with smart precision
+      const precision = result < 1 ? 6 : 4;
+      return parseFloat(result.toFixed(precision)).toString();
     }
     
     return String(result);
   }
 
+  getLastEvaluationTime(): number {
+    return this.lastEvaluationTime;
+  }
+
   clearCache(): void {
     this.cache.clear();
-    this.pendingCalculations.clear();
   }
 }
 
-// Optimized Live Mode implementation for your CanvasAiMenu
-export function useOptimizedLiveMode(editor: any, isLiveMode: boolean, showPreview: boolean, calculationEngine: UltraFastCalculateEngine) {
-  const [previewResults, setPreviewResults] = useState<Map<string, { result: string; bounds: Box }>>(new Map());
-  const processedShapes = useRef<Set<string>>(new Set());
-  
-  // Ultra-fast preview calculation (50ms debounce)
-  const calculatePreview = useMemo(
-    () => debounce(async (shapeId: string, text: string) => {
-      if (!showPreview) {
-        setPreviewResults(new Map());
-        return;
-      }
-      
-      const detected = calculationEngine.detectMathExpression(text);
-      const shape = editor.getShape(shapeId);
-      const bounds = shape ? editor.getShapePageBounds(shapeId) : null;
+// Enhanced preview component with better animations and positioning
+interface PreviewProps {
+  shapeId: TLShapeId;
+  result: string;
+  keyword: string;
+  bounds: Box;
+  onConfirm: () => void;
+  evaluationTime?: number;
+  editor: TLEditor;
+}
 
-      if (!detected || !bounds || detected.confidence < 40) {
-        setPreviewResults(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(shapeId);
-          return newMap;
-        });
-        return;
-      }
-
-      const result = await calculationEngine.evaluateExpression(detected.expression, detected.operation);
-      if (result) {
-        setPreviewResults(prev => {
-          const newMap = new Map(prev);
-          newMap.set(shapeId, { result, bounds });
-          return newMap;
-        });
-      }
-    }, 50),
-    [calculationEngine, editor, showPreview]
-  );
-
-  // Slower inline replacement (300ms debounce for stability)
-  const processInlineUpdate = useMemo(
-    () => debounce(async (shapeId: string, text: string) => {
-      if (!isLiveMode) return;
-      
-      const detected = calculationEngine.detectMathExpression(text);
-      if (!detected || detected.confidence < 60) return;
-
-      const result = await calculationEngine.evaluateExpression(detected.expression, detected.operation);
-      if (!result) return;
-
-      if (processedShapes.current.has(shapeId)) return;
-      processedShapes.current.add(shapeId);
-
-      const shape = editor.getShape(shapeId);
-      if (!shape || shape.type !== 'text') return;
-
-      let newText: string;
-      if (detected.operation === '=') {
-        newText = `${detected.expression} = ${result}`;
-      } else {
-        newText = `${text} → ${result}`;
-      }
-
-      if (shape.props.text !== newText) {
-        editor.updateShape({
-          id: shapeId,
-          type: 'text',
-          props: { text: newText },
-        });
-      }
-
-      setTimeout(() => {
-        processedShapes.current.delete(shapeId);
-      }, 500);
-    }, 300),
-    [editor, isLiveMode, calculationEngine]
-  );
+function EnhancedPreview({ shapeId, result, keyword, bounds, onConfirm, evaluationTime, editor }: PreviewProps) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const handleShapeUpdate = (entry: any) => {
-      if (entry.source !== 'user' || !entry.changes.updated) return;
-      
-      const selectedShape = editor.getOnlySelectedShape();
-      if (!selectedShape || selectedShape.type !== 'text') {
-        setPreviewResults(new Map());
-        return;
-      }
+    if (!bounds) return;
 
-      for (const [, to] of Object.values(entry.changes.updated)) {
-        if (to.id === selectedShape.id && to.type === 'text') {
-          calculatePreview(to.id, to.props.text);
-          if(isLiveMode) processInlineUpdate(to.id, to.props.text);
+    const updatePosition = () => {
+        const pagePoint = { x: bounds.maxX, y: bounds.y + bounds.h / 2 };
+        const screenPoint = editor.pageToScreen(pagePoint);
+
+        if (!screenPoint) return;
+        
+        const viewportWidth = window.innerWidth;
+        const previewWidth = 200; // estimated width
+        
+        let x = screenPoint.x + 12;
+        let y = screenPoint.y;
+
+        // Adjust if preview would go off-screen
+        if (x + previewWidth > viewportWidth) {
+            const leftPagePoint = { x: bounds.minX, y: bounds.y + bounds.h / 2 };
+            const leftScreenPoint = editor.pageToScreen(leftPagePoint);
+            x = leftScreenPoint.x - previewWidth - 24;
         }
-      }
+
+        setPosition({ x, y });
     };
 
-    const unsubscribe = editor.store.listen(handleShapeUpdate, { source: 'user', scope: 'document' });
-
-    return () => {
-      unsubscribe();
-      calculatePreview.cancel();
-      processInlineUpdate.cancel();
-    };
-  }, [editor, isLiveMode, calculatePreview, processInlineUpdate]);
-
-  return { previewResults, setPreviewResults };
-}
-
-// Enhanced Live Mode toggle with better UX
-export function EnhancedLiveModeToggle({ 
-  isLiveMode, 
-  onToggle, 
-  calculationEngine, 
-  toast 
-}: {
-  isLiveMode: boolean;
-  onToggle: () => void;
-  calculationEngine: UltraFastCalculateEngine;
-  toast: any;
-}) {
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const handleToggle = useCallback(async () => {
-    setIsProcessing(true);
+    updatePosition();
     
-    if (!isLiveMode) {
-      calculationEngine.clearCache();
-      toast({
-        title: "🚀 Live Math Mode: ON",
-        description: "Real-time expression replacement is active.",
-        duration: 2000,
-      });
-    } else {
-      toast({
-        title: "Live Math Mode: OFF",
-        description: "Inline replacement is paused.",
-        duration: 2000,
-      });
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-    onToggle();
-    setIsProcessing(false);
-  }, [isLiveMode, calculationEngine, toast, onToggle]);
+    // Trigger entrance animation
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
+  }, [bounds, editor]);
 
   return (
-    <Button 
-      variant="ghost" 
-      size="sm" 
-      onClick={handleToggle}
-      disabled={isProcessing}
+    <div
       className={cn(
-        "transition-all duration-300 relative overflow-hidden",
-        isLiveMode && "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 hover:from-green-500/30 hover:to-emerald-500/30 font-semibold shadow-lg border-green-200"
+        "fixed z-50 transition-all duration-200 ease-out",
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
       )}
+      style={{
+        top: `${position.y}px`,
+        left: `${position.x}px`,
+        transform: 'translateY(-50%) translateZ(0)', // Hardware acceleration
+      }}
     >
-      {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : isLiveMode ? <Zap className="mr-2 animate-pulse" /> : <Calculator className="mr-2" />}
-      {isLiveMode ? 'Live Mode' : 'Auto Solve'}
-      {isLiveMode && <div className="absolute inset-0 bg-gradient-to-r from-green-400/10 to-emerald-400/10 animate-pulse"></div>}
-    </Button>
-  );
-}
-
-// Preview Bubble Component for Canvas
-function PreviewBubble({ result, bounds }: { result: string; bounds: Box }) {
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-
-    useEffect(() => {
-        const x = bounds.maxX + 15;
-        const y = bounds.y + bounds.h / 2;
-        setPosition({ x, y });
-    }, [bounds]);
-
-    return (
-        <div 
-            className="absolute z-[100] px-3 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm rounded-lg shadow-xl transform transition-all duration-200 animate-in fade-in-0 slide-in-from-left-2 pointer-events-none"
-            style={{ left: position.x, top: position.y, transform: 'translateY(-50%)' }}
-        >
-            <div className="flex items-center gap-2">
-                <Sparkles className="w-3 h-3 flex-shrink-0" />
-                <span className="font-mono truncate">{result}</span>
-            </div>
+      <div
+        className="group relative cursor-pointer rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3 shadow-2xl backdrop-blur-sm transition-all duration-150 hover:shadow-3xl hover:scale-105"
+        onClick={onConfirm}
+      >
+        {/* Glow effect */}
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        
+        <div className="relative flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary animate-pulse" />
+            <span className="font-mono text-sm font-semibold text-primary">
+              {keyword === '=' ? `= ${result}` : `→ ${result}`}
+            </span>
+          </div>
+          
+          <div className="h-4 w-px bg-border/50" />
+          
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Check className="h-3 w-3" />
+            <span>Enter</span>
+          </div>
         </div>
-    );
+        
+        {/* Performance indicator */}
+        {evaluationTime !== undefined && evaluationTime < 10 && (
+          <div className="absolute -top-2 -right-2 rounded-full bg-green-500 px-2 py-1 text-xs font-bold text-white">
+            {evaluationTime.toFixed(1)}ms
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
-    const svgString = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
     return new Promise((resolve, reject) => {
+        const svgString = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
         const img = new window.Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
@@ -371,8 +225,9 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
             canvas.width = img.width + margin * 2;
             canvas.height = img.height + margin * 2;
             const ctx = canvas.getContext('2d');
+
             if (ctx) {
-                ctx.fillStyle = 'white';
+                ctx.fillStyle = 'white'; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, margin, margin);
                 const pngDataUri = canvas.toDataURL('image/png');
@@ -385,27 +240,50 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
         };
         img.onerror = () => {
             URL.revokeObjectURL(url);
-            reject(new Error('Failed to load SVG into an image element.'));
+            reject(new Error('Failed to load the SVG into an image element for conversion.'));
         };
+
         img.src = url;
     });
 }
 
-function formatResult(result: any): string {
-  let text = `### ${result.title}\n\n`;
-  text += `**Summary:** ${result.summary}\n\n---\n\n`;
-  text += `${result.explanation}\n\n`;
-  
-  if (result.keyConcepts && result.keyConcepts.length > 0) {
-      text += `### Key Concepts\n${result.keyConcepts.map((concept: any) => `- **${concept.name}:** ${concept.description}`).join('\n')}\n\n`;
-  }
-  if (result.analogy) {
-      text += `**Analogy:** *${result.analogy}*`;
-  }
-  return text;
+function formatSolveResult(result: SolveVisualProblemOutput): string {
+    let text = "";
+    if (result.identifiedType) {
+        text += `**Type:** ${result.identifiedType}\n\n`;
+    }
+    
+    text += `### Explanation\n${result.explanation}\n\n`;
+
+    if (result.tags && result.tags.length > 0) {
+        text += `**Tags:** ${result.tags.join(', ')}`;
+    }
+    return text;
 }
 
-// Complete optimized CanvasAiMenu replacement
+function formatExplainResult(result: any): string {
+    let text = `### ${result.title}\n\n`;
+    text += `**Summary:** ${result.summary}\n\n---\n\n`;
+    text += `${result.explanation}\n\n`;
+    
+    if (result.keyConcepts && result.keyConcepts.length > 0) {
+        text += `### Key Concepts\n${result.keyConcepts.map((concept: any) => `- **${concept.name}:** ${concept.description}`).join('\n')}\n\n`;
+    }
+    if (result.analogy) {
+        text += `**Analogy:** *${result.analogy}*`;
+    }
+    return text;
+}
+
+// Enhanced keywords with better detection patterns
+const ENHANCED_KEYWORDS = [
+  { keyword: '=', pattern: /=\s*$/ },
+  { keyword: 'simplify', pattern: /\b(simplify|expand|factor)\s*$/i },
+  { keyword: 'derive', pattern: /\b(derive|differentiate|d\/dx)\s*$/i },
+  { keyword: 'solve', pattern: /\b(solve|find\s+\w+)\s*$/i },
+  { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate)\s*$/i },
+];
+
 export function CanvasAiMenu() {
     const editor = useEditor();
     const { toast } = useToast();
@@ -416,18 +294,198 @@ export function CanvasAiMenu() {
     const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
     const [explainPrompt, setExplainPrompt] = useState("");
     const [isLiveMode, setIsLiveMode] = useState(false);
-    const [showPreview, setShowPreview] = useState(true);
+    const [preview, setPreview] = useState<{ 
+        shapeId: TLShapeId; 
+        result: string; 
+        keyword: string; 
+        bounds: Box;
+        evaluationTime?: number;
+    } | null>(null);
 
-    const calculationEngine = useMemo(() => new UltraFastCalculateEngine(), []);
-    const { previewResults } = useOptimizedLiveMode(editor, isLiveMode, showPreview, calculationEngine);
+    // Enhanced calculation engine
+    const calculationEngine = useMemo(() => new PremiumCalculateEngine(), []);
+    
+    // Performance monitoring
+    const lastProcessTime = useRef<number>(0);
+    const processCount = useRef<number>(0);
 
-    const toggleLiveMode = useCallback(() => setIsLiveMode(prev => !prev), []);
-    const togglePreview = useCallback(() => setShowPreview(prev => !prev), []);
+    const confirmResult = useCallback(() => {
+        if (!preview) return;
+        
+        const shape = editor.getShape(preview.shapeId);
+        if (shape?.type === 'text') {
+            const originalText = shape.props.text.trim();
+            
+            // Find the actual keyword match in the text
+            const detectedKeyword = ENHANCED_KEYWORDS.find(k => 
+                k.pattern.test(originalText)
+            );
+            
+            if (!detectedKeyword) return;
+            
+            // Extract expression more intelligently
+            const expression = originalText.replace(detectedKeyword.pattern, '').trim();
+            
+            let newText: string;
+            if (preview.keyword === '=') {
+                newText = `${originalText} ${preview.result}`;
+            } else {
+                newText = `${expression} → ${preview.result}`;
+            }
+
+            editor.updateShape({
+                id: preview.shapeId,
+                type: 'text',
+                props: { text: newText },
+            });
+            
+            // Show success toast with performance info
+            toast({
+                title: "Calculation Applied",
+                description: `Processed in ${preview.evaluationTime?.toFixed(1)}ms`,
+                duration: 2000,
+            });
+            
+            setPreview(null);
+        }
+    }, [editor, preview, toast]);
+    
+    // Enhanced keydown listener with additional shortcuts
+    useEffect(() => {
+        if (!preview) return;
+        
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                confirmResult();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setPreview(null);
+            }
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [preview, confirmResult]);
+
+    // Enhanced live mode with better performance and detection
+    useEffect(() => {
+        if (!isLiveMode) {
+            setPreview(null);
+            return;
+        }
+
+        // Optimized expression handler with immediate feedback
+        const handleExpression = async (shapeId: TLShapeId, text: string, bounds: Box | null) => {
+            const startTime = performance.now();
+            processCount.current++;
+            
+            if (!bounds) {
+                setPreview(null);
+                return;
+            }
+
+            const trimmedText = text.trim();
+            if (trimmedText.length < 2) {
+                setPreview(null);
+                return;
+            }
+
+            // Enhanced keyword detection
+            const detectedKeyword = ENHANCED_KEYWORDS.find(k => k.pattern.test(trimmedText));
+            if (!detectedKeyword) {
+                setPreview(null);
+                return;
+            }
+
+            // Extract expression
+            const expression = trimmedText.replace(detectedKeyword.pattern, '').trim();
+            if (!expression) {
+                setPreview(null);
+                return;
+            }
+
+            // Use enhanced calculation engine
+            const result = await calculationEngine.evaluateExpression(expression, detectedKeyword.keyword);
+            
+            if (result !== null) {
+                const processingTime = performance.now() - startTime;
+                lastProcessTime.current = processingTime;
+                
+                setPreview({ 
+                    shapeId, 
+                    result, 
+                    keyword: detectedKeyword.keyword, 
+                    bounds,
+                    evaluationTime: processingTime
+                });
+            } else {
+                setPreview(null);
+            }
+        };
+
+        // Immediate processing for ultra-responsive feel
+        const unsubscribe = editor.store.listen(
+            (entry) => {
+                if (entry.source !== 'user' || !entry.changes.updated) return;
+
+                const selectedShape = editor.getOnlySelectedShape();
+                if (!selectedShape || selectedShape.type !== 'text') {
+                    setPreview(null);
+                    return;
+                }
+
+                for (const [, to] of Object.values(entry.changes.updated)) {
+                    if (to.id === selectedShape.id && to.type === 'text') {
+                        const bounds = editor.getShapePageBounds(to.id);
+                        // Process immediately for premium feel
+                        handleExpression(to.id, to.props.text, bounds);
+                    }
+                }
+            }, 
+            { source: 'user', scope: 'document' }
+        );
+
+        return () => {
+            unsubscribe();
+        };
+    }, [editor, isLiveMode, calculationEngine]);
+
+    // Enhanced live mode toggle with performance feedback
+    const toggleLiveMode = useCallback(() => {
+        const newMode = !isLiveMode;
+        setIsLiveMode(newMode);
+        
+        if (newMode) {
+            calculationEngine.clearCache();
+            toast({
+                title: "🚀 Live Math Mode: ON",
+                description: "Type expressions ending with =, simplify, derive, etc.",
+                duration: 3000,
+            });
+        } else {
+            setPreview(null);
+            const avgTime = lastProcessTime.current;
+            const count = processCount.current;
+            
+            toast({
+                title: "Live Math Mode: OFF",
+                description: count > 0 ? `Processed ${count} expressions (avg: ${avgTime.toFixed(1)}ms)` : "Ready for next session",
+                duration: 2000,
+            });
+            
+            // Reset performance counters
+            processCount.current = 0;
+            lastProcessTime.current = 0;
+        }
+    }, [isLiveMode, calculationEngine, toast]);
+
+    const handleGenerateDiagram = () => toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
 
     const handleSolveSelection = async () => {
         const selectedShapeIds = editor.getSelectedShapeIds();
         if (selectedShapeIds.length === 0) {
-            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object to solve." });
+            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object or text on the canvas to solve." });
             return;
         }
 
@@ -438,11 +496,22 @@ export function CanvasAiMenu() {
 
         try {
             const svg = await editor.getSvg(selectedShapeIds);
-            if (!svg) throw new Error("Could not generate SVG.");
+            if (!svg) throw new Error("Could not generate an SVG from the selection.");
             const imageDataUris = [await svgToPngDataUri(svg)];
+            if (!imageDataUris[0]) throw new Error("Could not generate an image from the selection.");
+            
             const result = await solveVisualProblem({ imageDataUris, context: solveContext });
+            const solutionText = formatSolveResult(result);
+
             if (selectionBounds) {
-                 editor.createShape({ type: 'text', x: selectionBounds.maxX + 40, y: selectionBounds.y, props: { text: formatResult(result), size: 'm', font: 'draw', textAlign: 'start' } });
+                 editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.maxX + 40,
+                    y: selectionBounds.y,
+                    props: { text: solutionText, size: 'm', font: 'draw', textAlign: 'start' }
+                });
+            } else {
+                toast({ title: "AI Solution", description: solutionText.substring(0, 100) + "..." });
             }
         } catch (error: any) {
             toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate solution." });
@@ -456,7 +525,7 @@ export function CanvasAiMenu() {
     const handleExplainSelection = async () => {
         const selectedShapeIds = editor.getSelectedShapeIds();
         if (selectedShapeIds.length === 0) {
-            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object to explain." });
+            toast({ variant: "destructive", title: "Nothing Selected", description: "Please select an object on the canvas before explaining." });
             return;
         }
 
@@ -467,11 +536,22 @@ export function CanvasAiMenu() {
 
         try {
             const svg = await editor.getSvg(selectedShapeIds);
-            if (!svg) throw new Error("Could not generate SVG.");
+            if (!svg) throw new Error("Could not generate an SVG from the selection.");
             const imageDataUri = await svgToPngDataUri(svg);
+            if (!imageDataUri) throw new Error("Could not generate an image from the selection.");
+            
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
+            const explanationText = formatExplainResult(result);
+            
             if (selectionBounds) {
-                editor.createShape({ type: 'text', x: selectionBounds.x, y: selectionBounds.maxY + 40, props: { text: formatResult(result), size: 'm', font: 'draw', textAlign: 'start' } });
+                editor.createShape({
+                    type: 'text',
+                    x: selectionBounds.x,
+                    y: selectionBounds.maxY + 40,
+                    props: { text: explanationText, size: 'm', font: 'draw', textAlign: 'start' }
+                });
+            } else {
+                 toast({ title: "AI Explanation", description: explanationText, duration: 10000 });
             }
         } catch (error: any) {
             toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to generate explanation." });
@@ -482,40 +562,112 @@ export function CanvasAiMenu() {
         }
     }
     
+    const handleConvertToText = () => toast({ title: "Coming Soon!", description: "AI text conversion is under development." });
+
     return (
         <>
             <div className="absolute top-16 left-3 z-20">
                 <Card className="p-1.5 flex items-center gap-1 shadow-xl backdrop-blur-md bg-white/70 dark:bg-black/70">
-                    <Button variant="ghost" size="sm" asChild><Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link></Button>
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link>
+                    </Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <Button variant="ghost" size="sm" disabled={isLoading} onClick={() => toast({ title: "Coming Soon!" })}><Sparkles className="mr-2" />Generate</Button>
+                    <Button variant="ghost" size="sm" onClick={handleGenerateDiagram} disabled={isLoading}>
+                        <Sparkles className="mr-2" />Generate
+                    </Button>
+                    
+                    {/* Keep existing dialog components */}
                     <Dialog open={isSolveDialogOpen} onOpenChange={setIsSolveDialogOpen}>
-                        <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}>{loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}Solve</Button></DialogTrigger>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" disabled={isLoading}>
+                                {loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : <BrainCircuit className="mr-2" />}
+                                Solve
+                            </Button>
+                        </DialogTrigger>
                         <DialogContent>
-                            <DialogHeader><DialogTitle>Solve Selection</DialogTitle><DialogDescription>Provide context to help the AI.</DialogDescription></DialogHeader>
-                            <Textarea value={solveContext} onChange={(e) => setSolveContext(e.target.value)} placeholder="e.g., 'Find the area'" />
-                            <DialogFooter><Button onClick={handleSolveSelection} disabled={isLoading}>{isLoading && loadingAction === 'solve' && <Loader2 className="mr-2 animate-spin" />}Solve with AI</Button></DialogFooter>
+                            <DialogHeader>
+                                <DialogTitle>Solve Selection</DialogTitle>
+                                <DialogDescription>Optionally provide context to help the AI understand what you want to solve.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Label htmlFor="solve-context" className="text-left">Context (Optional)</Label>
+                                <Textarea 
+                                    id="solve-context" 
+                                    value={solveContext} 
+                                    onChange={(e) => setSolveContext(e.target.value)} 
+                                    placeholder="e.g., 'Find the area', 'What does this flowchart do?'"
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleSolveSelection} disabled={isLoading}>
+                                    {isLoading && loadingAction === 'solve' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    Solve with AI
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
+                    
                     <Dialog open={isExplainDialogOpen} onOpenChange={setIsExplainDialogOpen}>
-                        <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}>{loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : <Lightbulb className="mr-2" />}Explain</Button></DialogTrigger>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" disabled={isLoading}>
+                                <Lightbulb className="mr-2" />Explain
+                            </Button>
+                        </DialogTrigger>
                         <DialogContent>
-                            <DialogHeader><DialogTitle>Explain Selection</DialogTitle><DialogDescription>Provide context for the AI.</DialogDescription></DialogHeader>
-                            <Textarea value={explainPrompt} onChange={(e) => setExplainPrompt(e.target.value)} placeholder="e.g., 'Explain this for a 5th grader'" />
-                            <DialogFooter><Button onClick={handleExplainSelection} disabled={isLoading}>{isLoading && loadingAction === 'explain' && <Loader2 className="mr-2 animate-spin" />}Generate Explanation</Button></DialogFooter>
+                            <DialogHeader>
+                                <DialogTitle>Explain Selection</DialogTitle>
+                                <DialogDescription>Provide additional context for the AI, or leave blank for a general explanation.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Label htmlFor="explain-prompt" className="text-left">Prompt (Optional)</Label>
+                                <Textarea 
+                                    id="explain-prompt" 
+                                    value={explainPrompt} 
+                                    onChange={(e) => setExplainPrompt(e.target.value)} 
+                                    placeholder="e.g., 'Explain this for a 5th grader'"
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleExplainSelection} disabled={isLoading}>
+                                    {isLoading && loadingAction === 'explain' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    Generate Explanation
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
-                    <Button variant="ghost" size="sm" disabled={isLoading} onClick={() => toast({ title: "Coming Soon!" })}><Type className="mr-2" />To Text</Button>
+                    
+                    <Button variant="ghost" size="sm" onClick={handleConvertToText} disabled={isLoading}>
+                        <Type className="mr-2" />To Text
+                    </Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <EnhancedLiveModeToggle isLiveMode={isLiveMode} onToggle={toggleLiveMode} calculationEngine={calculationEngine} toast={toast} />
-                    <Button variant="ghost" size="sm" onClick={togglePreview} className={cn(showPreview && "bg-blue-500/20 text-blue-700 hover:bg-blue-500/30")}>
-                        {showPreview ? <Eye className="mr-2" /> : <EyeOff className="mr-2" />}Preview
+                    
+                    {/* Enhanced Live Mode Toggle */}
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={toggleLiveMode}
+                        className={cn(
+                            "transition-all duration-200",
+                            isLiveMode && "bg-gradient-to-r from-primary/20 to-primary/10 text-primary hover:from-primary/30 hover:to-primary/20 font-semibold shadow-lg"
+                        )}
+                    >
+                        {isLiveMode ? <Zap className="mr-2 animate-pulse" /> : <Calculator className="mr-2" />}
+                        {isLiveMode ? 'Live Math' : 'Auto Solve'}
                     </Button>
                 </Card>
             </div>
-            {Array.from(previewResults.entries()).map(([shapeId, { result, bounds }]) => (
-                <PreviewBubble key={shapeId} result={result} bounds={bounds} editor={editor} />
-            ))}
+            
+            {preview && (
+                <EnhancedPreview
+                    shapeId={preview.shapeId}
+                    result={preview.result}
+                    keyword={preview.keyword}
+                    bounds={preview.bounds}
+                    onConfirm={confirmResult}
+                    evaluationTime={preview.evaluationTime}
+                    editor={editor}
+                />
+            )}
         </>
     );
 }
