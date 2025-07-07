@@ -61,18 +61,22 @@ async function svgToPngDataUri(svg: SVGElement): Promise<string> {
     });
 }
 
-function formatExplanation(result: ExplainVisualConceptOutput): string {
-    let text = `# ${result.title}\n\n`;
-    text += `**Summary:** ${result.summary}\n\n`;
-    text += "### Explanation\n";
-    text += `${result.explanation}\n\n`;
-    if (result.keyConcepts && result.keyConcepts.length > 0) {
-        text += "### Key Concepts\n";
-        text += result.keyConcepts.map(c => `- ${c}`).join('\n');
-        text += "\n\n";
+function formatExplanation(result: SolveVisualProblemOutput): string {
+    let text = "";
+     if (result.identifiedType) {
+        text += `**Type:** ${result.identifiedType}\n\n`;
     }
-    if (result.analogy) {
-        text += `**Analogy:** ${result.analogy}`;
+
+    text += `### Explanation\n${result.explanation}\n\n`;
+
+    if (result.steps && result.steps.length > 0) {
+        text += `### Steps\n${result.steps.map(step => `- ${step}`).join('\n')}\n\n`;
+    }
+    if (result.finalAnswer) {
+        text += `### Final Answer\n**${result.finalAnswer}**\n\n`;
+    }
+    if (result.tags && result.tags.length > 0) {
+        text += `**Tags:** ${result.tags.join(', ')}`;
     }
     return text;
 }
@@ -165,20 +169,7 @@ export function CanvasAiMenu() {
             
             const result = await solveVisualProblem({ imageDataUris, context: solveContext });
 
-            let solutionText = "";
-            if (result.identifiedType) {
-                solutionText += `**Type:** ${result.identifiedType}\n\n`;
-            }
-            solutionText += result.explanation;
-            if (result.steps && result.steps.length > 0) {
-                solutionText += `\n\n**Steps:**\n${result.steps.map(step => `- ${step}`).join('\n')}`;
-            }
-            if (result.finalAnswer) {
-                solutionText += `\n\n**Final Answer:**\n${result.finalAnswer}`;
-            }
-            if (result.tags && result.tags.length > 0) {
-                solutionText += `\n\n**Tags:** ${result.tags.join(', ')}`;
-            }
+            const solutionText = formatExplanation(result);
 
             if (selectionBounds) {
                  editor.createShape({
@@ -232,15 +223,13 @@ export function CanvasAiMenu() {
             
             const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
             
-            const formattedResult = formatExplanation(result);
-            
             if (selectionBounds) {
                 editor.createShape({
                     type: 'text',
                     x: selectionBounds.x,
                     y: selectionBounds.maxY + 40,
                     props: {
-                        text: formattedResult,
+                        text: result.explanation,
                         size: 'm',
                         font: 'draw',
                         textAlign: 'start',
@@ -249,7 +238,7 @@ export function CanvasAiMenu() {
             } else {
                  toast({
                     title: "AI Explanation",
-                    description: formattedResult,
+                    description: result.explanation,
                     duration: 10000,
                 });
             }
