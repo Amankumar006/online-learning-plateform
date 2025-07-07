@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Zap } from 'lucide-react';
 import { useEditor, type Box, type TLShapeId } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,6 @@ import { cn } from "@/lib/utils";
 // Enhanced calculation engine with caching and optimizations
 class PremiumCalculateEngine {
   private cache = new Map<string, any>();
-  private lastEvaluationTime = 0;
   
   constructor() {
     // Pre-warm mathjs parser for better performance
@@ -43,24 +42,15 @@ class PremiumCalculateEngine {
   async evaluateExpression(expression: string, operation: string): Promise<string | null> {
     const cacheKey = this.getCacheKey(expression, operation);
     
-    // Check cache first
     if (this.cache.has(cacheKey)) {
-      this.lastEvaluationTime = 0; // Cached results are effectively instant
       return this.cache.get(cacheKey);
     }
-
-    const startTime = performance.now();
     
     try {
       let result: any;
       
       switch (operation) {
         case '=':
-        case 'evaluate':
-        case 'calc':
-        case 'calculate':
-        case 'solve':
-        case 'find x':
           result = evaluate(expression);
           break;
         case 'simplify':
@@ -76,23 +66,18 @@ class PremiumCalculateEngine {
           return null;
       }
 
-      // Format result intelligently
       const formattedResult = this.formatResult(result);
       
-      // Cache the result
       this.cache.set(cacheKey, formattedResult);
       
-      // Limit cache size to prevent memory issues
       if (this.cache.size > 100) {
         const firstKey = this.cache.keys().next().value;
         this.cache.delete(firstKey);
       }
       
-      this.lastEvaluationTime = performance.now() - startTime;
       return formattedResult;
       
     } catch (error) {
-      // Cache failed attempts to avoid repeated failures
       this.cache.set(cacheKey, null);
       return null;
     }
@@ -113,101 +98,9 @@ class PremiumCalculateEngine {
     return String(result);
   }
 
-  getLastEvaluationTime(): number {
-    return this.lastEvaluationTime;
-  }
-
   clearCache(): void {
     this.cache.clear();
   }
-}
-
-// Enhanced preview component with better animations and positioning
-interface PreviewProps {
-  shapeId: TLShapeId;
-  result: string;
-  keyword: string;
-  bounds: Box;
-  onConfirm: () => void;
-  evaluationTime?: number;
-}
-
-function EnhancedPreview({ shapeId, result, keyword, bounds, onConfirm, evaluationTime }: PreviewProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    // Smart positioning to avoid viewport edges
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const previewWidth = 200; // estimated width
-    const previewHeight = 60; // estimated height
-    
-    let x = bounds.maxX + 12;
-    let y = bounds.y - 40;
-    
-    // Adjust if preview would go off-screen
-    if (x + previewWidth > viewportWidth) {
-      x = bounds.x - previewWidth - 12;
-    }
-    if (y < 0) {
-      y = bounds.maxY + 12;
-    }
-    if (y + previewHeight > viewportHeight) {
-      y = bounds.y - previewHeight - 12;
-    }
-    
-    setPosition({ x, y });
-    
-    // Trigger entrance animation
-    const timer = setTimeout(() => setIsVisible(true), 10);
-    return () => clearTimeout(timer);
-  }, [bounds]);
-
-  return (
-    <div
-      className={cn(
-        "absolute z-50 transition-all duration-200 ease-out",
-        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
-      )}
-      style={{
-        top: `${position.y}px`,
-        left: `${position.x}px`,
-        transform: 'translateZ(0)', // Hardware acceleration
-      }}
-    >
-      <div
-        className="group relative cursor-pointer rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3 shadow-2xl backdrop-blur-sm transition-all duration-150 hover:shadow-3xl hover:scale-105"
-        onClick={onConfirm}
-      >
-        {/* Glow effect */}
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-        
-        <div className="relative flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary animate-pulse" />
-            <span className="font-mono text-sm font-semibold text-primary">
-              {keyword === '=' ? `= ${result}` : `→ ${result}`}
-            </span>
-          </div>
-          
-          <div className="h-4 w-px bg-border/50" />
-          
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Check className="h-3 w-3" />
-            <span>Enter</span>
-          </div>
-        </div>
-        
-        {/* Performance indicator */}
-        {evaluationTime !== undefined && evaluationTime < 10 && (
-          <div className="absolute -top-2 -right-2 rounded-full bg-green-500 px-2 py-1 text-xs font-bold text-white">
-            {evaluationTime.toFixed(1)}ms
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
@@ -273,14 +166,12 @@ function formatExplainResult(result: ExplainVisualConceptOutput): string {
     return text;
 }
 
-
-// Enhanced keywords with better detection patterns
 const ENHANCED_KEYWORDS = [
-  { keyword: 'simplify', pattern: /\b(simplify|factor)\s*$/i },
-  { keyword: 'derive', pattern: /\b(derive|differentiate|d\/dx)\s*$/i },
-  { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate|solve|find x)\s*$/i },
-  // Keep the equals sign check separate and last as a fallback
   { keyword: '=', pattern: /=\s*$/ },
+  { keyword: 'simplify', pattern: /\b(simplify|expand|factor)\s*$/i },
+  { keyword: 'derive', pattern: /\b(derive|differentiate|d\/dx)\s*$/i },
+  { keyword: 'solve', pattern: /\b(solve|find\s+\w+)\s*$/i },
+  { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate)\s*$/i },
 ];
 
 export function CanvasAiMenu() {
@@ -293,160 +184,65 @@ export function CanvasAiMenu() {
     const [isExplainDialogOpen, setIsExplainDialogOpen] = useState(false);
     const [explainPrompt, setExplainPrompt] = useState("");
     const [isLiveMode, setIsLiveMode] = useState(false);
-    const [preview, setPreview] = useState<{ 
-        shapeId: TLShapeId; 
-        result: string; 
-        keyword: string; 
-        bounds: Box;
-        evaluationTime?: number;
-    } | null>(null);
 
-    // Enhanced calculation engine
     const calculationEngine = useMemo(() => new PremiumCalculateEngine(), []);
     
-    // Performance monitoring
-    const lastProcessTime = useRef<number>(0);
-    const processCount = useRef<number>(0);
-
-    const confirmResult = useCallback(() => {
-        if (!preview) return;
-        
-        const shape = editor.getShape(preview.shapeId);
-        if (shape?.type === 'text') {
-            const originalText = shape.props.text.trim();
-            
-            // Find the actual keyword match in the text
-            const detectedKeyword = ENHANCED_KEYWORDS.find(k => 
-                k.pattern.test(originalText)
-            );
-            
-            if (!detectedKeyword) return;
-            
-            // Extract expression more intelligently
-            const expression = originalText.replace(detectedKeyword.pattern, '').trim();
-            
-            let newText: string;
-            if (preview.keyword === '=') {
-                newText = `${originalText} ${preview.result}`;
-            } else {
-                newText = `${expression} → ${preview.result}`;
-            }
-
-            editor.updateShape({
-                id: preview.shapeId,
-                type: 'text',
-                props: { text: newText },
-            });
-            
-            // Show success toast with performance info
-            toast({
-                title: "Calculation Applied",
-                description: `Processed in ${preview.evaluationTime?.toFixed(1)}ms`,
-                duration: 2000,
-            });
-            
-            setPreview(null);
-        }
-    }, [editor, preview, toast]);
-    
-    // Enhanced keydown listener with additional shortcuts
-    useEffect(() => {
-        if (!preview) return;
-        
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                confirmResult();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setPreview(null);
-            }
-        };
-        
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [preview, confirmResult]);
-
-    // Enhanced live mode with better performance and detection
     useEffect(() => {
         if (!isLiveMode) {
-            setPreview(null);
             return;
         }
 
-        // Optimized expression handler with immediate feedback
-        const handleExpression = async (shapeId: TLShapeId, text: string, bounds: Box | null) => {
-            const startTime = performance.now();
-            processCount.current++;
-            
-            if (!bounds) {
-                setPreview(null);
-                return;
-            }
-
+        const handleExpression = async (shapeId: TLShapeId, text: string) => {
             const trimmedText = text.trim();
-            if (trimmedText.length < 2) {
-                setPreview(null);
-                return;
-            }
 
-            // Enhanced keyword detection
             const detectedKeyword = ENHANCED_KEYWORDS.find(k => k.pattern.test(trimmedText));
             if (!detectedKeyword) {
-                setPreview(null);
                 return;
             }
 
-            // Extract expression
             const expression = trimmedText.replace(detectedKeyword.pattern, '').trim();
             if (!expression) {
-                setPreview(null);
                 return;
             }
 
-            // Use enhanced calculation engine
-            let operation = detectedKeyword.keyword;
-            if(operation === 'evaluate' || operation === 'calc' || operation === 'calculate' || operation === 'solve' || operation === 'find x') {
-                operation = '=';
-            }
-            if(operation === 'factor') {
-                operation = 'simplify'; // mathjs can simplify to factors
-            }
-
-            const result = await calculationEngine.evaluateExpression(expression, operation);
+            const result = await calculationEngine.evaluateExpression(expression, detectedKeyword.keyword);
             
             if (result !== null) {
-                const processingTime = performance.now() - startTime;
-                lastProcessTime.current = processingTime;
-                
-                setPreview({ 
-                    shapeId, 
-                    result, 
-                    keyword: detectedKeyword.keyword, 
-                    bounds,
-                    evaluationTime: processingTime
-                });
-            } else {
-                setPreview(null);
+                const shape = editor.getShape(shapeId);
+                if (shape?.type === 'text') {
+                    let newText: string;
+
+                    if (detectedKeyword.keyword === '=') {
+                        newText = `${trimmedText} ${result}`;
+                    } else {
+                         newText = `${expression} → ${result}`;
+                    }
+
+                    if (shape.props.text === newText) {
+                        return;
+                    }
+
+                    editor.updateShape({
+                        id: shapeId,
+                        type: 'text',
+                        props: { text: newText },
+                    });
+                }
             }
         };
 
-        // Immediate processing for ultra-responsive feel
         const unsubscribe = editor.store.listen(
             (entry) => {
                 if (entry.source !== 'user' || !entry.changes.updated) return;
 
                 const selectedShape = editor.getOnlySelectedShape();
                 if (!selectedShape || selectedShape.type !== 'text') {
-                    setPreview(null);
                     return;
                 }
 
                 for (const [, to] of Object.values(entry.changes.updated)) {
                     if (to.id === selectedShape.id && to.type === 'text') {
-                        const bounds = editor.getShapePageBounds(to.id);
-                        // Process immediately for premium feel
-                        handleExpression(to.id, to.props.text, bounds);
+                        handleExpression(to.id, to.props.text);
                     }
                 }
             }, 
@@ -458,7 +254,6 @@ export function CanvasAiMenu() {
         };
     }, [editor, isLiveMode, calculationEngine]);
 
-    // Enhanced live mode toggle with performance feedback
     const toggleLiveMode = useCallback(() => {
         const newMode = !isLiveMode;
         setIsLiveMode(newMode);
@@ -471,19 +266,10 @@ export function CanvasAiMenu() {
                 duration: 3000,
             });
         } else {
-            setPreview(null);
-            const avgTime = lastProcessTime.current;
-            const count = processCount.current;
-            
             toast({
                 title: "Live Math Mode: OFF",
-                description: count > 0 ? `Processed ${count} expressions (avg: ${avgTime.toFixed(1)}ms)` : "Ready for next session",
                 duration: 2000,
             });
-            
-            // Reset performance counters
-            processCount.current = 0;
-            lastProcessTime.current = 0;
         }
     }, [isLiveMode, calculationEngine, toast]);
 
@@ -657,17 +443,6 @@ export function CanvasAiMenu() {
                     </Button>
                 </Card>
             </div>
-            
-            {preview && (
-                <EnhancedPreview
-                    shapeId={preview.shapeId}
-                    result={preview.result}
-                    keyword={preview.keyword}
-                    bounds={preview.bounds}
-                    onConfirm={confirmResult}
-                    evaluationTime={preview.evaluationTime}
-                />
-            )}
         </>
     );
 }
