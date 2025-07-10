@@ -5,30 +5,46 @@
 
 import { z } from 'genkit';
 
-// Base shape schema
+// Base properties common to many tldraw shapes
+const TLBaseShapeProps = z.object({
+  text: z.string().describe('The text content inside the shape.'),
+});
+
+// Props specific to geometric shapes like rectangles, ellipses, etc.
+const TLGeoShapeProps = TLBaseShapeProps.extend({
+    geo: z.enum(['rectangle', 'ellipse', 'triangle', 'diamond']),
+    w: z.number().describe('The width of the shape.'),
+    h: z.number().describe('The height of the shape.'),
+});
+
+// Props specific to text shapes
+const TLTextShapeProps = TLBaseShapeProps.extend({
+    size: z.enum(['s', 'm', 'l', 'xl']),
+    align: z.enum(['start', 'middle', 'end']),
+});
+
+// A base schema for a shape on the canvas
 const TLBaseShape = z.object({
   id: z.string().describe("A unique identifier for the shape, e.g., 'shape:user'"),
   x: z.number().describe('The x-coordinate of the top-left corner.'),
   y: z.number().describe('The y-coordinate of the top-left corner.'),
-  text: z.string().describe('The text content inside the shape.'),
 });
 
-// Box shape (for entities, classes, flowchart steps)
-const TLBoxShape = TLBaseShape.extend({
-  type: z.enum(['box']),
-  w: z.number().describe('The width of the box.'),
-  h: z.number().describe('The height of the box.'),
+// The final schema for a geometric shape
+const TLGeoShape = TLBaseShape.extend({
+  type: z.enum(['geo']),
+  props: TLGeoShapeProps,
 });
 
-// Text shape (for labels, annotations)
+// The final schema for a text shape
 const TLTextShape = TLBaseShape.extend({
   type: z.enum(['text']),
-  w: z.number().describe('The width of the text area.'),
-  h: z.number().describe('The height of the text area.'),
+  props: TLTextShapeProps,
 });
 
+
 // Union of all supported shapes
-const TLShape = z.discriminatedUnion('type', [TLBoxShape, TLTextShape]);
+const TLShape = z.discriminatedUnion('type', [TLGeoShape, TLTextShape]);
 
 // Arrowhead types
 const TLArrowhead = z.enum(['arrow', 'triangle', 'diamond', 'pipe', 'none']);

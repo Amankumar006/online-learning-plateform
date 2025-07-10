@@ -261,7 +261,7 @@ const ENHANCED_KEYWORDS = [
   { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate)\s*$/i },
 ];
 
-function getShapesBoundingBox(shapes: { x: number, y: number, w: number, h: number }[]): Box | null {
+function getShapesBoundingBox(shapes: { x: number, y: number, props: { w: number, h: number } }[]): Box | null {
     if (shapes.length === 0) {
         return null;
     }
@@ -274,8 +274,8 @@ function getShapesBoundingBox(shapes: { x: number, y: number, w: number, h: numb
     for (const shape of shapes) {
         minX = Math.min(minX, shape.x);
         minY = Math.min(minY, shape.y);
-        maxX = Math.max(maxX, shape.x + shape.w);
-        maxY = Math.max(maxY, shape.y + shape.h);
+        maxX = Math.max(maxX, shape.x + shape.props.w);
+        maxY = Math.max(maxY, shape.y + shape.props.h);
     }
     
     return {

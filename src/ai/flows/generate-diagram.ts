@@ -34,13 +34,14 @@ const prompt = ai.definePrompt({
 1.  **Analyze the Prompt:** Understand the user's request: "{{{prompt}}}".
 2.  **Determine Diagram Type:** The user wants a "{{{diagramType}}}" diagram.
 3.  **Generate Shapes:** Create an array of shape objects.
-    *   Each shape must have an \`id\`, \`type\` ('box' or 'text'), \`x\`, \`y\`, \`w\` (width), \`h\` (height), and \`text\`.
-    *   Position the shapes logically within the 1200x800 canvas. Avoid overlaps.
-    *   Use 'box' for entities, classes, or flowchart steps. Use 'text' for labels or annotations that don't need a border.
+    *   Each shape must have an \`id\`, \`type\` ('geo' or 'text'), \`x\`, \`y\`, and a \`props\` object.
+    *   For 'geo' shapes, \`props\` must include \`geo\` (e.g., 'rectangle'), \`w\`, \`h\`, and \`text\`.
+    *   For 'text' shapes, \`props\` must include \`text\`, \`size\`, and \`align\`.
+    *   Position the shapes logically within the 1200x800 canvas. Avoid overlaps. Use 'geo' with 'rectangle' for main entities, classes, or flowchart steps.
 4.  **Generate Arrows:** Create an array of arrow objects to connect the shapes.
     *   Each arrow must have an \`id\`, \`type\` ('arrow'), and a \`start\` and \`end\` object.
     *   The \`start\` and \`end\` objects must specify the \`id\` of the shape they connect to.
-    *   Set the arrow's \`start.arrowhead\` and \`end.arrowhead\` properties appropriately for the diagram type (e.g., 'arrow' for flowcharts, 'none' for basic ER diagrams, 'triangle' for UML inheritance).
+    *   Set the arrow's \`start_arrowhead\` and \`end_arrowhead\` properties appropriately for the diagram type (e.g., 'arrow' for flowcharts, 'none' for basic ER diagrams, 'triangle' for UML inheritance).
     *   Optionally add a \`text\` label to the arrow (e.g., for relationship names in ER diagrams).
 5.  **Layout Strategy:**
     *   For flowcharts and process diagrams, arrange shapes from top-to-bottom or left-to-right.
@@ -53,10 +54,10 @@ User Prompt: "A process with a start, a decision, and two end points."
 \`\`\`json
 {
   "shapes": [
-    { "id": "shape:start", "type": "box", "x": 500, "y": 50, "w": 100, "h": 50, "text": "Start" },
-    { "id": "shape:decision", "type": "box", "x": 475, "y": 150, "w": 150, "h": 60, "text": "Is it valid?" },
-    { "id": "shape:end_yes", "type": "box", "x": 250, "y": 250, "w": 100, "h": 50, "text": "End (Yes)" },
-    { "id": "shape:end_no", "type": "box", "x": 650, "y": 250, "w": 100, "h": 50, "text": "End (No)" }
+    { "id": "shape:start", "type": "geo", "x": 500, "y": 50, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "Start" } },
+    { "id": "shape:decision", "type": "geo", "x": 475, "y": 150, "props": { "geo": "diamond", "w": 150, "h": 60, "text": "Is it valid?" } },
+    { "id": "shape:end_yes", "type": "geo", "x": 250, "y": 250, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "End (Yes)" } },
+    { "id": "shape:end_no", "type": "geo", "x": 650, "y": 250, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "End (No)" } }
   ],
   "arrows": [
     { "id": "arrow:1", "type": "arrow", "start": { "id": "shape:start" }, "end": { "id": "shape:decision" }, "start_arrowhead": "none", "end_arrowhead": "arrow" },
