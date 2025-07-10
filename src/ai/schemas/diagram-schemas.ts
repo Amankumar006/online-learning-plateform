@@ -15,14 +15,14 @@ const TLBaseShape = z.object({
 
 // Box shape (for entities, classes, flowchart steps)
 const TLBoxShape = TLBaseShape.extend({
-  type: z.literal('box'),
+  type: z.enum(['box']),
   w: z.number().describe('The width of the box.'),
   h: z.number().describe('The height of the box.'),
 });
 
 // Text shape (for labels, annotations)
 const TLTextShape = TLBaseShape.extend({
-  type: z.literal('text'),
+  type: z.enum(['text']),
   w: z.number().describe('The width of the text area.'),
   h: z.number().describe('The height of the text area.'),
 });
@@ -36,7 +36,7 @@ const TLArrowhead = z.enum(['arrow', 'triangle', 'diamond', 'pipe', 'none']);
 // Arrow shape
 const TLArrowShape = z.object({
   id: z.string().describe("A unique identifier for the arrow, e.g., 'arrow:1'"),
-  type: z.literal('arrow'),
+  type: z.enum(['arrow']),
   start: z.object({
     id: z.string().describe('The ID of the shape where the arrow starts.'),
   }),
