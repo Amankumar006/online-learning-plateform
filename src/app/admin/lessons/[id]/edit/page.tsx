@@ -11,13 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getLesson, updateLesson, Lesson, Section } from "@/lib/data";
-import { Loader2, Code, Video, FileText, Sparkles } from "lucide-react";
+import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateLessonImage } from "@/ai/flows/generate-lesson-image";
 import { uploadImageFromDataUrl } from "@/lib/storage";
+import { generateFollowUpSuggestions } from "@/ai/flows/generate-follow-up-suggestions";
 
 function EditLessonSkeleton() {
     return (
@@ -56,6 +57,7 @@ export default function EditLessonPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   
   // Form state
   const [title, setTitle] = useState("");
@@ -70,6 +72,7 @@ export default function EditLessonPage() {
   const [ageGroup, setAgeGroup] = useState("");
   const [curriculumBoard, setCurriculumBoard] = useState("");
   const [topicDepth, setTopicDepth] = useState("");
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   
   const fetchLessonData = async () => {
       if (!lessonId) return;
@@ -182,13 +185,42 @@ export default function EditLessonPage() {
     }
   };
 
+  const handleSuggestFollowUp = async () => {
+      setIsSuggesting(true);
+      setSuggestedTopics([]);
+      try {
+        const { suggestions } = await generateFollowUpSuggestions({ lessonId });
+        setSuggestedTopics(suggestions);
+        if (suggestions.length === 0) {
+            toast({ title: "No suggestions found.", description: "The AI could not determine a clear next step." });
+        }
+      } catch (error: any) {
+          console.error(error);
+          toast({ variant: "destructive", title: "AI Error", description: error.message || "Failed to suggest follow-up topics." });
+      } finally {
+          setIsSuggesting(false);
+      }
+  };
+  
+  const handleCreateFollowUp = (topic: string) => {
+      const query = new URLSearchParams({
+          topic,
+          subject,
+          gradeLevel,
+          ageGroup,
+          curriculumBoard,
+          topicDepth,
+      });
+      router.push(`/admin/lessons/new?${query.toString()}`);
+  }
+
   const breadcrumbItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/lessons", label: "Lessons" },
     { href: `/admin/lessons/${lessonId}/edit`, label: lesson?.title || "Edit Lesson" },
   ];
   
-  const canGenerate = isGeneratingImage || isUploadingImage;
+  const canGenerate = isGeneratingImage || isUploadingImage || isSuggesting;
 
   if (isLoading) {
       return (
@@ -200,145 +232,180 @@ export default function EditLessonPage() {
   }
 
   return (
-    <div>
-      <Breadcrumb items={breadcrumbItems} />
-      <form onSubmit={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit Lesson</CardTitle>
-            <CardDescription>Make changes to an existing lesson. Manual editing of section content will be available soon.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
-              <div className="space-y-2">
-                <Label htmlFor="title">Lesson Title</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Lesson title" required />
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Biology" required />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Short Description</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the lesson." required />
-            </div>
-
-             <div className="pt-6 border-t space-y-4">
-                <h3 className="text-lg font-medium">Educational Context</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="gradeLevel">Grade Level</Label>
-                        <Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ageGroup">Age Group</Label>
-                        <Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="curriculumBoard">Curriculum Board</Label>
-                        <Select onValueChange={setCurriculumBoard} value={curriculumBoard}>
-                            <SelectTrigger><SelectValue placeholder="Select Board" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="CBSE">CBSE</SelectItem>
-                                <SelectItem value="ICSE">ICSE</SelectItem>
-                                <SelectItem value="NCERT">NCERT</SelectItem>
-                                <SelectItem value="State Board">State Board</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="topicDepth">Topic Depth</Label>
-                        <Select onValueChange={setTopicDepth} value={topicDepth}>
-                            <SelectTrigger><SelectValue placeholder="Select Depth" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Introductory">Introductory</SelectItem>
-                                <SelectItem value="Detailed">Detailed</SelectItem>
-                                <SelectItem value="Comprehensive">Comprehensive</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2">
+        <Breadcrumb items={breadcrumbItems} />
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Edit Lesson</CardTitle>
+              <CardDescription>Make changes to an existing lesson. Manual editing of section content will be available soon.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Lesson Title</Label>
+                  <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Lesson title" required />
                 </div>
-             </div>
-            
-            <div className="space-y-4 rounded-lg border p-4">
-                <Label className="text-base font-medium">Lesson Content</Label>
-                <CardDescription>Review the generated sections and blocks. Manual editing will be available in a future update.</CardDescription>
-                
-                {sections.length > 0 ? (
-                    <div className="space-y-6">
-                        {sections.map((section, sIndex) => (
-                            <div key={sIndex} className="p-4 rounded-md border bg-secondary/30">
-                                <h3 className="font-semibold text-lg mb-2">{section.title}</h3>
-                                <div className="space-y-4">
-                                    {section.blocks.map((block, bIndex) => (
-                                        <div key={bIndex} className="p-3 bg-background rounded-md shadow-sm">
-                                            {block.type === 'text' && <div className="flex items-start gap-3"><FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><p className="flex-1 text-sm">{block.content}</p></div>}
-                                            {block.type === 'code' && <div className="flex items-start gap-3"><Code className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><div className="flex-1"><span className="text-xs font-mono bg-muted px-2 py-1 rounded">{block.language}</span><pre className="text-sm bg-muted p-2 rounded-md overflow-x-auto mt-2"><code>{block.code}</code></pre></div></div>}
-                                            {block.type === 'video' && <div className="flex items-start gap-3"><Video className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><a href={block.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm text-blue-600 truncate hover:underline">{block.url}</a></div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center text-muted-foreground py-8">
-                        This lesson has no section-based content.
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="difficulty">Difficulty</Label>
-                <Select onValueChange={(v: "Beginner" | "Intermediate" | "Advanced") => setDifficulty(v)} value={difficulty}>
-                  <SelectTrigger id="difficulty">
-                    <SelectValue placeholder="Select difficulty" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
+                 <div className="space-y-2">
+                  <Label htmlFor="subject">Subject</Label>
+                  <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Biology" required />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image">Main Image URL</Label>
-                 <div className="flex items-center gap-2">
-                    <Input id="image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://... or generate one" required />
-                    <Button type="button" variant="outline" size="icon" onClick={handleGenerateImage} disabled={canGenerate || !title}>
-                         {canGenerate ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                         <span className="sr-only">Generate Image</span>
+                <Label htmlFor="description">Short Description</Label>
+                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the lesson." required />
+              </div>
+
+               <div className="pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-medium">Educational Context</h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="gradeLevel">Grade Level</Label>
+                          <Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="ageGroup">Age Group</Label>
+                          <Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="curriculumBoard">Curriculum Board</Label>
+                          <Select onValueChange={setCurriculumBoard} value={curriculumBoard}>
+                              <SelectTrigger><SelectValue placeholder="Select Board" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="CBSE">CBSE</SelectItem>
+                                  <SelectItem value="ICSE">ICSE</SelectItem>
+                                  <SelectItem value="NCERT">NCERT</SelectItem>
+                                  <SelectItem value="State Board">State Board</SelectItem>
+                                  <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="topicDepth">Topic Depth</Label>
+                          <Select onValueChange={setTopicDepth} value={topicDepth}>
+                              <SelectTrigger><SelectValue placeholder="Select Depth" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="Introductory">Introductory</SelectItem>
+                                  <SelectItem value="Detailed">Detailed</SelectItem>
+                                  <SelectItem value="Comprehensive">Comprehensive</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                  </div>
+               </div>
+              
+              <div className="space-y-4 rounded-lg border p-4">
+                  <Label className="text-base font-medium">Lesson Content</Label>
+                  <CardDescription>Review the generated sections and blocks. Manual editing will be available in a future update.</CardDescription>
+                  
+                  {sections.length > 0 ? (
+                      <div className="space-y-6">
+                          {sections.map((section, sIndex) => (
+                              <div key={sIndex} className="p-4 rounded-md border bg-secondary/30">
+                                  <h3 className="font-semibold text-lg mb-2">{section.title}</h3>
+                                  <div className="space-y-4">
+                                      {section.blocks.map((block, bIndex) => (
+                                          <div key={bIndex} className="p-3 bg-background rounded-md shadow-sm">
+                                              {block.type === 'text' && <div className="flex items-start gap-3"><FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><p className="flex-1 text-sm">{block.content}</p></div>}
+                                              {block.type === 'code' && <div className="flex items-start gap-3"><Code className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><div className="flex-1"><span className="text-xs font-mono bg-muted px-2 py-1 rounded">{block.language}</span><pre className="text-sm bg-muted p-2 rounded-md overflow-x-auto mt-2"><code>{block.code}</code></pre></div></div>}
+                                              {block.type === 'video' && <div className="flex items-start gap-3"><Video className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><a href={block.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm text-blue-600 truncate hover:underline">{block.url}</a></div>}
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                          This lesson has no section-based content.
+                      </div>
+                  )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="difficulty">Difficulty</Label>
+                  <Select onValueChange={(v: "Beginner" | "Intermediate" | "Advanced") => setDifficulty(v)} value={difficulty}>
+                    <SelectTrigger id="difficulty">
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Intermediate">Intermediate</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="image">Main Image URL</Label>
+                   <div className="flex items-center gap-2">
+                      <Input id="image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://... or generate one" required />
+                      <Button type="button" variant="outline" size="icon" onClick={handleGenerateImage} disabled={canGenerate || !title}>
+                           {isGeneratingImage || isUploadingImage ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                           <span className="sr-only">Generate Image</span>
+                      </Button>
+                  </div>
+                   {image && (
+                      <div className="mt-2 rounded-md border p-2">
+                          <Image src={image} width={200} height={100} alt="Lesson image preview" className="rounded-md aspect-video object-cover" data-ai-hint="lesson image" />
+                      </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., algebra, basics, calculus" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-6 border-t">
+                <Button variant="outline" asChild>
+                  <Link href="/admin/lessons">Cancel</Link>
+                </Button>
+                <Button type="submit" disabled={isSaving || canGenerate}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+
+      <div className="lg:col-span-1 space-y-6">
+        <div className="sticky top-24">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary"/> What's Next?</CardTitle>
+                    <CardDescription>Generate AI-powered suggestions for a follow-up lesson based on this one.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={handleSuggestFollowUp} disabled={isSuggesting} className="w-full">
+                        {isSuggesting ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
+                        Suggest Follow-up Topics
                     </Button>
-                </div>
-                 {image && (
-                    <div className="mt-2 rounded-md border p-2">
-                        <Image src={image} width={200} height={100} alt="Lesson image preview" className="rounded-md aspect-video object-cover" data-ai-hint="lesson image" />
-                    </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., algebra, basics, calculus" />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-6 border-t">
-              <Button variant="outline" asChild>
-                <Link href="/admin/lessons">Cancel</Link>
-              </Button>
-              <Button type="submit" disabled={isSaving || canGenerate}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </form>
+                    {suggestedTopics.length > 0 && (
+                        <div className="mt-4 space-y-2 pt-4 border-t">
+                            <h4 className="font-semibold">Suggested Topics:</h4>
+                            {suggestedTopics.map((topic, index) => (
+                                <Button
+                                    key={index}
+                                    variant="secondary"
+                                    className="w-full justify-between"
+                                    onClick={() => handleCreateFollowUp(topic)}
+                                >
+                                    {topic}
+                                    <ArrowRight className="h-4 w-4" />
+                                </Button>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function NewLessonPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -44,6 +45,16 @@ export default function NewLessonPage() {
   const [tags, setTags] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
   
+  useEffect(() => {
+    // Pre-fill form from URL parameters if they exist
+    setAiTopic(searchParams.get('topic') || '');
+    setSubject(searchParams.get('subject') || '');
+    setGradeLevel(searchParams.get('gradeLevel') || '');
+    setAgeGroup(searchParams.get('ageGroup') || '');
+    setCurriculumBoard(searchParams.get('curriculumBoard') || '');
+    setTopicDepth(searchParams.get('topicDepth') || '');
+  }, [searchParams]);
+
   const handleGenerateLesson = async () => {
     if (!aiTopic.trim()) {
         toast({ variant: "destructive", title: "Error", description: "Please enter a topic to generate a lesson." });
