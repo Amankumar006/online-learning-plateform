@@ -65,10 +65,8 @@ const prompt = ai.definePrompt({
    - Use plain text only (no LaTeX, no complex markdown).
 
 ---
-**Image(s) to Analyze:**
-{{#each imageDataUris}}
-{{media url=this}}
-{{/each}}
+**Image to Analyze:**
+{{media url=imageDataUris.[0]}}
 
 Respond with a single JSON object that conforms to the output schema.
 `,
