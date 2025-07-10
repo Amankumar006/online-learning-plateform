@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
@@ -9,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExercise, getLessons, Lesson, getLesson, Exercise, createSystemAnnouncement } from "@/lib/data";
+import { createExercise, getLessons, Lesson, getLesson, Exercise, createSystemAnnouncement, getExercises } from "@/lib/data";
 import { generateExercise, GeneratedExercise } from "@/ai/flows/generate-exercise";
 import { generateCustomExercise } from "@/ai/flows/generate-custom-exercise";
-import { Loader2, Sparkles, Wand2, BrainCircuit } from "lucide-react";
+import { Loader2, Sparkles, Wand2, BrainCircuit, ArrowRight } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,8 @@ function NewExerciseContent() {
 
   // "From Lesson" tab state
   const [selectedLessonId, setSelectedLessonId] = useState("");
+  const [existingExercises, setExistingExercises] = useState<Exercise[]>([]);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [mcqCount, setMcqCount] = useState(2);
   const [trueFalseCount, setTrueFalseCount] = useState(1);
   const [longFormCount, setLongFormCount] = useState(0);
@@ -56,6 +59,26 @@ function NewExerciseContent() {
     };
     fetchLessons();
   }, []);
+
+  useEffect(() => {
+    if (!selectedLessonId) {
+      setExistingExercises([]);
+      return;
+    }
+    const fetchExistingExercises = async () => {
+      setIsLoadingExisting(true);
+      try {
+        const exercises = await getExercises(selectedLessonId);
+        setExistingExercises(exercises);
+      } catch (error) {
+        console.error("Failed to fetch existing exercises:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not check for existing exercises." });
+      } finally {
+        setIsLoadingExisting(false);
+      }
+    };
+    fetchExistingExercises();
+  }, [selectedLessonId, toast]);
 
   const totalQuestions = mcqCount + trueFalseCount + longFormCount + fillInTheBlanksCount;
 
@@ -179,7 +202,7 @@ function NewExerciseContent() {
           });
       }
 
-      toast({ title: "Success!", description: "New exercise set has been created." });
+      toast({ title: "Success!", description: `New exercise set has been created and added to '${lesson?.title}'` });
       router.push("/admin/exercises");
       router.refresh();
     } catch (error) {
@@ -224,7 +247,7 @@ function NewExerciseContent() {
                     <Alert>
                         <Sparkles className="h-4 w-4" />
                         <AlertTitle>AI Exercise Set Generator</AlertTitle>
-                        <AlertDescription className="mb-4">Select a lesson and customize how many questions of each type you want the AI to generate.</AlertDescription>
+                        <AlertDescription className="mb-4">Select a lesson and customize how many questions of each type you want the AI to generate and append to the lesson.</AlertDescription>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                 <div className="space-y-2"><Label htmlFor="mcq-count">Multiple-Choice</Label><Input id="mcq-count" type="number" value={mcqCount} onChange={(e) => setMcqCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
@@ -233,9 +256,31 @@ function NewExerciseContent() {
                                 <div className="space-y-2"><Label htmlFor="lf-count">Long Form</Label><Input id="lf-count" type="number" value={longFormCount} onChange={(e) => setLongFormCount(Math.max(0, Number(e.target.value)))} min="0" /></div>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                                <div className="space-y-2 flex-grow"><Label htmlFor="lessonId" className="sr-only">Link to Lesson</Label><Select onValueChange={setSelectedLessonId} value={selectedLessonId}><SelectTrigger id="lessonId"><SelectValue placeholder="Select a lesson to generate exercises from" /></SelectTrigger><SelectContent>{lessons.map(lesson => <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>)}</SelectContent></Select></div>
+                                <div className="space-y-2 flex-grow">
+                                  <Label htmlFor="lessonId" className="sr-only">Link to Lesson</Label>
+                                  <Select onValueChange={setSelectedLessonId} value={selectedLessonId}>
+                                    <SelectTrigger id="lessonId"><SelectValue placeholder="Select a lesson to generate exercises from" /></SelectTrigger>
+                                    <SelectContent>{lessons.map(lesson => <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </div>
                                 <Button type="button" variant="outline" onClick={handleGenerateFromLesson} disabled={isGenerating || !selectedLessonId || totalQuestions === 0} className="shrink-0">{isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} Generate Exercise Set</Button>
                             </div>
+                            {selectedLessonId && (
+                              <div className="p-3 bg-secondary/30 border rounded-md text-sm">
+                                {isLoadingExisting ? (
+                                  <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/> Checking for existing exercises...</div>
+                                ) : (
+                                  <div className="flex items-center justify-between">
+                                    <p>This lesson currently has <span className="font-bold">{existingExercises.length}</span> existing exercise(s).</p>
+                                    {existingExercises.length > 0 && (
+                                      <Button variant="link" size="sm" asChild className="h-auto p-0">
+                                        <Link href={`/admin/exercises?lesson=${selectedLessonId}`} target="_blank">Review Existing <ArrowRight className="h-4 w-4 ml-1"/></Link>
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                         </div>
                     </Alert>
                 </TabsContent>

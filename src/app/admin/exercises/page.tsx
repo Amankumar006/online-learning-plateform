@@ -2,16 +2,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getAllExercises, ExerciseWithLessonTitle } from "@/lib/data";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { getAllExercises, ExerciseWithLessonTitle, getLessons, Lesson } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, FilterX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import ExerciseActions from "@/components/admin/ExerciseActions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
 function ExercisesSkeleton() {
   return (
@@ -37,7 +40,7 @@ function ExercisesSkeleton() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {[...Array(3)].map((_, i) => (
+            {[...Array(5)].map((_, i) => (
               <TableRow key={i}>
                 <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-32" /></TableCell>
@@ -53,19 +56,46 @@ function ExercisesSkeleton() {
   )
 }
 
-
-export default function AdminExercisesPage() {
+function ExercisesPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [exercises, setExercises] = useState<ExerciseWithLessonTitle[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     const fetchExercises = async () => {
-      const exercisesData = await getAllExercises();
+      setIsLoading(true);
+      const [exercisesData, lessonsData] = await Promise.all([
+        getAllExercises(),
+        getLessons(),
+      ]);
       setExercises(exercisesData);
+      setLessons(lessonsData);
+      
+      const lessonFilter = searchParams.get('lesson');
+      if (lessonFilter) {
+        setFilter(lessonFilter);
+      }
       setIsLoading(false);
     };
     fetchExercises();
-  }, []);
+  }, [searchParams]);
+
+  const handleFilterChange = (lessonId: string) => {
+    setFilter(lessonId);
+    router.push(`/admin/exercises?lesson=${lessonId}`);
+  };
+
+  const clearFilter = () => {
+    setFilter('');
+    router.push('/admin/exercises');
+  };
+
+  const filteredExercises = filter
+    ? exercises.filter((ex) => ex.lessonId === filter)
+    : exercises;
 
   const breadcrumbItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
@@ -102,11 +132,25 @@ export default function AdminExercisesPage() {
                         Here you can create, edit, and delete exercises.
                     </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                    <Button asChild>
+                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Select value={filter} onValueChange={handleFilterChange}>
+                        <SelectTrigger className="w-full sm:w-[250px]">
+                            <SelectValue placeholder="Filter by lesson..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {lessons.map(lesson => (
+                                <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {filter && (
+                        <Button variant="ghost" onClick={clearFilter} className="flex-shrink-0">
+                            <FilterX className="mr-2 h-4 w-4" /> Clear Filter
+                        </Button>
+                    )}
+                    <Button asChild className="flex-shrink-0">
                         <Link href="/admin/exercises/new">
-                            <PlusCircle className="mr-2"/>
-                            New Exercise
+                            <PlusCircle className="mr-2"/> New Exercise
                         </Link>
                     </Button>
                 </div>
@@ -124,8 +168,8 @@ export default function AdminExercisesPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {exercises.length > 0 ? (
-                exercises.map((exercise: ExerciseWithLessonTitle) => (
+                {filteredExercises.length > 0 ? (
+                filteredExercises.map((exercise: ExerciseWithLessonTitle) => (
                     <TableRow key={exercise.id}>
                     <TableCell className="font-medium truncate max-w-sm">{exercise.question}</TableCell>
                     <TableCell>{exercise.lessonTitle}</TableCell>
@@ -141,7 +185,7 @@ export default function AdminExercisesPage() {
                 ) : (
                 <TableRow>
                     <TableCell colSpan={5} className="text-center">
-                    No exercises found.
+                    No exercises found for the selected filter.
                     </TableCell>
                 </TableRow>
                 )}
@@ -150,5 +194,13 @@ export default function AdminExercisesPage() {
         </CardContent>
         </Card>
     </div>
+  );
+}
+
+export default function AdminExercisesPage() {
+  return (
+    <Suspense fallback={<ExercisesSkeleton />}>
+      <ExercisesPageContent />
+    </Suspense>
   );
 }
