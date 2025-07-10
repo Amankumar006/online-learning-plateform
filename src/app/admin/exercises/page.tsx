@@ -2,19 +2,22 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAllExercises, ExerciseWithLessonTitle, getLessons, Lesson } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, FilterX } from "lucide-react";
+import { PlusCircle, FilterX, Folder, CheckCircle, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import ExerciseActions from "@/components/admin/ExerciseActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+type GroupedExercises = Record<string, { lessonTitle: string; exercises: ExerciseWithLessonTitle[] }>;
 
 function ExercisesSkeleton() {
   return (
@@ -28,29 +31,14 @@ function ExercisesSkeleton() {
             <Skeleton className="h-10 w-36" />
         </div>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Question</TableHead>
-              <TableHead>Lesson</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Difficulty</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[...Array(5)].map((_, i) => (
-              <TableRow key={i}>
-                <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <CardContent className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="border rounded-md">
+            <div className="p-4">
+                <Skeleton className="h-6 w-1/2" />
+            </div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   )
@@ -59,10 +47,12 @@ function ExercisesSkeleton() {
 function ExercisesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [exercises, setExercises] = useState<ExerciseWithLessonTitle[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [groupedExercises, setGroupedExercises] = useState<GroupedExercises>({});
+
+  const lessonFilter = searchParams.get('lesson');
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -71,17 +61,26 @@ function ExercisesPageContent() {
         getAllExercises(),
         getLessons(),
       ]);
-      setExercises(exercisesData);
+      
+      const grouped = exercisesData.reduce((acc: GroupedExercises, exercise) => {
+        const { lessonId, lessonTitle } = exercise;
+        if (!acc[lessonId]) {
+          acc[lessonId] = { lessonTitle: lessonTitle || 'Uncategorized', exercises: [] };
+        }
+        acc[lessonId].exercises.push(exercise);
+        return acc;
+      }, {});
+
+      setGroupedExercises(grouped);
       setLessons(lessonsData);
       
-      const lessonFilter = searchParams.get('lesson');
       if (lessonFilter) {
         setFilter(lessonFilter);
       }
       setIsLoading(false);
     };
     fetchExercises();
-  }, [searchParams]);
+  }, []);
 
   const handleFilterChange = (lessonId: string) => {
     setFilter(lessonId);
@@ -92,10 +91,6 @@ function ExercisesPageContent() {
     setFilter('');
     router.push('/admin/exercises');
   };
-
-  const filteredExercises = filter
-    ? exercises.filter((ex) => ex.lessonId === filter)
-    : exercises;
 
   const breadcrumbItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
@@ -129,7 +124,7 @@ function ExercisesPageContent() {
                 <div>
                     <CardTitle>Manage Exercises</CardTitle>
                     <CardDescription>
-                        Here you can create, edit, and delete exercises.
+                        Here you can create, edit, and delete exercises, grouped by lesson.
                     </CardDescription>
                 </div>
                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -157,40 +152,48 @@ function ExercisesPageContent() {
             </div>
         </CardHeader>
         <CardContent>
-            <Table>
-            <TableHeader>
-                <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead>Lesson</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {filteredExercises.length > 0 ? (
-                filteredExercises.map((exercise: ExerciseWithLessonTitle) => (
-                    <TableRow key={exercise.id}>
-                    <TableCell className="font-medium truncate max-w-sm">{exercise.question}</TableCell>
-                    <TableCell>{exercise.lessonTitle}</TableCell>
-                    <TableCell><Badge variant="secondary" className="capitalize">{exercise.type.replace(/_/g, ' ')}</Badge></TableCell>
-                    <TableCell>
-                        {getDifficultyBadge(exercise.difficulty)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <ExerciseActions exerciseId={exercise.id} />
-                    </TableCell>
-                    </TableRow>
-                ))
-                ) : (
-                <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                    No exercises found for the selected filter.
-                    </TableCell>
-                </TableRow>
-                )}
-            </TableBody>
-            </Table>
+            {Object.keys(groupedExercises).length > 0 ? (
+                <Accordion type="single" collapsible value={filter} onValueChange={handleFilterChange}>
+                    {Object.entries(groupedExercises).map(([lessonId, group]) => (
+                        <AccordionItem value={lessonId} key={lessonId}>
+                            <AccordionTrigger className="hover:no-underline p-4 rounded-lg hover:bg-muted/50 text-lg">
+                                <div className="flex items-center gap-3">
+                                    <Folder className="h-5 w-5 text-primary" />
+                                    <span className="font-semibold">{group.lessonTitle}</span>
+                                    <Badge variant="outline">{group.exercises.length} questions</Badge>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Question</TableHead>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Difficulty</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {group.exercises.map((exercise) => (
+                                            <TableRow key={exercise.id}>
+                                                <TableCell className="font-medium truncate max-w-md">{exercise.question}</TableCell>
+                                                <TableCell><Badge variant="secondary" className="capitalize">{exercise.type.replace(/_/g, ' ')}</Badge></TableCell>
+                                                <TableCell>{getDifficultyBadge(exercise.difficulty)}</TableCell>
+                                                <TableCell className="text-right"><ExerciseActions exerciseId={exercise.id} /></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                 <div className="text-center text-muted-foreground py-16">
+                    <p className="mb-2 text-lg font-semibold">No exercises found.</p>
+                    <p>Click "New Exercise" to get started.</p>
+                </div>
+            )}
         </CardContent>
         </Card>
     </div>
