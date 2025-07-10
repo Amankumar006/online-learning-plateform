@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId, type TLEditor } from '@tldraw/tldraw';
+import { useEditor, type Box, type TLShapeId, type TLEditor, getSvgAsImage } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -216,38 +216,12 @@ function EnhancedPreview({ shapeId, result, keyword, bounds, onConfirm, evaluati
 }
 
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const svgString = new XMLSerializer().serializeToString(svg);
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
-
-        const img = new window.Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const margin = 20;
-            canvas.width = img.width + margin * 2;
-            canvas.height = img.height + margin * 2;
-            const ctx = canvas.getContext('2d');
-
-            if (ctx) {
-                ctx.fillStyle = 'white'; 
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, margin, margin);
-                const pngDataUri = canvas.toDataURL('image/png');
-                URL.revokeObjectURL(url);
-                resolve(pngDataUri);
-            } else {
-                URL.revokeObjectURL(url);
-                reject(new Error('Could not get canvas 2D context.'));
-            }
-        };
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Failed to load the SVG into an image element for conversion.'));
-        };
-
-        img.src = url;
-    });
+    const png = await getSvgAsImage(svg, {
+        type: 'png',
+        quality: 1,
+        size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 },
+    })
+    return png || ''
 }
 
 function formatSolveResult(result: SolveVisualProblemOutput): string {
@@ -286,6 +260,36 @@ const ENHANCED_KEYWORDS = [
   { keyword: 'solve', pattern: /\b(solve|find\s+\w+)\s*$/i },
   { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate)\s*$/i },
 ];
+
+function getShapesBoundingBox(shapes: { x: number, y: number, w: number, h: number }[]): Box | null {
+    if (shapes.length === 0) {
+        return null;
+    }
+    
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    
+    for (const shape of shapes) {
+        minX = Math.min(minX, shape.x);
+        minY = Math.min(minY, shape.y);
+        maxX = Math.max(maxX, shape.x + shape.w);
+        maxY = Math.max(maxY, shape.y + shape.h);
+    }
+    
+    return {
+        x: minX,
+        y: minY,
+        w: maxX - minX,
+        h: maxY - minY,
+        minX,
+        minY,
+        maxX,
+        maxY,
+    };
+}
+
 
 export function CanvasAiMenu() {
     const editor = useEditor();
@@ -508,11 +512,11 @@ export function CanvasAiMenu() {
             
             // Center the diagram in the current viewport
             const viewport = editor.getViewportPageBounds();
-            const diagramBounds = editor.getShapesPageBounds(shapes);
+            const diagramBounds = getShapesBoundingBox(shapes as any);
             
             if (diagramBounds) {
-                const offsetX = viewport.midX - diagramBounds.midX;
-                const offsetY = viewport.midY - diagramBounds.midY;
+                const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
+                const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
 
                 shapes.forEach(shape => {
                     shape.x += offsetX;
@@ -520,8 +524,8 @@ export function CanvasAiMenu() {
                 });
             }
 
-            editor.createShapes(shapes);
-            editor.createArrows(arrows);
+            editor.createShapes(shapes as any);
+            editor.createArrows(arrows as any);
     
             toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
     
@@ -560,7 +564,7 @@ export function CanvasAiMenu() {
                     type: 'text',
                     x: selectionBounds.maxX + 40,
                     y: selectionBounds.y,
-                    props: { text: solutionText, size: 'm', font: 'draw', textAlign: 'start' }
+                    props: { text: solutionText, size: 'm', font: 'draw', align: 'start' }
                 });
             } else {
                 toast({ title: "AI Solution", description: solutionText.substring(0, 100) + "..." });
@@ -600,7 +604,7 @@ export function CanvasAiMenu() {
                     type: 'text',
                     x: selectionBounds.x,
                     y: selectionBounds.maxY + 40,
-                    props: { text: explanationText, size: 'm', font: 'draw', textAlign: 'start' }
+                    props: { text: explanationText, size: 'm', font: 'draw', align: 'start' }
                 });
             } else {
                  toast({ title: "AI Explanation", description: explanationText, duration: 10000 });
