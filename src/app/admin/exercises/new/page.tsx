@@ -194,10 +194,14 @@ function NewExerciseContent() {
 
       const lesson = lessons.find(l => l.id === finalLessonId);
       if (lesson) {
+          const isAppending = existingExercises.length > 0;
+          const announcementTitle = isAppending ? `More questions for "${lesson.title}"!` : `New Exercises for "${lesson.title}"`;
+          const announcementMessage = isAppending ? `Keep pushing forward! New questions have been added to the "${lesson.title}" exercises—give them a try!` : `New practice questions are available for one of your lessons.`;
+          
           await createSystemAnnouncement({
               type: 'new_exercise',
-              title: `New Exercises for "${lesson.title}"`,
-              message: `New practice questions are available for one of your lessons.`,
+              title: announcementTitle,
+              message: announcementMessage,
               link: `/dashboard/lessons/${finalLessonId}`
           });
       }
