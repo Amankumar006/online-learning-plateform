@@ -55,13 +55,16 @@ Component interaction occurs at several levels:
 
 -   **User Authentication:** Users can sign up and log in using Firebase Authentication. This secures access to personalized features.
 -   **Personalized Dashboard:** Upon logging in, users are directed to a dashboard (`/dashboard`) that provides an overview of their progress and access to different learning modules.
--   **Interactive Lessons:** Users can access and complete interactive lessons (`/dashboard/lessons/[id]`). Lessons likely include content display, embedded exercises, and potentially multimedia elements.
+-   **Interactive Lessons:** Users can access and complete interactive lessons (`/dashboard/lessons/[id]`). Lessons include text, code blocks, and AI-powered text-to-speech.
 -   **Adaptive Exercises:** The platform provides adaptive exercises (`/dashboard/practice/[id]`) that may adjust difficulty or type based on user performance. This likely involves fetching exercise data from Firestore and submitting user answers for evaluation.
 -   **Progress Tracking:** User activity and performance on lessons and exercises are tracked and visualized (`/dashboard/progress`). This data is stored in Firestore and potentially aggregated or analyzed in the backend.
--   **AI Study Buddy:** An AI-powered chat interface (`src/components/lessons/ai-buddy.tsx`, powered by Genkit flows in `/src/ai/flows/chat-with-ai-buddy.ts`) allows users to ask questions and receive assistance.
+-   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated, standalone chat interface (`/dashboard/buddy-ai`) powered by a central Genkit flow (`buddy-chat.ts`). This AI can:
+    *   Adopt different personas (e.g., friendly 'Study Buddy' or technical 'Code Mentor').
+    *   Maintain conversation history.
+    *   Use tools to search the web, create custom exercises, suggest study topics, generate images, and analyze code complexity.
 -   **Unified Content Generation (Admin):** The admin interface features a unified, tab-based page for generating exercises. Admins can either generate a set of exercises based on an existing lesson or generate a single, custom exercise from a detailed text prompt. This is powered by AI flows (`/src/ai/flows/generate-lesson-content.ts`, `/src/ai/flows/generate-custom-exercise.ts`, `/src/ai/flows/generate-lesson-image.ts`).
--   **Code Execution Simulation:** A feature to simulate code execution (`src/components/lessons/code-editor.tsx`, potentially using a backend service or AI tool like `/src/ai/flows/simulate-code-execution.ts`).
--   **Long Form Answer Grading:** An AI flow (`/src/ai/flows/grade-long-form-answer.ts`) is used to grade open-ended text responses.
+-   **Code Execution Simulation:** A feature to simulate code execution (`src/components/lessons/code-editor.tsx`, powered by the `simulate-code-execution.ts` flow).
+-   **Long Form Answer Grading:** An AI flow (`/src/ai/flows/grade-long-form-answer.ts`) is used to grade open-ended text responses, including handwritten work submitted as an image.
 
 ## 6. Data Flow
 
@@ -71,7 +74,7 @@ Component interaction occurs at several levels:
 -   **Backend Processing:** The Node.js backend receives data from the frontend, performs validation, applies business logic, and interacts with Firestore and Firebase Storage. For AI-related requests, the backend triggers the appropriate Genkit flows.
 -   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`).
 -   **Firebase Storage Interactions:** The backend handles file uploads (e.g., exercise images) to Firebase Storage. The frontend receives signed URLs from the backend to display or interact with these files.
--   **AI Data Flow:** When an AI flow is triggered from the backend, Genkit orchestrates the interaction with Google AI services. Input data from the frontend or backend is passed to the AI model, and the generated output is returned to the backend, which then sends it back to the frontend.
+-   **AI Data Flow:** When an AI flow is triggered, Genkit orchestrates the interaction with Google AI services. Input data (like user prompts and conversation history) is passed to the AI model, and the generated output is returned to the backend, which then sends it back to the frontend.
 
 ## 7. Security Considerations
 

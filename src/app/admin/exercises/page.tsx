@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -128,7 +129,7 @@ export default function AdminExercisesPage() {
                     <TableRow key={exercise.id}>
                     <TableCell className="font-medium truncate max-w-sm">{exercise.question}</TableCell>
                     <TableCell>{exercise.lessonTitle}</TableCell>
-                    <TableCell><Badge variant="secondary" className="capitalize">{exercise.type.replace('_', ' ')}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className="capitalize">{exercise.type.replace(/_/g, ' ')}</Badge></TableCell>
                     <TableCell>
                         {getDifficultyBadge(exercise.difficulty)}
                     </TableCell>
