@@ -338,7 +338,7 @@ function NewExerciseContent() {
             
             <div className="flex justify-end gap-2 pt-6 border-t">
               <Button variant="outline" asChild><Link href="/admin/exercises">Cancel</Link></Button>
-              <Button type="submit" disabled={isSaving || isGenerating || generatedExercises.length === 0 || (activeTab === 'custom' && !customLinkLessonId)}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save All Exercises</Button>
+              <Button type="submit" disabled={isSaving || isGenerating || generatedExercises.length === 0 || (activeTab === 'lesson' && !selectedLessonId) || (activeTab === 'custom' && !customLinkLessonId)}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save All Exercises</Button>
             </div>
           </CardContent>
         </Card>

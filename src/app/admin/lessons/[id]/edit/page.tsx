@@ -104,6 +104,7 @@ export default function EditLessonPage() {
   
   useEffect(() => {
     fetchLessonData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
   const handleGenerateImage = async () => {
@@ -315,7 +316,7 @@ export default function EditLessonPage() {
                 </div>
                  {image && (
                     <div className="mt-2 rounded-md border p-2">
-                        <Image src={image} width={200} height={100} alt="Lesson image preview" className="rounded-md aspect-video object-cover" />
+                        <Image src={image} width={200} height={100} alt="Lesson image preview" className="rounded-md aspect-video object-cover" data-ai-hint="lesson image" />
                     </div>
                 )}
               </div>
