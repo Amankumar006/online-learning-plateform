@@ -37,30 +37,6 @@ const getLessonTextContent = (sections: Section[] | undefined): string => {
     }).join('\n\n---\n\n');
 };
 
-
-export async function generateFollowUpSuggestions(
-  input: GenerateFollowUpSuggestionsInput
-): Promise<GenerateFollowUpSuggestionsOutput> {
-  const lesson = await getLesson(input.lessonId);
-  if (!lesson) {
-      throw new Error("Could not find the original lesson to base suggestions on.");
-  }
-  
-  const lessonSummary = `
-    Title: ${lesson.title}
-    Subject: ${lesson.subject}
-    Description: ${lesson.description}
-    Difficulty: ${lesson.difficulty}
-    Grade Level: ${lesson.gradeLevel || 'Not specified'}
-    Curriculum Board: ${lesson.curriculumBoard || 'Not specified'}
-    Topic Depth: ${lesson.topicDepth || 'Not specified'}
-    Tags: ${lesson.tags?.join(', ') || 'None'}
-    Content Summary: ${getLessonTextContent(lesson.sections).substring(0, 1500)}...
-  `;
-  
-  return generateFollowUpSuggestionsFlow({ previousLessonSummary: lessonSummary });
-}
-
 const GenerateFollowUpPromptInputSchema = z.object({
     previousLessonSummary: z.string().describe("A summary of the previous lesson's content and context."),
 });
@@ -82,14 +58,32 @@ Provide your suggestions as a JSON object with a single key "suggestions" contai
 `,
 });
 
-const generateFollowUpSuggestionsFlow = ai.defineFlow(
+export const generateFollowUpSuggestions = ai.defineFlow(
   {
     name: 'generateFollowUpSuggestionsFlow',
-    inputSchema: GenerateFollowUpPromptInputSchema,
+    inputSchema: GenerateFollowUpSuggestionsInputSchema,
     outputSchema: GenerateFollowUpSuggestionsOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input);
+    const lesson = await getLesson(input.lessonId);
+    if (!lesson) {
+        throw new Error("Could not find the original lesson to base suggestions on.");
+    }
+    
+    const lessonSummary = `
+      Title: ${lesson.title}
+      Subject: ${lesson.subject}
+      Description: ${lesson.description}
+      Difficulty: ${lesson.difficulty}
+      Grade Level: ${lesson.gradeLevel || 'Not specified'}
+      Curriculum Board: ${lesson.curriculumBoard || 'Not specified'}
+      Topic Depth: ${lesson.topicDepth || 'Not specified'}
+      Tags: ${lesson.tags?.join(', ') || 'None'}
+      Content Summary: ${getLessonTextContent(lesson.sections).substring(0, 1500)}...
+    `;
+
+    const {output} = await prompt({ previousLessonSummary: lessonSummary });
+    
     if (!output) {
       return { suggestions: [] };
     }
