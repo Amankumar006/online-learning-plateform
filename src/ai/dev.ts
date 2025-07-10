@@ -20,5 +20,6 @@ import '@/ai/flows/solve-visual-problem.ts';
 import '@/ai/flows/visual-explainer-flow.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
 import '@/ai/flows/generate-follow-up-suggestions.ts';
+import '@/ai/flows/generate-diagram.ts';
 
     

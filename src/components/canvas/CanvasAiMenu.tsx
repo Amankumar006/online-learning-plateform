@@ -3,13 +3,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
 import { useEditor, type Box, type TLShapeId, type TLEditor } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { solveVisualProblem, SolveVisualProblemOutput } from "@/ai/flows/solve-visual-problem";
 import { explainVisualConcept, ExplainVisualConceptOutput } from "@/ai/flows/visual-explainer-flow";
+import { generateDiagram } from "@/ai/flows/generate-diagram";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { evaluate, simplify, derivative, rationalize, parse } from 'mathjs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
+
 
 // Enhanced calculation engine with caching and optimizations
 class PremiumCalculateEngine {
@@ -301,6 +304,9 @@ export function CanvasAiMenu() {
         bounds: Box;
         evaluationTime?: number;
     } | null>(null);
+    const [isDiagramDialogOpen, setIsDiagramDialogOpen] = useState(false);
+    const [diagramPrompt, setDiagramPrompt] = useState("");
+    const [diagramType, setDiagramType] = useState("Flowchart");
 
     // Enhanced calculation engine
     const calculationEngine = useMemo(() => new PremiumCalculateEngine(), []);
@@ -480,7 +486,53 @@ export function CanvasAiMenu() {
         }
     }, [isLiveMode, calculationEngine, toast]);
 
-    const handleGenerateDiagram = () => toast({ title: "Coming Soon!", description: "AI Diagram Generation is under development." });
+    const handleGenerateDiagram = async () => {
+        if (!diagramPrompt.trim()) {
+            toast({ variant: 'destructive', title: 'Prompt Required', description: 'Please describe the diagram you want to create.' });
+            return;
+        }
+        setLoadingAction('diagram');
+        setIsLoading(true);
+        setIsDiagramDialogOpen(false);
+    
+        try {
+            const { shapes, arrows } = await generateDiagram({
+                prompt: diagramPrompt,
+                diagramType,
+            });
+    
+            if (!shapes || shapes.length === 0) {
+                toast({ variant: 'destructive', title: 'AI Error', description: 'The AI could not generate any shapes for this diagram.' });
+                return;
+            }
+            
+            // Center the diagram in the current viewport
+            const viewport = editor.getViewportPageBounds();
+            const diagramBounds = editor.getShapesPageBounds(shapes);
+            
+            if (diagramBounds) {
+                const offsetX = viewport.midX - diagramBounds.midX;
+                const offsetY = viewport.midY - diagramBounds.midY;
+
+                shapes.forEach(shape => {
+                    shape.x += offsetX;
+                    shape.y += offsetY;
+                });
+            }
+
+            editor.createShapes(shapes);
+            editor.createArrows(arrows);
+    
+            toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
+    
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'AI Error', description: error.message || 'Failed to generate diagram.' });
+        } finally {
+            setLoadingAction(null);
+            setIsLoading(false);
+            setDiagramPrompt('');
+        }
+    };
 
     const handleSolveSelection = async () => {
         const selectedShapeIds = editor.getSelectedShapeIds();
@@ -572,11 +624,55 @@ export function CanvasAiMenu() {
                         <Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link>
                     </Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <Button variant="ghost" size="sm" onClick={handleGenerateDiagram} disabled={isLoading}>
-                        <Sparkles className="mr-2" />Generate
-                    </Button>
                     
-                    {/* Keep existing dialog components */}
+                    <Dialog open={isDiagramDialogOpen} onOpenChange={setIsDiagramDialogOpen}>
+                        <DialogTrigger asChild>
+                             <Button variant="ghost" size="sm" disabled={isLoading}>
+                                {loadingAction === 'diagram' ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
+                                Generate Diagram
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                             <DialogHeader>
+                                <DialogTitle>Generate Diagram with AI</DialogTitle>
+                                <DialogDescription>Describe the diagram you want to create. The AI will generate it as editable shapes.</DialogDescription>
+                            </DialogHeader>
+                             <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="diagram-prompt">Prompt</Label>
+                                    <Textarea 
+                                        id="diagram-prompt" 
+                                        value={diagramPrompt} 
+                                        onChange={(e) => setDiagramPrompt(e.target.value)} 
+                                        placeholder="e.g., A simple ER diagram for a blog with users and posts."
+                                        rows={4}
+                                    />
+                                </div>
+                                 <div className="space-y-2">
+                                     <Label htmlFor="diagram-type">Diagram Type</Label>
+                                     <Select value={diagramType} onValueChange={setDiagramType}>
+                                         <SelectTrigger id="diagram-type">
+                                             <SelectValue placeholder="Select a type" />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                            <SelectItem value="Flowchart">Flowchart</SelectItem>
+                                            <SelectItem value="ER Diagram">ER Diagram</SelectItem>
+                                            <SelectItem value="UML Class Diagram">UML Class Diagram</SelectItem>
+                                            <SelectItem value="Sequence Diagram">Sequence Diagram</SelectItem>
+                                            <SelectItem value="System Architecture">System Architecture</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                 </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleGenerateDiagram} disabled={isLoading}>
+                                    {isLoading && loadingAction === 'diagram' ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    Generate
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    
                     <Dialog open={isSolveDialogOpen} onOpenChange={setIsSolveDialogOpen}>
                         <DialogTrigger asChild>
                             <Button variant="ghost" size="sm" disabled={isLoading}>
