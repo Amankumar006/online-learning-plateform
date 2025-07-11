@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, updateUserTimeSpent } from "@/lib/data";
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
@@ -173,6 +173,23 @@ export default function LessonPage() {
   const [currentSection, setCurrentSection] = useState<{ title: string; content: string } | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   
+  useEffect(() => {
+    let startTime: number;
+    if (user) {
+        startTime = Date.now();
+    }
+
+    return () => {
+        if (user && startTime) {
+            const endTime = Date.now();
+            const elapsedTimeInSeconds = Math.round((endTime - startTime) / 1000);
+            if (elapsedTimeInSeconds > 5) { // Only track if user spent more than 5 seconds
+                updateUserTimeSpent(user.uid, elapsedTimeInSeconds).catch(console.error);
+            }
+        }
+    };
+  }, [user]);
+
   const getSectionTextContent = (section: any): string => {
     return section.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content).join('\n\n');
   };

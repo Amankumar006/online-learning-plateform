@@ -834,28 +834,26 @@ export async function saveExerciseAttempt(
             const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
             const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
 
-            const timePerExercise = 30; // approx 30 seconds per exercise
-            const newTimeSpent = (progress.timeSpent || 0) + timePerExercise;
-
              // --- Weekly Activity Logic ---
-            const weeklyActivity = progress.weeklyActivity || [];
-            const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-            let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
-
-            if (currentWeek) {
-                currentWeek.skillsMastered += (isCorrect ? 1 : 0);
-                currentWeek.timeSpent += timePerExercise;
-            } else {
-                currentWeek = {
-                    week: weekStartDateStr,
-                    skillsMastered: (isCorrect ? 1 : 0),
-                    timeSpent: timePerExercise
-                };
-                weeklyActivity.push(currentWeek);
-            }
-            const sortedWeeklyActivity = weeklyActivity
-                .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
-                .slice(-5); // Keep only the last 5 weeks
+             const weeklyActivity = progress.weeklyActivity || [];
+             const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+             let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+ 
+             if (currentWeek) {
+                 if(isCorrect) {
+                     currentWeek.skillsMastered += 1;
+                 }
+             } else {
+                 currentWeek = {
+                     week: weekStartDateStr,
+                     skillsMastered: (isCorrect ? 1 : 0),
+                     timeSpent: 0
+                 };
+                 weeklyActivity.push(currentWeek);
+             }
+             const sortedWeeklyActivity = weeklyActivity
+                 .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
+                 .slice(-5); // Keep only the last 5 weeks
 
              // Gamification - XP and Achievements
             const xpGained = isCorrect ? (10 + (exercise.difficulty * 5)) : 0; // 15, 20, 25 XP
@@ -881,7 +879,6 @@ export async function saveExerciseAttempt(
                 'progress.totalExercisesAttempted': totalAttempted,
                 'progress.totalExercisesCorrect': totalCorrect,
                 'progress.averageScore': newAverageScore,
-                'progress.timeSpent': newTimeSpent,
                 'progress.weeklyActivity': sortedWeeklyActivity,
                 'progress.xp': increment(xpGained),
                 'progress.achievements': arrayUnion(...newAchievements),
@@ -899,6 +896,53 @@ export async function saveExerciseAttempt(
         throw new Error("Failed to save exercise result.");
     }
 }
+
+export async function updateUserTimeSpent(userId: string, seconds: number) {
+    if (!userId || seconds <= 0) return;
+
+    const userRef = doc(db, 'users', userId);
+    
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) {
+                console.error("User not found for time tracking.");
+                return;
+            }
+            
+            const progress = userDoc.data().progress as UserProgress;
+            
+            const newTimeSpent = (progress.timeSpent || 0) + seconds;
+
+            const weeklyActivity = progress.weeklyActivity || [];
+            const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+
+            if (currentWeek) {
+                currentWeek.timeSpent += seconds;
+            } else {
+                currentWeek = {
+                    week: weekStartDateStr,
+                    skillsMastered: 0,
+                    timeSpent: seconds
+                };
+                weeklyActivity.push(currentWeek);
+            }
+
+            const sortedWeeklyActivity = weeklyActivity
+                .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
+                .slice(-5);
+
+            transaction.update(userRef, {
+                'progress.timeSpent': newTimeSpent,
+                'progress.weeklyActivity': sortedWeeklyActivity
+            });
+        });
+    } catch (error) {
+        console.error("Error updating time spent:", error);
+    }
+}
+
 
 export async function getUserResponsesForLesson(userId: string, lessonId: string): Promise<UserExerciseResponse[]> {
     try {
