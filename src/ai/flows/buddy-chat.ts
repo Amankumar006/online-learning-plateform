@@ -232,9 +232,11 @@ const buddyChatFlow = ai.defineFlow(
         if (auth.uid !== input.userId) throw new Error("User ID does not match authenticated user.");
     }
   },
-  async (input, {stream, auth}) => {
+  async function* (input, {auth}) {
     
-    const history = (input.history || []).map(msg => ({
+    const MAX_HISTORY_MESSAGES = 10; // Keep the last 5 user/model turns
+
+    const history = (input.history || []).slice(-MAX_HISTORY_MESSAGES).map(msg => ({
         role: msg.role as 'user' | 'model',
         parts: [{ text: msg.content }],
     }));
@@ -305,7 +307,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
     // Stream tool usage as "thoughts"
     for await (const chunk of llmStream) {
         if (chunk.type === 'toolRequest') {
-             stream.yield({ type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` });
+             yield { type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` };
         }
     }
     
@@ -319,11 +321,11 @@ For all interactions, maintain a positive and supportive tone. If you don't know
     });
     
     // Yield the final response with suggestions
-    stream.yield({
+    yield {
         type: 'response',
         content: aiResponseText,
         suggestions: followUpResult.suggestions,
-    });
+    };
 
     return aiResponseText;
   }
