@@ -2,7 +2,7 @@
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { format, startOfWeek, subDays } from 'date-fns';
+import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
 import { uploadImageFromDataUrl, uploadAudioFromDataUrl } from './storage';
@@ -65,6 +65,16 @@ export interface ProactiveSuggestion {
     timestamp: number;
 }
 
+export type Achievement = 
+    | 'FIRST_CORRECT_ANSWER'
+    | 'FIRST_LESSON_COMPLETE'
+    | 'STREAK_3_DAYS'
+    | 'STREAK_7_DAYS'
+    | 'PYTHON_NOVICE'
+    | 'JS_NOVICE'
+    | 'MATH_WHIZ_10';
+
+
 export interface UserProgress {
   completedLessons: number;
   averageScore: number;
@@ -80,6 +90,8 @@ export interface UserProgress {
           currentExerciseIndex: number;
       }
   };
+  xp: number;
+  achievements: Achievement[];
 }
 
 
@@ -98,6 +110,8 @@ export interface User {
   goals?: string;
   gradeLevel?: string;
   ageGroup?: string;
+  loginStreak: number;
+  lastLoginDate: string; // YYYY-MM-DD
 }
 
 // New Exercise Data Structure
@@ -264,6 +278,8 @@ export async function createUserInFirestore(uid: string, email: string, name: st
             goals: '',
             gradeLevel: '',
             ageGroup: '',
+            loginStreak: 1,
+            lastLoginDate: format(new Date(), 'yyyy-MM-dd'),
             progress: {
                 completedLessons: 0,
                 averageScore: 0,
@@ -275,6 +291,8 @@ export async function createUserInFirestore(uid: string, email: string, name: st
                 timeSpent: 0,
                 weeklyActivity: [],
                 exerciseProgress: {},
+                xp: 0,
+                achievements: [],
             }
         });
     } catch (error) {
@@ -282,6 +300,51 @@ export async function createUserInFirestore(uid: string, email: string, name: st
         throw error;
     }
 }
+
+export async function handleUserLogin(userId: string) {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+        const userData = userSnap.data() as User;
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        if (userData.lastLoginDate !== today) {
+            const lastLogin = new Date(userData.lastLoginDate);
+            if (isYesterday(lastLogin)) {
+                // It's a consecutive day
+                const newStreak = (userData.loginStreak || 0) + 1;
+                await updateDoc(userRef, {
+                    lastLoginDate: today,
+                    loginStreak: newStreak,
+                });
+                
+                // Check for streak achievements
+                let newAchievements: Achievement[] = [];
+                if (newStreak >= 3 && !userData.progress.achievements.includes('STREAK_3_DAYS')) {
+                    newAchievements.push('STREAK_3_DAYS');
+                }
+                if (newStreak >= 7 && !userData.progress.achievements.includes('STREAK_7_DAYS')) {
+                    newAchievements.push('STREAK_7_DAYS');
+                }
+
+                if (newAchievements.length > 0) {
+                    await updateDoc(userRef, {
+                       'progress.achievements': arrayUnion(...newAchievements)
+                    });
+                }
+
+            } else {
+                // Streak is broken
+                await updateDoc(userRef, {
+                    lastLoginDate: today,
+                    loginStreak: 1,
+                });
+            }
+        }
+    }
+}
+
 
 export async function createSystemAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>): Promise<void> {
     try {
@@ -430,6 +493,8 @@ export async function getUserProgress(userId: string): Promise<UserProgress> {
         completedLessonIds: [],
         timeSpent: 0,
         exerciseProgress: {},
+        xp: 0,
+        achievements: [],
     };
 }
 
@@ -579,6 +644,7 @@ export async function deleteExercise(exerciseId: string): Promise<void> {
 export async function completeLesson(userId: string, lessonId: string): Promise<void> {
     const userRef = doc(db, 'users', userId);
     const lessonRef = doc(db, 'lessons', lessonId);
+    let newAchievements: Achievement[] = [];
 
     try {
         // Fetch lesson details to get the subject
@@ -605,6 +671,11 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
             // If already completed, do nothing.
             if (progress.completedLessonIds?.includes(lessonId)) {
                 return;
+            }
+
+            // Achievement check for first lesson
+            if ((progress.completedLessonIds?.length || 0) === 0) {
+                newAchievements.push('FIRST_LESSON_COMPLETE');
             }
 
             // Get user's completed lessons in this subject
@@ -635,13 +706,17 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
             const totalMastery = subjectsMastery.reduce((acc, subj) => acc + subj.mastery, 0);
             const overallMastery = subjectsMastery.length > 0 ? Math.round(totalMastery / subjectsMastery.length) : 0;
 
-            // Update user document
-            transaction.update(userRef, {
+            // Update user document with XP and achievements
+            const updates = {
                 'progress.completedLessons': increment(1),
                 'progress.completedLessonIds': completedLessonIds,
                 'progress.subjectsMastery': subjectsMastery,
                 'progress.mastery': overallMastery,
-            });
+                'progress.xp': increment(50), // Award 50 XP for completing a lesson
+                'progress.achievements': arrayUnion(...newAchievements),
+            };
+
+            transaction.update(userRef, updates);
         });
     } catch (error) {
         console.error("Error completing lesson: ", error);
@@ -782,12 +857,34 @@ export async function saveExerciseAttempt(
                 .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
                 .slice(-5); // Keep only the last 5 weeks
 
+             // Gamification - XP and Achievements
+            const xpGained = isCorrect ? (10 + (exercise.difficulty * 5)) : 0; // 15, 20, 25 XP
+            let newAchievements: Achievement[] = [];
+            
+            if (isCorrect) {
+                if (totalCorrect === 1) {
+                    newAchievements.push('FIRST_CORRECT_ANSWER');
+                }
+                if (totalCorrect >= 10 && exercise.category === 'math') {
+                    newAchievements.push('MATH_WHIZ_10');
+                }
+                if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) {
+                    newAchievements.push('PYTHON_NOVICE');
+                }
+                 if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) {
+                    newAchievements.push('JS_NOVICE');
+                }
+            }
+
+
             transaction.update(userRef, { 
                 'progress.totalExercisesAttempted': totalAttempted,
                 'progress.totalExercisesCorrect': totalCorrect,
                 'progress.averageScore': newAverageScore,
                 'progress.timeSpent': newTimeSpent,
                 'progress.weeklyActivity': sortedWeeklyActivity,
+                'progress.xp': increment(xpGained),
+                'progress.achievements': arrayUnion(...newAchievements),
             });
         });
         

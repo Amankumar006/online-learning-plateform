@@ -4,19 +4,31 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { getUser, User, updateUserProfile } from '@/lib/data';
+import { getUser, User, updateUserProfile, Achievement } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock, Sparkles } from 'lucide-react';
+import { Loader2, Zap, BookOpenCheck, BrainCircuit, Clock, Sparkles, Star, Award, TrendingUp, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+const achievementDetails: Record<Achievement, { icon: React.ReactNode, title: string, description: string }> = {
+    FIRST_CORRECT_ANSWER: { icon: <Star className="h-5 w-5 text-yellow-400" />, title: "First Step", description: "Answered your first question correctly." },
+    FIRST_LESSON_COMPLETE: { icon: <BookOpenCheck className="h-5 w-5 text-green-500" />, title: "Lesson Learner", description: "Completed your first lesson." },
+    STREAK_3_DAYS: { icon: <TrendingUp className="h-5 w-5 text-blue-500" />, title: "Consistent Learner", description: "Logged in for 3 days in a row." },
+    STREAK_7_DAYS: { icon: <ShieldCheck className="h-5 w-5 text-purple-500" />, title: "Dedicated Scholar", description: "Logged in for 7 days in a row." },
+    PYTHON_NOVICE: { icon: <Zap className="h-5 w-5 text-indigo-500" />, title: "Python Novice", description: "Answered a Python question correctly." },
+    JS_NOVICE: { icon: <Zap className="h-5 w-5 text-orange-500" />, title: "JS Novice", description: "Answered a JavaScript question correctly." },
+    MATH_WHIZ_10: { icon: <Award className="h-5 w-5 text-red-500" />, title: "Math Whiz", description: "Answered 10 math questions correctly." },
+};
+
 
 function ProfileSkeleton() {
     return (
@@ -325,39 +337,39 @@ export default function ProfilePage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Learning Statistics</CardTitle>
-                    <CardDescription>A quick overview of your journey on the platform.</CardDescription>
+                    <CardTitle>Gamification Stats & Achievements</CardTitle>
+                    <CardDescription>An overview of your learning stats and earned awards.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Lesson Mastery</CardTitle>
+                                <CardTitle className="text-sm font-medium">XP</CardTitle>
                                 <Zap className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{userProfile.progress.mastery || 0}%</div>
-                                <p className="text-xs text-muted-foreground">Based on completed lessons</p>
-                            </CardContent>
-                        </Card>
-                         <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Lessons Completed</CardTitle>
-                                <BookOpenCheck className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{userProfile.progress.completedLessonIds?.length || 0}</div>
-                                <p className="text-xs text-muted-foreground">Total lessons finished</p>
+                                <div className="text-2xl font-bold">{userProfile.progress.xp || 0}</div>
+                                <p className="text-xs text-muted-foreground">Experience Points</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Correct Answers</CardTitle>
-                                <BrainCircuit className="h-4 w-4 text-muted-foreground" />
+                                <CardTitle className="text-sm font-medium">Login Streak</CardTitle>
+                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{userProfile.progress.totalExercisesCorrect || 0}</div>
-                                <p className="text-xs text-muted-foreground">Total exercises answered correctly</p>
+                                <div className="text-2xl font-bold">{userProfile.loginStreak || 0} days</div>
+                                <p className="text-xs text-muted-foreground">Keep it going!</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Achievements</CardTitle>
+                                <Award className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{userProfile.progress.achievements?.length || 0}</div>
+                                <p className="text-xs text-muted-foreground">Total awards unlocked</p>
                             </CardContent>
                         </Card>
                         <Card>
@@ -367,9 +379,33 @@ export default function ProfilePage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">{timeSpentHours} hrs</div>
-                                <p className="text-xs text-muted-foreground">Estimated total learning time</p>
+                                <p className="text-xs text-muted-foreground">Estimated total</p>
                             </CardContent>
                         </Card>
+                    </div>
+                     <div className="mt-6">
+                        <h4 className="font-semibold mb-3">Your Achievements</h4>
+                        {userProfile.progress.achievements && userProfile.progress.achievements.length > 0 ? (
+                            <div className="flex flex-wrap gap-4">
+                                {userProfile.progress.achievements.map(ach => (
+                                    <TooltipProvider key={ach}>
+                                        <Tooltip>
+                                            <TooltipTrigger>
+                                                <div className="p-3 rounded-full bg-secondary border shadow-sm">
+                                                    {achievementDetails[ach]?.icon}
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p className="font-semibold">{achievementDetails[ach]?.title}</p>
+                                                <p className="text-xs text-muted-foreground">{achievementDetails[ach]?.description}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No achievements unlocked yet. Keep learning!</p>
+                        )}
                     </div>
                 </CardContent>
             </Card>

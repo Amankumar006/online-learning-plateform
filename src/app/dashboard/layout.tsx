@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import { cn } from "@/lib/utils";
+import { handleUserLogin } from "@/lib/data";
 
 function DashboardLoader() {
   return (
@@ -31,6 +32,7 @@ export default function DashboardLayout({
       if (!currentUser) {
         router.push('/login');
       } else {
+        await handleUserLogin(currentUser.uid);
         setIsLoading(false);
       }
     });
