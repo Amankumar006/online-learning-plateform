@@ -388,7 +388,7 @@ export default function LessonPage() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="exercise" className="mt-4 flex-1">
+                    <TabsContent value="exercise" className="mt-4 flex-1 h-full">
                         <AdaptiveExercise 
                             exercises={exercises} 
                             userId={user.uid} 

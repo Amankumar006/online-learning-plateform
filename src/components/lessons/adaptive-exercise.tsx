@@ -563,7 +563,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   }
 
   return (
-    <div className="animate-in fade-in-0 zoom-in-95">
+    <div className="animate-in fade-in-0 zoom-in-95 h-full flex flex-col">
       <div className="mb-4">
         <div className="flex items-center justify-between">
             <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
