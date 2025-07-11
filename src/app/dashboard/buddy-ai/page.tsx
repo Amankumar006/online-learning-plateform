@@ -296,8 +296,10 @@ export default function BuddyAIPage() {
         let parsedConvos: Conversation[] = [];
         if (savedConvos) {
             try {
+                const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
                 parsedConvos = JSON.parse(savedConvos)
-                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }));
+                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
+                  .filter((convo: Conversation) => convo.createdAt > thirtyDaysAgo);
             } catch (e) {
                 console.error("Failed to parse conversations from localStorage", e);
                 localStorage.removeItem(`conversations_${currentUser.uid}`); // Clear corrupted data
