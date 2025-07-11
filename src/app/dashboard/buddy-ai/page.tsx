@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChatStream } from '@/ai/flows/buddy-chat';
+import { buddyChatStream, StreamedOutput } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -189,7 +189,6 @@ export default function BuddyAIPage() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [thought, setThought] = useState<string | null>(null);
   
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
@@ -206,7 +205,6 @@ export default function BuddyAIPage() {
     stopListening,
   } = useSpeechRecognition({
     onSpeechEnd: () => {
-        // Automatically send when the user stops talking
         if (transcript) {
             handleSend(transcript);
         }
@@ -276,14 +274,13 @@ export default function BuddyAIPage() {
             title: `Help with ${suggestion.topic}`,
             messages: [{ role: 'model', content: suggestion.message }],
             createdAt: Date.now(),
-            persona: 'buddy' // Proactive suggestions always come from the friendly buddy
+            persona: 'buddy'
         };
         const updatedConversations = [proactiveConversation, ...newConversations];
         setConversations(updatedConversations);
         setActiveConversationId(newId);
     };
 
-  // Effect to load user data and conversations from localStorage
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -302,13 +299,13 @@ export default function BuddyAIPage() {
                   .filter((convo: Conversation) => convo.createdAt > thirtyDaysAgo);
             } catch (e) {
                 console.error("Failed to parse conversations from localStorage", e);
-                localStorage.removeItem(`conversations_${currentUser.uid}`); // Clear corrupted data
+                localStorage.removeItem(`conversations_${currentUser.uid}`);
             }
         }
         
         if (userProfile?.proactiveSuggestion) {
             handleProactiveSuggestion(userProfile.proactiveSuggestion, parsedConvos);
-            clearProactiveSuggestion(currentUser.uid).catch(console.error); // Fire-and-forget
+            clearProactiveSuggestion(currentUser.uid).catch(console.error);
         } else {
             setConversations(parsedConvos);
             if (parsedConvos.length > 0) {
@@ -323,14 +320,12 @@ export default function BuddyAIPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Effect to scroll to the bottom of the chat on new messages
   useEffect(() => {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages?.length, isLoading, thought]);
+  }, [activeConversation?.messages?.length, isLoading]);
   
-  // Effect to save conversations to localStorage when they change
   useEffect(() => {
     if (user && conversations.length > 0) {
         localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
@@ -368,7 +363,6 @@ export default function BuddyAIPage() {
             handleNewChat('buddy');
         }
     }
-    // Also remove from localStorage
     if (user) {
         localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(newConversations));
     }
@@ -380,7 +374,7 @@ export default function BuddyAIPage() {
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
-    const updatedConversations = conversations.map(c => {
+    setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
             const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
             const isNewChat = c.messages.length === 0;
@@ -388,38 +382,28 @@ export default function BuddyAIPage() {
             return { ...c, title: newTitle, messages: [...newMessages, userMessage], createdAt: Date.now() };
         }
         return c;
-    }).sort((a,b) => b.createdAt - a.createdAt);
-    setConversations(updatedConversations);
+    }).sort((a,b) => b.createdAt - a.createdAt));
 
     setInput('');
     setIsLoading(true);
-    setThought(null);
 
     try {
-        const stream = buddyChatStream({
+        const result = await buddyChatStream({
             userMessage: messageToSend,
             history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
             userId: user.uid,
             persona: activeConversation.persona
         });
         
-        for await (const chunk of stream) {
-            if (chunk.type === 'thought') {
-                setThought(chunk.content);
-            } else {
-                setThought(null);
-                const isError = chunk.type === 'error';
-                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions, isError };
-                 setConversations(prev => {
-                    return prev.map(c => {
-                        if (c.id === activeConversationId) {
-                            return { ...c, messages: [...c.messages, assistantMessage] };
-                        }
-                        return c;
-                    });
-                });
+        const isError = result.type === 'error';
+        const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
+
+        setConversations(prev => prev.map(c => {
+            if (c.id === activeConversationId) {
+                return { ...c, messages: [...c.messages, assistantMessage] };
             }
-        }
+            return c;
+        }));
     } catch (e: any) {
         console.error(e);
         const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
@@ -432,7 +416,6 @@ export default function BuddyAIPage() {
         }));
     } finally {
         setIsLoading(false);
-        setThought(null);
     }
   };
 
@@ -450,10 +433,8 @@ export default function BuddyAIPage() {
         return;
     }
     
-    // Remove the old model response to regenerate
     setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
     
-    // Directly call handleSend with the last user message
     handleSend(lastUserMessage.content);
   };
 
@@ -461,7 +442,6 @@ export default function BuddyAIPage() {
   return (
     <div className="flex h-full w-full bg-background">
       <audio ref={audioRef} />
-      {/* Sidebar */}
       <div className="hidden md:flex flex-col w-[280px] bg-muted/50 border-r shrink-0">
           <SidebarContent 
             conversations={conversations} 
@@ -472,9 +452,7 @@ export default function BuddyAIPage() {
           />
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile Header */}
         <header className="md:hidden flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm shrink-0">
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
@@ -506,7 +484,6 @@ export default function BuddyAIPage() {
             </Avatar>
         </header>
         
-        {/* Message List */}
         <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
@@ -570,10 +547,7 @@ export default function BuddyAIPage() {
                           </div>
                           )
                       })}
-                      {isLoading && thought && (
-                         <ThoughtBubble content={thought} />
-                      )}
-                      {isLoading && !thought && (
+                      {isLoading && (
                           <div className="flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                               <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
@@ -606,7 +580,6 @@ export default function BuddyAIPage() {
                   </div>
               )}
           </div>
-          {/* Input Box */}
           <div className="shrink-0 p-4 bg-background border-t">
               <div className="relative mx-auto max-w-3xl">
                   <Input

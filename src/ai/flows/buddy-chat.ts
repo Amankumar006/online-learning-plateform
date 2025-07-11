@@ -226,30 +226,23 @@ Summary: ${result.analysis.summary}
     }
 );
 
-/**
- * The main exported function that clients (like the Next.js page) will call.
- * This is an async generator that streams the output.
- */
-export async function* buddyChatStream(input: BuddyChatInput): AsyncGenerator<StreamedOutput> {
-    yield* buddyChatFlow(input);
-}
-
-
 const buddyChatFlow = ai.defineFlow(
   {
     name: 'buddyChatFlow',
     inputSchema: BuddyChatInputSchema,
-    outputSchema: z.string(), // The final output is just the string response
-    streamSchema: StreamedOutputSchema,
+    outputSchema: z.object({
+        response: z.string(),
+        suggestions: z.array(z.string()).optional()
+    }),
     authPolicy: (auth, input) => {
         if (!auth) throw new Error("Authentication is required to chat with Buddy AI.");
         if (auth.uid !== input.userId) throw new Error("User ID does not match authenticated user.");
     }
   },
-  async function* (input, {auth}) {
+  async (input, {auth}) => {
     
     try {
-        const MAX_HISTORY_MESSAGES = 10; // Keep the last 5 user/model turns
+        const MAX_HISTORY_MESSAGES = 10;
 
         const history = (input.history || []).slice(-MAX_HISTORY_MESSAGES).map(msg => ({
             role: msg.role as 'user' | 'model',
@@ -311,7 +304,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
         }
 
 
-        const {stream: llmStream, response: llmResponse} = ai.generateStream({
+        const llmResponse = await ai.generate({
             model: 'googleai/gemini-2.0-flash',
             tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool, analyzeCodeComplexityTool],
             system: systemPrompt,
@@ -327,41 +320,38 @@ For all interactions, maintain a positive and supportive tone. If you don't know
             },
         }, { auth });
         
-        // Stream tool usage as "thoughts"
-        for await (const chunk of llmStream) {
-            if (chunk.type === 'toolRequest') {
-                 yield { type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` };
-            }
-        }
-        
-        // Await the final response and then generate follow-up suggestions
-        const finalResponse = await llmResponse;
-        const aiResponseText = finalResponse.text;
+        const aiResponseText = llmResponse.text;
         
         const followUpResult = await generateFollowUpSuggestions({
             lastUserMessage: input.userMessage,
             aiResponse: aiResponseText,
         });
         
-        // Yield the final response with suggestions
-        yield {
-            type: 'response',
-            content: aiResponseText,
+        return {
+            response: aiResponseText,
             suggestions: followUpResult.suggestions,
         };
 
-        return aiResponseText;
     } catch (e: any) {
         console.error("Error in buddyChatFlow:", e);
-        // Yield a specific error message to the client
-        yield {
-            type: 'error',
-            content: `I'm sorry, but an unexpected error occurred. Here are the details:\n\n> ${e.message || 'An unknown internal error happened.'}\n\nPlease try rephrasing your message or starting a new chat.`,
-        };
-        // Still return an empty string to satisfy the flow's output schema
-        return "";
+        throw new Error(`I'm sorry, but an unexpected error occurred. Here are the details:\n\n> ${e.message || 'An unknown internal error happened.'}\n\nPlease try rephrasing your message or starting a new chat.`);
     }
   }
 );
 
-    
+
+export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOutput> {
+    try {
+        const result = await buddyChatFlow(input);
+        return {
+            type: 'response',
+            content: result.response,
+            suggestions: result.suggestions,
+        };
+    } catch (e: any) {
+        return {
+            type: 'error',
+            content: e.message,
+        };
+    }
+}
