@@ -11,7 +11,6 @@ import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserEx
 import { saveExerciseAttempt, getUserProgress, updateUserExerciseIndex, getUserResponsesForLesson } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
 import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
 import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play } from "lucide-react";
@@ -420,6 +419,15 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
       }
   };
   
+  const showHint = () => {
+    if (currentExercise.hint) {
+        toast({
+            title: "Hint",
+            description: currentExercise.hint,
+        });
+    }
+  }
+  
   const renderExercise = () => {
     if (!currentExercise) return null;
 
@@ -587,16 +595,10 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             
             <div className="flex items-center gap-4 mt-4">
                 {currentExercise.hint && !isAnswered && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="sm"><Lightbulb className="mr-2 h-4 w-4" />Show Hint</Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{currentExercise.hint}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    <Button variant="outline" size="sm" onClick={showHint}>
+                        <Lightbulb className="mr-2 h-4 w-4" />
+                        Show Hint
+                    </Button>
                 )}
                 {isGrading && (
                     <div className="flex items-center text-secondary-foreground text-sm">
