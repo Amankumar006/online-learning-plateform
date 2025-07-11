@@ -2,16 +2,13 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
-import { Lesson, UserProgress, Section, Block } from "@/lib/data";
-import { completeLesson } from "@/lib/data";
+import { Lesson, Section, Block } from "@/lib/data";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Play, Pause } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
     const [copied, setCopied] = React.useState(false);
@@ -181,8 +178,6 @@ const SectionHeader = ({ section, onPlay, isGenerating, isPlaying }: SectionHead
 interface LessonContentProps {
   lesson: Lesson;
   userId: string;
-  userProgress: UserProgress | null;
-  onLessonComplete: () => void;
   onPlaySection: (section: Section) => void;
   isGeneratingAudio: boolean;
   currentSectionTitle: string | null;
@@ -191,38 +186,12 @@ interface LessonContentProps {
 export default function LessonContent({ 
     lesson, 
     userId, 
-    userProgress, 
-    onLessonComplete, 
     onPlaySection, 
     isGeneratingAudio, 
     currentSectionTitle 
 }: LessonContentProps) {
-  const { toast } = useToast();
-  const [isCompleting, setIsCompleting] = useState(false);
   
-  const isCompleted = userProgress?.completedLessonIds?.includes(lesson.id);
   const sections = lesson.sections || [];
-
-  const handleComplete = async () => {
-    setIsCompleting(true);
-    try {
-      await completeLesson(userId, lesson.id);
-      toast({
-        title: "Lesson Completed!",
-        description: `Great job on finishing "${lesson.title}". Let's practice what you've learned.`,
-      });
-      onLessonComplete();
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not mark lesson as complete.",
-      });
-    } finally {
-      setIsCompleting(false);
-    }
-  };
 
   const renderContent = () => {
     if (sections.length > 0) {
@@ -268,21 +237,6 @@ export default function LessonContent({
         )}
         <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
             {renderContent()}
-        </div>
-
-        <div className="mt-8 pt-6 border-t">
-          {!isCompleted && (
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
-                <div className="flex-1">
-                    <p className="font-semibold text-lg">Finished the lesson?</p>
-                    <p className="text-muted-foreground text-sm">Mark it as complete and test your knowledge.</p>
-                </div>
-                <Button onClick={handleComplete} disabled={isCompleting} size="lg">
-                    {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Complete & Start Practice
-                </Button>
-            </div>
-          )}
         </div>
     </div>
   );

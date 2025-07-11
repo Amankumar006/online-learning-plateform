@@ -1,17 +1,17 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, Section } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress } from "@/lib/data";
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import { buddyChat } from "@/ai/flows/buddy-chat";
-import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal, CheckCircle, Target } from "lucide-react";
+import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal, CheckCircle, Target, MessageSquare } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,14 +22,17 @@ import { uploadAudioFromDataUrl } from "@/lib/storage";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import FormattedContent from "@/components/common/FormattedContent";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 
 function LessonPageSkeleton() {
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-8">
-            <div className="lg:col-span-2 space-y-4">
+        <div className="max-w-4xl mx-auto p-6 md:p-8">
+            <div className="space-y-4">
                 <Skeleton className="h-10 w-3/4" />
                 <Skeleton className="h-6 w-1/4" />
                 <Skeleton className="w-full h-48" />
@@ -38,9 +41,6 @@ function LessonPageSkeleton() {
                     <Skeleton className="h-20 w-full" />
                     <Skeleton className="h-20 w-full" />
                 </div>
-            </div>
-            <div className="lg:col-span-1">
-                <Skeleton className="w-full h-96" />
             </div>
         </div>
     )
@@ -51,9 +51,9 @@ interface Message {
     content: string;
 }
 
-const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: string }) => {
+const AIBuddyPopover = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: string }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: `Hello! I'm your AI study buddy. Ask me anything about "${lessonTitle}", or ask me to create a practice problem for you!` }
+    { role: 'model', content: `Hello! I can help you with "${lessonTitle}". Ask me to explain a concept or create a practice problem!` }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -94,51 +94,63 @@ const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: strin
   };
 
   return (
-    <div className="flex flex-col h-full">
-        <ScrollArea className="flex-1 mb-4" ref={scrollAreaRef}>
-             <div className="space-y-6 p-1">
-                {messages.map((message, index) => (
-                    <div key={index} className={cn("flex items-start gap-3", message.role === 'user' ? 'justify-end' : 'justify-start')}>
-                        {message.role === 'model' && (
-                            <Avatar className="w-8 h-8 shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                        )}
-                        <div className={cn("max-w-md p-3 rounded-lg", message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                           <FormattedContent content={message.content} />
-                        </div>
-                         {message.role === 'user' && (
-                            <Avatar className="w-8 h-8 shrink-0"><AvatarFallback>You</AvatarFallback></Avatar>
-                        )}
-                    </div>
-                ))}
-                 {isLoading && (
-                     <div className="flex items-start gap-4 justify-start">
-                        <Avatar className="w-8 h-8 shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                        <div className="bg-muted p-3 rounded-lg"><Loader2 className="w-5 h-5 animate-spin" /></div>
-                    </div>
-                 )}
-            </div>
-        </ScrollArea>
-        <div className="flex items-center gap-2 mt-auto">
-            <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question..."
-                className="flex-1 resize-none"
-                rows={1}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                    }
-                }}
-                disabled={isLoading}
-            />
-            <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
-                <span className="sr-only">Send</span>
+     <Popover>
+        <PopoverTrigger asChild>
+            <Button
+                size="icon"
+                className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl z-40"
+            >
+                <Bot className="h-7 w-7" />
+                <span className="sr-only">Open AI Buddy</span>
             </Button>
-        </div>
-    </div>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-96 p-0 flex flex-col h-[60vh]">
+             <div className="p-3 border-b">
+                <h4 className="font-medium text-sm">AI Study Buddy</h4>
+            </div>
+            <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                 <div className="space-y-4 p-4">
+                    {messages.map((message, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                            {message.role === 'model' && (
+                                <Avatar className="w-8 h-8 shrink-0 border"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                            )}
+                            <div className={cn("flex-1 max-w-md p-3 rounded-lg text-sm", message.role === 'user' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-muted')}>
+                               <FormattedContent content={message.content} />
+                            </div>
+                        </div>
+                    ))}
+                     {isLoading && (
+                         <div className="flex items-start gap-3">
+                            <Avatar className="w-8 h-8 shrink-0 border"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                            <div className="bg-muted p-3 rounded-lg"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                        </div>
+                     )}
+                </div>
+            </ScrollArea>
+            <div className="p-3 border-t bg-background">
+                <div className="flex items-center gap-2">
+                    <Textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Ask a question..."
+                        className="flex-1 resize-none"
+                        rows={1}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
+                        disabled={isLoading}
+                    />
+                    <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
+                        <SendHorizontal className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+        </PopoverContent>
+    </Popover>
   );
 }
 
@@ -148,10 +160,9 @@ export default function LessonPage() {
   const id = params.id as string;
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('lesson');
+  const [view, setView] = useState<'lesson' | 'practice'>('lesson');
   const { toast } = useToast();
 
   // Audio state
@@ -161,22 +172,12 @@ export default function LessonPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [currentSection, setCurrentSection] = useState<{ title: string; content: string } | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isLessonCompleted, setIsLessonCompleted] = useState(false);
-
-
-  const fetchUserProgress = async (uid: string) => {
-    const progress = await getUserProgress(uid);
-    setUserProgress(progress);
-    if (progress.completedLessonIds?.includes(id)) {
-      setIsLessonCompleted(true);
-    }
-  };
   
-  const getSectionTextContent = (section: Section): string => {
-    return section.blocks.filter(b => b.type === 'text').map((b: any) => b.content).join('\n\n');
+  const getSectionTextContent = (section: any): string => {
+    return section.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content).join('\n\n');
   };
 
-  const handlePlaySection = async (section: Section) => {
+  const handlePlaySection = async (section: any) => {
     if (isGeneratingAudio) return;
     const content = getSectionTextContent(section);
     if (!content) {
@@ -273,10 +274,9 @@ export default function LessonPage() {
         setUser(currentUser);
         setIsLoading(true);
         try {
-          const [lessonData, exercisesData, progressData] = await Promise.all([
+          const [lessonData, exercisesData] = await Promise.all([
             getLesson(id),
             getExercises(id),
-            getUserProgress(currentUser.uid),
           ]);
           
           if (!lessonData) {
@@ -285,10 +285,6 @@ export default function LessonPage() {
           }
           setLesson(lessonData);
           setExercises(exercisesData);
-          setUserProgress(progressData);
-           if (progressData.completedLessonIds?.includes(id)) {
-             setIsLessonCompleted(true);
-           }
         } catch (error) {
             console.error("Failed to load lesson data", error);
         } finally {
@@ -313,96 +309,65 @@ export default function LessonPage() {
       </div>
     );
   }
-
-  const exercisesAttempted = userProgress?.exerciseProgress?.[id]?.currentExerciseIndex || 0;
-  const progressPercentage = exercises.length > 0 ? (exercisesAttempted / exercises.length) * 100 : 0;
   
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 md:p-6 lg:p-8 h-full">
+    <div className="max-w-4xl mx-auto p-4 md:p-6 lg:p-8 w-full">
       <audio ref={audioRef} />
-      {/* Left Column (Main Content) */}
-      <div className="lg:col-span-2 flex flex-col h-full">
-        <div className="mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
-            <p className="text-lg text-muted-foreground">{lesson.subject}</p>
-        </div>
-         <LessonPlayer
-          isPlaying={isPlaying}
-          isGenerating={isGeneratingAudio}
-          currentSectionTitle={currentSection?.title || null}
-          audioUrl={audioUrl}
-          onPlayPause={handlePlayPause}
-          onStop={handleStop}
-          onDownload={handleDownload}
-          playbackRate={playbackRate}
-          onPlaybackRateChange={setPlaybackRate}
-        />
-        <ScrollArea className="flex-grow pr-4 -mr-4">
+      
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
+        <p className="text-lg text-muted-foreground">{lesson.subject}</p>
+      </div>
+      
+      {view === 'lesson' && (
+        <div className="animate-in fade-in-20">
+          <LessonPlayer
+              isPlaying={isPlaying}
+              isGenerating={isGeneratingAudio}
+              currentSectionTitle={currentSection?.title || null}
+              audioUrl={audioUrl}
+              onPlayPause={handlePlayPause}
+              onStop={handleStop}
+              onDownload={handleDownload}
+              playbackRate={playbackRate}
+              onPlaybackRateChange={setPlaybackRate}
+            />
             <LessonContent 
                 lesson={lesson} 
                 userId={user.uid}
-                userProgress={userProgress}
-                onLessonComplete={() => {
-                  fetchUserProgress(user.uid);
-                  setActiveTab('exercise');
-                }}
                 onPlaySection={handlePlaySection}
                 isGeneratingAudio={isGeneratingAudio}
                 currentSectionTitle={currentSection?.title || null}
             />
-        </ScrollArea>
-      </div>
+            <Card className="mt-12 text-center p-8 bg-secondary/30">
+                <CardHeader>
+                    <CardTitle>Ready to Practice?</CardTitle>
+                    <CardDescription>Test your knowledge with adaptive exercises based on this lesson.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button size="lg" onClick={() => setView('practice')}>
+                        <BrainCircuit className="mr-2"/>
+                        Start Practice
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+      )}
 
-      {/* Right Column (Tools) */}
-      <div className="lg:col-span-1 flex flex-col">
-         <Card className="flex-grow flex flex-col">
-             <CardContent className="p-4 flex flex-col flex-1">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="lesson"><BookText className="h-4 w-4" /></TabsTrigger>
-                        <TabsTrigger value="exercise"><BrainCircuit className="h-4 w-4" /></TabsTrigger>
-                        <TabsTrigger value="ai-buddy"><Bot className="h-4 w-4" /></TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="lesson" className="mt-4 flex-1 flex flex-col">
-                      <div className="space-y-4">
-                          <h3 className="font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Lesson Objective</h3>
-                          <p className="text-sm text-muted-foreground">{lesson.description}</p>
-                          <Separator />
-                           {isLessonCompleted ? (
-                             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 text-primary">
-                               <CheckCircle className="h-5 w-5"/>
-                               <div>
-                                 <p className="font-semibold text-sm">Lesson Complete!</p>
-                                 <p className="text-xs">You've mastered this topic.</p>
-                               </div>
-                             </div>
-                           ) : (
-                              <div>
-                                <h4 className="font-semibold text-sm mb-2">Your Progress</h4>
-                                <Progress value={progressPercentage} className="h-2"/>
-                                <p className="text-xs text-muted-foreground mt-2">{exercisesAttempted} of {exercises.length} exercises attempted.</p>
-                              </div>
-                           )}
-                      </div>
-                    </TabsContent>
+      {view === 'practice' && (
+        <div className="animate-in fade-in-20">
+           <Button variant="outline" onClick={() => setView('lesson')} className="mb-6">
+                Back to Lesson
+            </Button>
+           <AdaptiveExercise 
+              exercises={exercises} 
+              userId={user.uid} 
+              lessonTitle={lesson.title}
+          />
+        </div>
+      )}
 
-                    <TabsContent value="exercise" className="mt-4 flex-1 h-full">
-                        <AdaptiveExercise 
-                            exercises={exercises} 
-                            userId={user.uid} 
-                            lessonTitle={lesson.title}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="ai-buddy" className="mt-4 flex-1 flex flex-col">
-                        <AIBuddy user={user} lessonTitle={lesson.title} />
-                    </TabsContent>
-                </Tabs>
-             </CardContent>
-         </Card>
-      </div>
+      <AIBuddyPopover user={user} lessonTitle={lesson.title} />
     </div>
   );
 }
