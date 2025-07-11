@@ -8,7 +8,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {convertLatexToSpeech} from './convert-latex-to-speech';
 import wav from 'wav';
 
 const GenerateAudioFromTextInputSchema = z.object({
@@ -50,10 +49,11 @@ const makeSpeakablePrompt = ai.definePrompt({
   name: 'makeSpeakablePrompt',
   input: {schema: z.object({ text: z.string() })},
   output: {schema: z.object({ speakableText: z.string() })},
-  prompt: `Convert the following text, which may contain LaTeX math expressions (e.g., $ax^2+bx+c=0$), into a clean, natural-sounding script for a text-to-speech engine.
+  prompt: `Convert the following text, which may contain LaTeX math expressions (e.g., $ax^2+bx+c=0$) or markdown code blocks (e.g., \`\`\`python...), into a clean, natural-sounding script for a text-to-speech engine.
 - Read all mathematical expressions aloud clearly. For example, convert $x^2$ to "x squared".
+- When you encounter a code block, say "Here is a code snippet:" and then read the code content.
 - Do not add any conversational filler.
-- Do not say "dollar sign".
+- Do not say "dollar sign" or "backticks".
 - Just provide the clean, speakable text.
 
 Text to convert:
@@ -67,7 +67,9 @@ export async function generateAudioFromText(input: GenerateAudioFromTextInput): 
         throw new Error('Could not convert text to a speakable format.');
     }
 
-    const fullScript = `Reading section: ${input.sectionTitle}. ${speakableResult.speakableText}`;
+    const fullScript = input.sectionTitle 
+        ? `Reading section: ${input.sectionTitle}. ${speakableResult.speakableText}`
+        : speakableResult.speakableText;
     
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.5-flash-preview-tts',

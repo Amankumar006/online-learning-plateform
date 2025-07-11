@@ -5,9 +5,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChat } from '@/ai/flows/buddy-chat';
+import { buddyChatStream, StreamedOutput } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,9 +33,12 @@ import { auth } from "@/lib/firebase";
 import { getUser, ProactiveSuggestion, clearProactiveSuggestion } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import FormattedContent from '@/components/common/FormattedContent';
+import { ThoughtBubble } from '@/components/chat/ThoughtBubble';
+import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
+import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 
 interface Message {
-    role: 'user' | 'model';
+    role: 'user' | 'model' | 'thought';
     content: string;
     suggestions?: string[];
 }
@@ -172,9 +175,76 @@ export default function BuddyAIPage() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+   const {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
+  } = useSpeechRecognition({
+    onSpeechEnd: () => {
+        // Automatically send when the user stops talking
+        if (transcript) {
+            handleSend(transcript);
+        }
+    }
+  });
+  
+  useEffect(() => {
+    if (transcript) {
+        setInput(transcript);
+    }
+  }, [transcript]);
+  
+  const handleMicClick = () => {
+      if (isListening) {
+          stopListening();
+      } else {
+          startListening();
+      }
+  };
+  
+  const handlePlayAudio = async (text: string, index: number) => {
+    if (playingMessageIndex === index) {
+        audioRef.current?.pause();
+        audioRef.current!.currentTime = 0;
+        setPlayingMessageIndex(null);
+        return;
+    }
+
+    setIsGeneratingAudio(index);
+    setPlayingMessageIndex(index);
+    try {
+        const result = await generateAudioFromText({ sectionTitle: '', sectionContent: text });
+        if (audioRef.current) {
+            audioRef.current.src = result.audioDataUri;
+            audioRef.current.play();
+        }
+    } catch (e: any) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Audio Error', description: e.message });
+        setPlayingMessageIndex(null);
+    } finally {
+        setIsGeneratingAudio(null);
+    }
+  };
+  
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onEnded = () => setPlayingMessageIndex(null);
+    audio.addEventListener('ended', onEnded);
+    return () => audio.removeEventListener('ended', onEnded);
+  }, []);
   
   const activeConversation = useMemo(() => {
     return conversations.find(c => c.id === activeConversationId);
@@ -289,7 +359,7 @@ export default function BuddyAIPage() {
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
-    // Clear suggestions from previous messages before sending a new one
+    // Clear suggestions from previous messages and add the new user message
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
             const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
@@ -304,38 +374,67 @@ export default function BuddyAIPage() {
     setInput('');
     setIsLoading(true);
 
-    const historyForAI = activeConversation.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-    }));
-
+    let thoughtMessageId: number | null = null;
     try {
-      const result = await buddyChat({
-          userMessage: messageToSend,
-          history: historyForAI,
-          userId: user.uid,
-          persona: activeConversation.persona
-      });
-      const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
-      
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, assistantMessage] };
+        const stream = await buddyChatStream({
+            userMessage: messageToSend,
+            history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
+            userId: user.uid,
+            persona: activeConversation.persona
+        });
+
+        for await (const chunk of stream) {
+            if (chunk.type === 'thought') {
+                 const thoughtMessage: Message = { role: 'thought', content: chunk.content };
+                 setConversations(prev => {
+                     return prev.map(c => {
+                         if (c.id === activeConversationId) {
+                             if (thoughtMessageId !== null) {
+                                 // Replace previous thought
+                                 const updatedMessages = [...c.messages];
+                                 updatedMessages[thoughtMessageId] = thoughtMessage;
+                                 return { ...c, messages: updatedMessages };
+                             } else {
+                                 // Add new thought
+                                 thoughtMessageId = c.messages.length;
+                                 return { ...c, messages: [...c.messages, thoughtMessage] };
+                             }
+                         }
+                         return c;
+                     });
+                 });
+            } else if (chunk.type === 'response') {
+                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions };
+                setConversations(prev => {
+                    return prev.map(c => {
+                        if (c.id === activeConversationId) {
+                            if (thoughtMessageId !== null) {
+                                // Replace the thought bubble with the final answer
+                                const updatedMessages = [...c.messages];
+                                updatedMessages[thoughtMessageId] = assistantMessage;
+                                return { ...c, messages: updatedMessages };
+                            } else {
+                                return { ...c, messages: [...c.messages, assistantMessage] };
+                            }
+                        }
+                        return c;
+                    });
+                });
+            }
         }
-        return c;
-      }));
 
     } catch (e: any) {
-      console.error(e);
-      const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-            return { ...c, messages: [...c.messages, errorMessage] };
-        }
-        return c;
-      }));
+        console.error(e);
+        const errorMessageContent = `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
+        const errorMessage: Message = { role: 'model', content: errorMessageContent };
+        setConversations(prev => prev.map(c => {
+            if (c.id === activeConversationId) {
+                return { ...c, messages: [...c.messages, errorMessage] };
+            }
+            return c;
+        }));
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
@@ -353,35 +452,17 @@ export default function BuddyAIPage() {
         return;
     }
     
+    // Remove the old model response to regenerate
     setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
-    setIsLoading(true);
-
-    try {
-        const result = await buddyChat({
-            userMessage: lastUserMessage.content,
-            history: historyForRegen.map(msg => ({ role: msg.role, content: msg.content })),
-            userId: user.uid,
-            persona: activeConversation.persona
-        });
-        const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
-        setConversations(prev => prev.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...historyForRegen, assistantMessage] };
-            }
-            return c;
-        }));
-    } catch (e: any) {
-        console.error(e);
-        const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}` };
-        setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: [...historyForRegen, errorMessage] } : c));
-    } finally {
-        setIsLoading(false);
-    }
+    
+    // Directly call handleSend with the last user message
+    handleSend(lastUserMessage.content);
   };
 
 
   return (
     <div className="flex h-full w-full bg-background">
+      <audio ref={audioRef} />
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-[280px] bg-muted/50 border-r shrink-0">
           <SidebarContent 
@@ -431,7 +512,11 @@ export default function BuddyAIPage() {
         <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
-                      {activeConversation.messages.map((message, index) => (
+                      {activeConversation.messages.map((message, index) => {
+                          if (message.role === 'thought') {
+                              return <ThoughtBubble key={index} content={message.content} />;
+                          }
+                          return (
                           <div key={index} className="flex flex-col items-start gap-4">
                             <div className="group flex items-start gap-4 w-full">
                                 <Avatar className="w-8 h-8 border shadow-sm shrink-0">
@@ -447,6 +532,9 @@ export default function BuddyAIPage() {
                                     <FormattedContent content={message.content} />
                                     {message.role === 'model' && !isLoading && (
                                         <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePlayAudio(message.content, index)}>
+                                                {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
+                                            </Button>
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
                                                 <Copy className="h-4 w-4" />
                                             </Button>
@@ -483,8 +571,9 @@ export default function BuddyAIPage() {
                                 </div>
                             )}
                           </div>
-                      ))}
-                      {isLoading && (
+                          )
+                      })}
+                      {isLoading && activeConversation.messages.at(-1)?.role !== 'thought' && (
                           <div className="flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                               <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
@@ -523,8 +612,8 @@ export default function BuddyAIPage() {
                   <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder="What's on your mind?..."
-                      className="rounded-full py-6 pl-6 pr-16 shadow-lg border-2 focus-visible:ring-primary/50"
+                      placeholder={isListening ? 'Listening...' : 'What\'s on your mind?...'}
+                      className="rounded-full py-6 pl-6 pr-24 shadow-lg border-2 focus-visible:ring-primary/50"
                       onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -533,15 +622,25 @@ export default function BuddyAIPage() {
                       }}
                       disabled={isLoading}
                   />
-                  <Button
-                      onClick={() => handleSend()}
-                      disabled={isLoading || !input.trim()}
-                      size="icon"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10"
-                  >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      <span className="sr-only">Send</span>
-                  </Button>
+                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <Button
+                            onClick={handleMicClick}
+                            size="icon"
+                            variant="ghost"
+                            className={cn("rounded-full h-10 w-10", isListening && "bg-destructive/20 text-destructive animate-pulse")}
+                        >
+                            <Mic className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            onClick={() => handleSend()}
+                            disabled={isLoading || !input.trim()}
+                            size="icon"
+                            className="rounded-full w-10 h-10"
+                        >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            <span className="sr-only">Send</span>
+                        </Button>
+                   </div>
               </div>
           </div>
       </div>
