@@ -30,11 +30,12 @@ const BuddyChatInputSchema = z.object({
 });
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
-const BuddyChatOutputSchema = z.object({
-  response: z.string().describe("The AI's response to the user."),
-  suggestions: z.array(z.string()).optional().describe("A list of relevant follow-up prompts for the user."),
+const StreamedOutputSchema = z.object({
+    type: z.enum(['thought', 'response']),
+    content: z.string(),
+    suggestions: z.array(z.string()).optional(),
 });
-export type BuddyChatOutput = z.infer<typeof BuddyChatOutputSchema>;
+type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
 
 
 const createExerciseTool = ai.defineTool(
@@ -179,21 +180,22 @@ Summary: ${result.analysis.summary}
 );
 
 
-export async function buddyChat(input: BuddyChatInput): Promise<BuddyChatOutput> {
-  return buddyChatFlow(input);
+export async function* buddyChatStream(input: BuddyChatInput): AsyncGenerator<StreamedOutput> {
+    yield* buddyChatFlow(input);
 }
 
 const buddyChatFlow = ai.defineFlow(
   {
     name: 'buddyChatFlow',
     inputSchema: BuddyChatInputSchema,
-    outputSchema: BuddyChatOutputSchema,
+    outputSchema: z.string(), // The final output is just the string response
+    streamSchema: StreamedOutputSchema,
     authPolicy: (auth, input) => {
         if (!auth) throw new Error("Authentication is required to chat with Buddy AI.");
         if (auth.uid !== input.userId) throw new Error("User ID does not match authenticated user.");
     }
   },
-  async (input, {auth}) => {
+  async (input, {stream, auth}) => {
     const history = (input.history || []).map(msg => ({
         role: msg.role as 'user' | 'model',
         parts: [{ text: msg.content }],
@@ -254,7 +256,7 @@ For all interactions, maintain a positive and supportive tone. If you don't know
     }
 
 
-    const llmResponse = await ai.generate({
+    const {stream: llmStream, response: llmResponse} = ai.generateStream({
         model: 'googleai/gemini-2.0-flash',
         tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool, analyzeCodeComplexityTool],
         system: systemPrompt,
@@ -262,17 +264,29 @@ For all interactions, maintain a positive and supportive tone. If you don't know
         prompt: input.userMessage,
     }, { auth });
     
-    const aiResponseText = llmResponse.text;
+    // Stream tool usage as "thoughts"
+    for await (const chunk of llmStream) {
+        if (chunk.type === 'toolRequest') {
+             stream.yield({ type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` });
+        }
+    }
     
-    // Generate follow-up suggestions based on the conversation
+    // Await the final response and then generate follow-up suggestions
+    const finalResponse = await llmResponse;
+    const aiResponseText = finalResponse.text;
+    
     const followUpResult = await generateFollowUpSuggestions({
         lastUserMessage: input.userMessage,
         aiResponse: aiResponseText,
     });
     
-    return {
-        response: aiResponseText,
+    // Yield the final response with suggestions
+    stream.yield({
+        type: 'response',
+        content: aiResponseText,
         suggestions: followUpResult.suggestions,
-    };
+    });
+
+    return aiResponseText;
   }
 );

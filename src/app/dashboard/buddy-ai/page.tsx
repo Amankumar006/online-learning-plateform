@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChat } from '@/ai/flows/buddy-chat';
+import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,6 +57,20 @@ const getInitials = (name?: string | null) => {
 
 const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+};
+
+const ThoughtBubble = ({ content }: { content: string }) => {
+  return (
+    <div className="flex items-start gap-4">
+        <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+            <AvatarFallback><Bot size={20} /></AvatarFallback>
+        </Avatar>
+        <div className="flex-1 pt-1 flex items-center gap-2 text-muted-foreground animate-in fade-in-50">
+            <Lightbulb className="w-5 h-5 animate-pulse text-yellow-400" />
+            <span className="text-sm italic">{content}</span>
+        </div>
+    </div>
+  );
 };
 
 
@@ -174,6 +188,7 @@ export default function BuddyAIPage() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [thought, setThought] = useState<string | null>(null);
   
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
@@ -310,7 +325,7 @@ export default function BuddyAIPage() {
      if (scrollAreaRef.current) {
         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'auto' });
     }
-  }, [activeConversation?.messages?.length, isLoading]);
+  }, [activeConversation?.messages?.length, isLoading, thought]);
   
   // Effect to save conversations to localStorage when they change
   useEffect(() => {
@@ -358,7 +373,6 @@ export default function BuddyAIPage() {
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
-    // Clear suggestions from previous messages and add the new user message
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
             const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
@@ -372,26 +386,32 @@ export default function BuddyAIPage() {
 
     setInput('');
     setIsLoading(true);
+    setThought(null);
 
     try {
-        const result = await buddyChat({
+        const stream = buddyChatStream({
             userMessage: messageToSend,
             history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
             userId: user.uid,
             persona: activeConversation.persona
         });
         
-        const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
-
-         setConversations(prev => {
-            return prev.map(c => {
-                if (c.id === activeConversationId) {
-                    return { ...c, messages: [...c.messages, assistantMessage] };
-                }
-                return c;
-            });
-        });
-
+        for await (const chunk of stream) {
+            if (chunk.type === 'thought') {
+                setThought(chunk.content);
+            } else if (chunk.type === 'response') {
+                setThought(null); // Clear thought bubble
+                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions };
+                 setConversations(prev => {
+                    return prev.map(c => {
+                        if (c.id === activeConversationId) {
+                            return { ...c, messages: [...c.messages, assistantMessage] };
+                        }
+                        return c;
+                    });
+                });
+            }
+        }
 
     } catch (e: any) {
         console.error(e);
@@ -405,6 +425,7 @@ export default function BuddyAIPage() {
         }));
     } finally {
         setIsLoading(false);
+        setThought(null);
     }
   };
 
@@ -540,7 +561,10 @@ export default function BuddyAIPage() {
                           </div>
                           )
                       })}
-                      {isLoading && (
+                      {isLoading && thought && (
+                         <ThoughtBubble content={thought} />
+                      )}
+                      {isLoading && !thought && (
                           <div className="flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                               <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
