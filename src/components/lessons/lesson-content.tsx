@@ -3,12 +3,12 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Lesson, UserProgress, Section, Block, TextBlock } from "@/lib/data";
+import { Lesson, UserProgress, Section, Block } from "@/lib/data";
 import { completeLesson } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Play, Pause } from "lucide-react";
+import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Play } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";

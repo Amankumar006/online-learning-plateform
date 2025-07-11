@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -12,13 +13,123 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare } from "lucide-react";
+import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import CodeEditor from "./code-editor";
-import MathSolutionGrader from "../practice/math-solution-grader";
 import { Input } from "../ui/input";
 import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
+import { Skeleton } from "../ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+});
+
+const MathSolutionGrader = dynamic(() => import("../practice/math-solution-grader"), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[550px] rounded-md" />,
+});
+
+const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
+  const hasOutput = result?.stdout && result.stdout.length > 0;
+  const hasError = result?.stderr && result.stderr.length > 0;
+
+  return (
+    <div className="p-4 bg-muted/50 font-mono text-sm min-h-[200px] whitespace-pre-wrap text-foreground">
+      {isLoading ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
+        </div>
+      ) : result ? (
+        <>
+          {hasOutput && <pre>{result.stdout}</pre>}
+          {hasError && <pre className="text-red-500">{result.stderr}</pre>}
+          {!hasOutput && !hasError && (
+            <p className="text-muted-foreground">Execution finished with no output.</p>
+          )}
+        </>
+      ) : (
+        <div className="text-muted-foreground">Click "Run & Analyze" to see the output here.</div>
+      )}
+    </div>
+  );
+};
+
+const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean, onApplySuggestion: (code: string) => void }) => {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <p>Analyzing your code...</p>
+            </div>
+        )
+    }
+    
+    if (result) {
+         return (
+            <div className="space-y-4 p-4 bg-muted/50 min-h-[200px]">
+                <Card className="bg-background/50 border-border/50">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Complexity Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex gap-8">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Time</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.time}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Space</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.space}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-background/50 border-border/50">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Code Analysis Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm whitespace-pre-wrap">{result.analysis.summary}</p>
+                    </CardContent>
+                </Card>
+
+                {result.analysis.suggestions && result.analysis.suggestions.length > 0 && (
+                     <Card className="bg-background/50 border-border/50">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Suggestions</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {result.analysis.suggestions.map((suggestion, index) => (
+                                <div key={index} className="border-t pt-4 first:border-t-0 first:pt-0">
+                                    <p className="text-sm font-semibold">{suggestion.suggestion} (Line {suggestion.lineNumber})</p>
+                                    <div className="my-2 not-prose">
+                                        <div className="flex justify-between items-center bg-muted rounded-t-lg px-4 py-1">
+                                            <span className="text-xs font-semibold">Suggested Code</span>
+                                            <Button variant="ghost" size="sm" className="h-7" onClick={() => onApplySuggestion(suggestion.code)}>
+                                                Apply
+                                            </Button>
+                                        </div>
+                                        <div className="bg-background border rounded-b-lg p-2 overflow-x-auto font-mono text-xs">
+                                            <pre><code>{suggestion.code}</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+        )
+    }
+
+    return (
+        <div className="text-center text-muted-foreground p-8 min-h-[200px] flex items-center justify-center">
+            <p>Click "Run & Analyze" to get AI feedback on your code.</p>
+        </div>
+    )
+}
 
 export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { exercises: Exercise[], userId:string, lessonTitle: string }) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -33,6 +144,9 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | GradeMathSolutionOutput | null>(null);
   const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
+  const [activeOutputTab, setActiveOutputTab] = useState("console");
   const { toast } = useToast();
 
   const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
@@ -76,6 +190,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     setIsAnswered(false);
     setIsCorrect(null);
     setFeedback(null);
+    setSimulationResult(null);
     
     // Initialize state specific to exercise type
     if (currentExercise.type === 'fill_in_the_blanks') {
@@ -138,6 +253,37 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
         console.error("Failed to save math exercise result:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not save your progress." });
     }
+  };
+
+   const handleRunCode = async () => {
+    const codeExercise = currentExercise as LongFormExercise;
+    if (currentExercise.type !== 'long_form' || !codeExercise.language) return;
+
+    setIsSimulating(true);
+    setSimulationResult(null);
+    try {
+      const result = await simulateCodeExecution({
+        code: longFormAnswer,
+        language: codeExercise.language,
+      });
+      setSimulationResult(result);
+      toast({ title: "Analysis Complete", description: "The AI has simulated and analyzed your code." });
+      setActiveOutputTab("analysis"); // Switch to analysis tab after running
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Simulation Failed', description: 'The AI could not simulate the code execution.' });
+      setActiveOutputTab("console");
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleApplySuggestion = (code: string) => {
+      setLongFormAnswer(code);
+      toast({
+          title: "Suggestion Applied!",
+          description: "The code in the editor has been updated.",
+      });
   };
 
   const handleAnswerSubmit = async () => {
@@ -306,7 +452,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             const lfExercise = currentExercise as LongFormExercise;
             if (lfExercise.category === 'code') {
                  return (
-                    <div>
+                    <div className="space-y-4">
                         <CodeEditor
                             value={longFormAnswer}
                             onValueChange={setLongFormAnswer}
@@ -314,7 +460,28 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                             placeholder="Write your code here..."
                             language={lfExercise.language}
                         />
-                        <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
+                        <div className="rounded-lg border bg-background overflow-hidden">
+                            <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
+                                <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
+                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
+                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
+                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
+                                    </TabsList>
+                                    {!isAnswered && (
+                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()}>
+                                            {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                                            Run & Analyze
+                                        </Button>
+                                    )}
+                                </div>
+                                <TabsContent value="console" className="mt-0">
+                                    <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
+                                </TabsContent>
+                                <TabsContent value="analysis" className="mt-0">
+                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} />
+                                </TabsContent>
+                            </Tabs>
+                        </div>
                     </div>
                 );
             }
@@ -387,7 +554,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
         <div className="p-6 text-center min-h-[300px] flex flex-col justify-center items-center">
             <CheckCircle className="h-12 w-12 text-primary mb-4" />
             <h3 className="text-xl font-semibold">Practice Complete!</h3>
-            <p className="text-muted-foreground mt-2 mb-4">You've answered all the questions for this lesson.</p>
+            <p className="text-muted-foreground mt-2 mb-4">You've answered all the questions for this lesson. Great job!</p>
             <Button onClick={handlePracticeAgain}>
                 Practice Again
             </Button>
@@ -472,6 +639,35 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                             </CardContent>
                         </Card>
                     )}
+                     {feedback && 'overallFeedback' in feedback && (
+                        <Card className={cn(feedback.isSolutionCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                            <CardHeader>
+                                 <CardTitle className="text-base flex items-center justify-between gap-2">
+                                    <span className="flex items-center gap-2">
+                                        {feedback.isSolutionCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />}
+                                        AI Feedback
+                                    </span>
+                                    <Badge variant={feedback.isSolutionCorrect ? "default" : "destructive"}>Overall Score: {feedback.overallScore}/100</Badge>
+                                </CardTitle>
+                            </CardHeader>
+                          <CardContent className="space-y-4">
+                             <p className="text-sm font-semibold">Overall Summary:</p>
+                             <p className="text-sm">{feedback.overallFeedback}</p>
+                             <p className="text-sm font-semibold pt-4 border-t">Step-by-Step Analysis:</p>
+                             <div className="space-y-2">
+                                {feedback.stepEvaluations.map((step, index) => (
+                                    <div key={index} className="flex items-start gap-3 text-sm p-2 rounded-md bg-background/50">
+                                        {step.isCorrect ? <CheckCircle className="h-4 w-4 text-primary mt-1 shrink-0" /> : <XCircle className="h-4 w-4 text-destructive mt-1 shrink-0" />}
+                                        <div>
+                                            <p className="font-mono text-xs">{`Step ${index + 1}: ${step.step}`}</p>
+                                            <p className="text-muted-foreground">{step.feedback}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
+                          </CardContent>
+                        </Card>
+                     )}
                  </div>
             )}
 

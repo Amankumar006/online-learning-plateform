@@ -1,13 +1,13 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, TextBlock, Section } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, Section } from "@/lib/data";
 import { notFound, useRouter, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
-import { buddyChat, BuddyChatInput, BuddyChatOutput } from "@/ai/flows/buddy-chat";
+import { buddyChat } from "@/ai/flows/buddy-chat";
 import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,9 +71,9 @@ interface Message {
     content: string;
 }
 
-const AIBuddy = ({ lessonContent, user, lessonTitle }: { lessonContent: string, user: FirebaseUser, lessonTitle: string }) => {
+const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: string }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: `Hello! I'm your AI study buddy. Ask me anything about "${lessonTitle}"!` }
+    { role: 'model', content: `Hello! I'm your AI study buddy. Ask me anything about "${lessonTitle}", or ask me to create a practice problem for you!` }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,14 +93,7 @@ const AIBuddy = ({ lessonContent, user, lessonTitle }: { lessonContent: string, 
     setInput('');
     setIsLoading(true);
 
-    const fullHistory = [
-        { role: 'model' as const, content: `The user is currently studying a lesson titled "${lessonTitle}". The full content is provided below. Your primary goal is to answer questions based on this content. Do not use external knowledge unless a specific tool is used.\n\n---\n\n${lessonContent}` },
-        ...messages,
-        userMessage,
-    ];
-    
-    // We only need the text content for the AI call, not the full role/content object structure yet.
-    const historyForAI = fullHistory.map(m => ({role: m.role, content: m.content}));
+    const historyForAI = messages.map(m => ({role: m.role, content: m.content}));
 
     try {
       const result = await buddyChat({ 
@@ -212,7 +205,7 @@ export default function LessonPage() {
   };
   
   const getSectionTextContent = (section: Section): string => {
-    return section.blocks.filter(b => b.type === 'text').map(b => (b as TextBlock).content).join('\n\n');
+    return section.blocks.filter(b => b.type === 'text').map((b: any) => b.content).join('\n\n');
   };
 
   const handlePlaySection = async (section: Section) => {
@@ -378,14 +371,6 @@ export default function LessonPage() {
     );
   }
   
-  const textContentForAI = lesson.sections && lesson.sections.length > 0
-    ? lesson.sections.map(section => {
-        const sectionTitle = `## ${section.title}\n\n`;
-        const sectionContent = getSectionTextContent(section);
-        return sectionTitle + sectionContent;
-      }).join('\n\n---\n\n')
-    : "This lesson has no textual content.";
-
 
   return (
     <div>
@@ -474,7 +459,7 @@ export default function LessonPage() {
                               </ScrollArea>
                             )}
                             {activeTab === 'ai-buddy' && (
-                              <AIBuddy lessonContent={textContentForAI} user={user} lessonTitle={lesson.title} />
+                              <AIBuddy user={user} lessonTitle={lesson.title} />
                             )}
                         </motion.div>
                     </AnimatePresence>
