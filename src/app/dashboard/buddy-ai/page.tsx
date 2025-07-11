@@ -518,7 +518,7 @@ export default function BuddyAIPage() {
                                         {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
                                     </p>
                                     <FormattedContent content={message.content} />
-                                    {message.role === 'model' && !isLoading && (
+                                    {message.role === 'model' && !isLoading && index === activeConversation.messages.length - 1 && (
                                         <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePlayAudio(message.content, index)}>
                                                 {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
@@ -532,11 +532,9 @@ export default function BuddyAIPage() {
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
                                                 <ThumbsDown className="h-4 w-4" />
                                             </Button>
-                                            {index === activeConversation.messages.length - 1 && (
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
-                                                    <RefreshCw className="h-4 w-4" />
-                                                </Button>
-                                            )}
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -638,5 +636,3 @@ export default function BuddyAIPage() {
     </div>
   );
 }
-
-    
