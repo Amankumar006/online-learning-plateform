@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import FormattedContent from "@/components/common/FormattedContent";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 function LessonPageSkeleton() {
     return (
@@ -405,3 +406,5 @@ export default function LessonPage() {
     </div>
   );
 }
+
+    
