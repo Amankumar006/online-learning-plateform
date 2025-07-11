@@ -3,9 +3,9 @@
 /**
  * @fileOverview A conversational AI flow for the main Buddy AI page, with tools.
  *
- * - buddyChat - A function that handles the conversation.
+ * - buddyChatStream - A function that handles the conversation.
  * - BuddyChatInput - The input type for the function.
- * - BuddyChatOutput - The return type for the function.
+ * - StreamedOutput - The output type for the function's stream.
  */
 
 import {ai} from '@/ai/genkit';
@@ -35,7 +35,7 @@ const StreamedOutputSchema = z.object({
     content: z.string(),
     suggestions: z.array(z.string()).optional(),
 });
-type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
+export type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
 
 
 const createExerciseTool = ai.defineTool(
@@ -119,10 +119,43 @@ const searchTheWebTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async ({ query }) => {
-        // In a real application, this would call a search API (e.g., Google Search API).
-        // For this simulation, we'll return a helpful placeholder that acknowledges the query.
-        // This demonstrates the AI's ability to know WHEN to use the tool.
-        return `I've performed a search for "${query}". Based on the top results, here's a summary: [Simulated search result about ${query} would be here].`;
+        try {
+            const apiKey = process.env.GOOGLE_API_KEY;
+            const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+            
+            if (!apiKey || !searchEngineId) {
+                 return "I am sorry, but the web search tool is not configured correctly. I cannot access real-time information right now.";
+            }
+
+            const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Google Search API Error:", errorData);
+                return `Sorry, I encountered an error while searching the web: ${errorData.error.message}`;
+            }
+
+            const data = await response.json();
+            
+            if (!data.items || data.items.length === 0) {
+                return `I couldn't find any direct results for "${query}". You might want to try rephrasing your question.`;
+            }
+
+            // Extract titles, links, and snippets from the top 3 results
+            const searchResults = data.items.slice(0, 3).map((item: any) => ({
+                title: item.title,
+                link: item.link,
+                snippet: item.snippet
+            }));
+            
+            const summary = searchResults.map((r: any) => `Title: ${r.title}\nSnippet: ${r.snippet}`).join('\n\n');
+            return `Based on a web search for "${query}", here is a summary of the top results:\n\n${summary}`;
+
+        } catch (error) {
+            console.error("Error in searchTheWebTool:", error);
+            return "I ran into a problem while trying to search the web. Please try again in a moment.";
+        }
     }
 );
 
@@ -179,10 +212,14 @@ Summary: ${result.analysis.summary}
     }
 );
 
-
+/**
+ * The main exported function that clients (like the Next.js page) will call.
+ * This is an async generator that streams the output.
+ */
 export async function* buddyChatStream(input: BuddyChatInput): AsyncGenerator<StreamedOutput> {
     yield* buddyChatFlow(input);
 }
+
 
 const buddyChatFlow = ai.defineFlow(
   {
@@ -196,6 +233,7 @@ const buddyChatFlow = ai.defineFlow(
     }
   },
   async (input, {stream, auth}) => {
+    
     const history = (input.history || []).map(msg => ({
         role: msg.role as 'user' | 'model',
         parts: [{ text: msg.content }],
@@ -290,5 +328,3 @@ For all interactions, maintain a positive and supportive tone. If you don't know
     return aiResponseText;
   }
 );
-
-    
