@@ -2,18 +2,16 @@
 "use client";
 
 import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, Section } from "@/lib/data";
-import { notFound, useRouter, useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import { buddyChat } from "@/ai/flows/buddy-chat";
-import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal } from "lucide-react";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal, CheckCircle, Target } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { motion, AnimatePresence } from "framer-motion";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,47 +22,28 @@ import { uploadAudioFromDataUrl } from "@/lib/storage";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import FormattedContent from "@/components/common/FormattedContent";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 function LessonPageSkeleton() {
     return (
-        <div>
-            <Skeleton className="h-10 w-3/4 mb-2" />
-            <Skeleton className="h-6 w-1/4 mb-6" />
-            <Card>
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-center mb-6">
-                       <Skeleton className="h-12 w-96 rounded-full" />
-                    </div>
-                    <div className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                        <Skeleton className="h-[400px] w-full" />
-                        <Skeleton className="h-24 w-full mt-4" />
-                    </div>
-                </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-8">
+            <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-6 w-1/4" />
+                <Skeleton className="w-full h-48" />
+                <div className="space-y-4 pt-4">
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                </div>
+            </div>
+            <div className="lg:col-span-1">
+                <Skeleton className="w-full h-96" />
+            </div>
         </div>
     )
 }
-
-const slideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? '100%' : '-100%',
-    opacity: 0,
-    position: 'absolute' as 'absolute',
-  }),
-  center: {
-    zIndex: 1,
-    x: 0,
-    opacity: 1,
-    position: 'relative' as 'relative',
-  },
-  exit: (direction: number) => ({
-    zIndex: 0,
-    x: direction < 0 ? '100%' : '-100%',
-    opacity: 0,
-    position: 'absolute' as 'absolute',
-  }),
-};
-
 
 interface Message {
     role: 'user' | 'model';
@@ -99,7 +78,7 @@ const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: strin
       const result = await buddyChat({ 
           userMessage: input, 
           userId: user.uid,
-          persona: 'buddy', // Always use the 'buddy' persona in the lesson view.
+          persona: 'buddy', 
           history: historyForAI,
       });
       const assistantMessage: Message = { role: 'model', content: result.response };
@@ -114,35 +93,35 @@ const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: strin
   };
 
   return (
-    <div className="flex flex-col h-[60vh]">
-        <ScrollArea className="flex-1 mb-4 p-4 border rounded-md" ref={scrollAreaRef}>
-            <div className="space-y-6">
+    <div className="flex flex-col h-full">
+        <ScrollArea className="flex-1 mb-4" ref={scrollAreaRef}>
+             <div className="space-y-6 p-1">
                 {messages.map((message, index) => (
-                    <div key={index} className={cn("flex items-start gap-4", message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                    <div key={index} className={cn("flex items-start gap-3", message.role === 'user' ? 'justify-end' : 'justify-start')}>
                         {message.role === 'model' && (
-                            <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                            <Avatar className="w-8 h-8 shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                         )}
                         <div className={cn("max-w-md p-3 rounded-lg", message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
                            <FormattedContent content={message.content} />
                         </div>
                          {message.role === 'user' && (
-                            <Avatar className="w-8 h-8"><AvatarFallback>You</AvatarFallback></Avatar>
+                            <Avatar className="w-8 h-8 shrink-0"><AvatarFallback>You</AvatarFallback></Avatar>
                         )}
                     </div>
                 ))}
                  {isLoading && (
                      <div className="flex items-start gap-4 justify-start">
-                        <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                        <Avatar className="w-8 h-8 shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                         <div className="bg-muted p-3 rounded-lg"><Loader2 className="w-5 h-5 animate-spin" /></div>
                     </div>
                  )}
             </div>
         </ScrollArea>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-auto">
             <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question about the lesson..."
+                placeholder="Ask a question..."
                 className="flex-1 resize-none"
                 rows={1}
                 onKeyDown={(e) => {
@@ -162,11 +141,6 @@ const AIBuddy = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: strin
   );
 }
 
-const tabItems = [
-    { id: 'lesson', label: 'Lesson', icon: BookText },
-    { id: 'exercise', label: 'Exercise', icon: BrainCircuit },
-    { id: 'ai-buddy', label: 'AI Buddy', icon: Bot },
-];
 
 export default function LessonPage() {
   const params = useParams();
@@ -176,11 +150,7 @@ export default function LessonPage() {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [[activeTab, direction], setActiveTab] = useState(['lesson', 0]);
-  
-  const tabContainerRef = useRef<HTMLDivElement>(null);
-  const [highlighterStyle, setHighlighterStyle] = useState({});
+  const [activeTab, setActiveTab] = useState('lesson');
   const { toast } = useToast();
 
   // Audio state
@@ -190,18 +160,15 @@ export default function LessonPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [currentSection, setCurrentSection] = useState<{ title: string; content: string } | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [isLessonCompleted, setIsLessonCompleted] = useState(false);
 
-
-  const handleTabChange = (newTabId: string) => {
-    if (newTabId === activeTab) return;
-    const oldIndex = tabItems.findIndex(t => t.id === activeTab);
-    const newIndex = tabItems.findIndex(t => t.id === newTabId);
-    setActiveTab([newTabId, newIndex > oldIndex ? 1 : -1]);
-  };
 
   const fetchUserProgress = async (uid: string) => {
     const progress = await getUserProgress(uid);
     setUserProgress(progress);
+    if (progress.completedLessonIds?.includes(id)) {
+      setIsLessonCompleted(true);
+    }
   };
   
   const getSectionTextContent = (section: Section): string => {
@@ -259,7 +226,6 @@ export default function LessonPage() {
         const fileName = `${lesson?.title || 'lesson'}_${currentSection.title}`.replace(/[^a-zA-Z0-9]/g, '_');
         const publicUrl = await uploadAudioFromDataUrl(audioUrl, fileName);
         
-        // Create a temporary link to trigger the download
         const link = document.createElement('a');
         link.href = publicUrl;
         link.download = `${fileName}.wav`;
@@ -278,10 +244,7 @@ export default function LessonPage() {
 
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
-    const onEnded = () => {
-        setIsPlaying(false);
-        // Optional: play next section automatically
-    };
+    const onEnded = () => setIsPlaying(false);
 
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
@@ -292,7 +255,7 @@ export default function LessonPage() {
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [audioRef.current]);
+  }, [audioRef, audioUrl]);
 
   useEffect(() => {
     if (audioUrl && audioRef.current) {
@@ -322,7 +285,9 @@ export default function LessonPage() {
           setLesson(lessonData);
           setExercises(exercisesData);
           setUserProgress(progressData);
-
+           if (progressData.completedLessonIds?.includes(id)) {
+             setIsLessonCompleted(true);
+           }
         } catch (error) {
             console.error("Failed to load lesson data", error);
         } finally {
@@ -334,30 +299,7 @@ export default function LessonPage() {
     return () => unsubscribe();
   }, [id]);
   
-  // Effect for highlighter
-  useEffect(() => {
-    if (isLoading || !tabContainerRef.current) return;
-
-    const activeIndex = tabItems.findIndex((item) => item.id === activeTab);
-    const activeTabEl = tabContainerRef.current.children[activeIndex] as HTMLElement | undefined;
-
-    if (activeTabEl) {
-        setHighlighterStyle({
-            width: `${activeTabEl.offsetWidth}px`,
-            transform: `translateX(${activeTabEl.offsetLeft}px)`,
-            opacity: 1,
-        });
-    } else {
-        setHighlighterStyle({ opacity: 0 });
-    }
-  }, [activeTab, isLoading]);
   
-  const breadcrumbItems = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/lessons", label: "Lessons" },
-    { href: `/dashboard/lessons/${id}`, label: lesson?.title || "..." },
-  ];
-
   if (isLoading) {
     return <LessonPageSkeleton />;
   }
@@ -370,17 +312,21 @@ export default function LessonPage() {
       </div>
     );
   }
+
+  const exercisesAttempted = userProgress?.exerciseProgress?.[id]?.currentExerciseIndex || 0;
+  const progressPercentage = exercises.length > 0 ? (exercisesAttempted / exercises.length) * 100 : 0;
   
 
   return (
-    <div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 md:p-6 lg:p-8 h-full">
       <audio ref={audioRef} />
-      <Breadcrumb items={breadcrumbItems} />
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
-        <p className="text-lg text-muted-foreground">{lesson.subject}</p>
-      </div>
-       <LessonPlayer
+      {/* Left Column (Main Content) */}
+      <div className="lg:col-span-2 flex flex-col h-full">
+        <div className="mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
+            <p className="text-lg text-muted-foreground">{lesson.subject}</p>
+        </div>
+         <LessonPlayer
           isPlaying={isPlaying}
           isGenerating={isGeneratingAudio}
           currentSectionTitle={currentSection?.title || null}
@@ -391,82 +337,71 @@ export default function LessonPage() {
           playbackRate={playbackRate}
           onPlaybackRateChange={setPlaybackRate}
         />
-      <Card>
-          <CardContent className="p-4 sm:p-6">
-            <div className="w-full">
-                <div className="relative w-full mb-6">
-                    <div className="relative w-full rounded-md bg-muted p-1 backdrop-blur-lg border border-black/10 dark:border-white/10 shadow-inner">
-                         <div
-                            className="absolute h-[calc(100%-8px)] rounded-md bg-gradient-to-br from-white/50 to-white/20 dark:from-white/20 dark:to-white/5 border border-white/30 dark:border-white/10 shadow-md backdrop-blur-sm transition-all duration-300 ease-in-out"
-                            style={highlighterStyle}
+        <ScrollArea className="flex-grow pr-4 -mr-4">
+            <LessonContent 
+                lesson={lesson} 
+                userId={user.uid}
+                userProgress={userProgress}
+                onLessonComplete={() => {
+                  fetchUserProgress(user.uid);
+                  setActiveTab('exercise');
+                }}
+                onPlaySection={handlePlaySection}
+                isGeneratingAudio={isGeneratingAudio}
+                currentSectionTitle={currentSection?.title || null}
+            />
+        </ScrollArea>
+      </div>
+
+      {/* Right Column (Tools) */}
+      <div className="lg:col-span-1 flex flex-col">
+         <Card className="flex-grow flex flex-col">
+             <CardContent className="p-4 flex flex-col flex-1">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="lesson"><BookText className="h-4 w-4" /></TabsTrigger>
+                        <TabsTrigger value="exercise"><BrainCircuit className="h-4 w-4" /></TabsTrigger>
+                        <TabsTrigger value="ai-buddy"><Bot className="h-4 w-4" /></TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="lesson" className="mt-4 flex-1 flex flex-col">
+                      <div className="space-y-4">
+                          <h3 className="font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Lesson Objective</h3>
+                          <p className="text-sm text-muted-foreground">{lesson.description}</p>
+                          <Separator />
+                           {isLessonCompleted ? (
+                             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 text-primary">
+                               <CheckCircle className="h-5 w-5"/>
+                               <div>
+                                 <p className="font-semibold text-sm">Lesson Complete!</p>
+                                 <p className="text-xs">You've mastered this topic.</p>
+                               </div>
+                             </div>
+                           ) : (
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">Your Progress</h4>
+                                <Progress value={progressPercentage} className="h-2"/>
+                                <p className="text-xs text-muted-foreground mt-2">{exercisesAttempted} of {exercises.length} exercises attempted.</p>
+                              </div>
+                           )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="exercise" className="mt-4 flex-1">
+                        <AdaptiveExercise 
+                            exercises={exercises} 
+                            userId={user.uid} 
+                            lessonTitle={lesson.title}
                         />
-                        <div ref={tabContainerRef} className="relative grid grid-cols-3 gap-1">
-                            {tabItems.map((tab) => (
-                                <Button
-                                    key={tab.id}
-                                    variant="ghost"
-                                    onClick={() => handleTabChange(tab.id)}
-                                    className={cn(
-                                        "z-10 rounded-md transition-colors flex items-center justify-center gap-2",
-                                        activeTab === tab.id
-                                        ? 'text-foreground dark:text-background font-semibold'
-                                        : 'text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground'
-                                    )}
-                                >
-                                    <tab.icon className="h-4 w-4" />
-                                    {tab.label}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="relative min-h-[60vh] mt-2 overflow-hidden">
-                    <AnimatePresence initial={false} custom={direction}>
-                        <motion.div
-                            key={activeTab}
-                            custom={direction}
-                            variants={slideVariants}
-                            initial="enter"
-                            animate="center"
-                            exit="exit"
-                            transition={{
-                                x: { type: "spring", stiffness: 300, damping: 30 },
-                                opacity: { duration: 0.2 }
-                            }}
-                            className="w-full"
-                        >
-                            {activeTab === 'lesson' && user && lesson && (
-                              <ScrollArea className="h-[60vh] pr-4">
-                                <LessonContent 
-                                    lesson={lesson} 
-                                    userId={user.uid}
-                                    userProgress={userProgress}
-                                    onLessonComplete={() => fetchUserProgress(user.uid)}
-                                    onPlaySection={handlePlaySection}
-                                    isGeneratingAudio={isGeneratingAudio}
-                                    currentSectionTitle={currentSection?.title || null}
-                                />
-                              </ScrollArea>
-                            )}
-                            {activeTab === 'exercise' && (
-                              <ScrollArea className="h-[60vh] pr-4">
-                                <AdaptiveExercise 
-                                    exercises={exercises} 
-                                    userId={user.uid} 
-                                    lessonTitle={lesson.title}
-                                />
-                              </ScrollArea>
-                            )}
-                            {activeTab === 'ai-buddy' && (
-                              <AIBuddy user={user} lessonTitle={lesson.title} />
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
-            </div>
-        </CardContent>
-      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="ai-buddy" className="mt-4 flex-1 flex flex-col">
+                        <AIBuddy user={user} lessonTitle={lesson.title} />
+                    </TabsContent>
+                </Tabs>
+             </CardContent>
+         </Card>
+      </div>
     </div>
   );
 }

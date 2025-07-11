@@ -25,6 +25,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +39,11 @@ export default function DashboardLayout({
     });
     return () => unsubscribe();
   }, [router]);
+
+  // Don't render the main DashboardNav on the specific lesson page
+  if (pathname.match(/^\/dashboard\/lessons\/[^/]+$/)) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return <DashboardLoader />;
