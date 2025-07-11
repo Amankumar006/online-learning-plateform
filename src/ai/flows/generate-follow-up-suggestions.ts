@@ -1,92 +1,66 @@
-
 'use server';
 /**
- * @fileOverview A Genkit flow to suggest follow-up lessons based on a previous lesson.
+ * @fileOverview A Genkit flow to generate conversational follow-up suggestions.
  *
- * - generateFollowUpSuggestions - A function that suggests topics for the next lesson.
+ * - generateFollowUpSuggestions - A function that suggests prompts based on the last turn of a conversation.
  * - GenerateFollowUpSuggestionsInput - The input type for the function.
  * - GenerateFollowUpSuggestionsOutput - The return type for the function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { getLesson, Lesson, Section, TextBlock } from '@/lib/data';
 
 const GenerateFollowUpSuggestionsInputSchema = z.object({
-  lessonId: z.string().describe('The ID of the lesson to generate follow-up suggestions for.'),
+  lastUserMessage: z.string().describe("The user's most recent message."),
+  aiResponse: z.string().describe("The AI's immediate response to the user's message."),
 });
 export type GenerateFollowUpSuggestionsInput = z.infer<typeof GenerateFollowUpSuggestionsInputSchema>;
 
 const GenerateFollowUpSuggestionsOutputSchema = z.object({
-  suggestions: z.array(z.string()).describe('An array of 3-5 suggested topics for a follow-up lesson.'),
+  suggestions: z.array(z.string()).describe("An array of 2-4 short, relevant follow-up prompts a user might ask."),
 });
 export type GenerateFollowUpSuggestionsOutput = z.infer<typeof GenerateFollowUpSuggestionsOutputSchema>;
 
-// Helper function to extract text from lesson sections
-const getLessonTextContent = (sections: Section[] | undefined): string => {
-    if (!sections || sections.length === 0) {
-        return "No textual content provided.";
-    }
-    return sections.map(section => {
-        const sectionTitle = `## ${section.title}`;
-        const sectionContent = section.blocks
-            .filter(block => block.type === 'text')
-            .map(block => (block as TextBlock).content)
-            .join('\n\n');
-        return `${sectionTitle}\n${sectionContent}`;
-    }).join('\n\n---\n\n');
-};
-
-const GenerateFollowUpPromptInputSchema = z.object({
-    previousLessonSummary: z.string().describe("A summary of the previous lesson's content and context."),
-});
+export async function generateFollowUpSuggestions(
+  input: GenerateFollowUpSuggestionsInput
+): Promise<GenerateFollowUpSuggestionsOutput> {
+  const result = await generateFollowUpSuggestionsFlow(input);
+  if (!result) {
+    return { suggestions: [] };
+  }
+  return result;
+}
 
 const prompt = ai.definePrompt({
   name: 'generateFollowUpSuggestionsPrompt',
-  input: { schema: GenerateFollowUpPromptInputSchema },
-  output: { schema: GenerateFollowUpSuggestionsOutputSchema },
-  prompt: `You are an expert curriculum designer for an adaptive learning platform. Your task is to suggest the next logical lesson topics based on a previously completed lesson.
+  input: {schema: GenerateFollowUpSuggestionsInputSchema},
+  output: {schema: GenerateFollowUpSuggestionsOutputSchema},
+  prompt: `You are an expert at anticipating a user's needs in a conversation. Based on the last user message and the AI's response, generate 2-4 short, relevant follow-up prompts that the user might want to ask next.
 
-Analyze the following summary of the previous lesson. Based on this context, suggest 3 to 5 distinct, engaging, and logical follow-up lesson titles. These topics should either build directly on the previous concepts, introduce a related new concept, or increase the complexity.
+These prompts should be phrased as if the user is saying them.
 
-**Previous Lesson Summary:**
----
-{{{previousLessonSummary}}}
----
+**Conversation Turn:**
+User: "{{{lastUserMessage}}}"
+AI: "{{{aiResponse}}}"
 
-Provide your suggestions as a JSON object with a single key "suggestions" containing an array of strings.
+**Examples of Good Follow-up Prompts:**
+- "Explain that in simpler terms."
+- "Give me a practice problem on this."
+- "How does this relate to [previous topic]?"
+- "What's the next logical topic to learn?"
+
+Keep the prompts concise and directly related to the conversation.
 `,
 });
 
-export const generateFollowUpSuggestions = ai.defineFlow(
+const generateFollowUpSuggestionsFlow = ai.defineFlow(
   {
     name: 'generateFollowUpSuggestionsFlow',
     inputSchema: GenerateFollowUpSuggestionsInputSchema,
     outputSchema: GenerateFollowUpSuggestionsOutputSchema,
   },
-  async (input) => {
-    const lesson = await getLesson(input.lessonId);
-    if (!lesson) {
-        throw new Error("Could not find the original lesson to base suggestions on.");
-    }
-    
-    const lessonSummary = `
-      Title: ${lesson.title}
-      Subject: ${lesson.subject}
-      Description: ${lesson.description}
-      Difficulty: ${lesson.difficulty}
-      Grade Level: ${lesson.gradeLevel || 'Not specified'}
-      Curriculum Board: ${lesson.curriculumBoard || 'Not specified'}
-      Topic Depth: ${lesson.topicDepth || 'Not specified'}
-      Tags: ${lesson.tags?.join(', ') || 'None'}
-      Content Summary: ${getLessonTextContent(lesson.sections).substring(0, 1500)}...
-    `;
-
-    const {output} = await prompt({ previousLessonSummary: lessonSummary });
-    
-    if (!output) {
-      return { suggestions: [] };
-    }
+  async input => {
+    const {output} = await prompt(input);
     return output;
   }
 );

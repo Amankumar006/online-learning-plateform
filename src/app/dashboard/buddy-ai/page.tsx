@@ -37,6 +37,7 @@ import FormattedContent from '@/components/common/FormattedContent';
 interface Message {
     role: 'user' | 'model';
     content: string;
+    suggestions?: string[];
 }
 
 interface Conversation {
@@ -288,11 +289,13 @@ export default function BuddyAIPage() {
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
+    // Clear suggestions from previous messages before sending a new one
     const updatedConversations = conversations.map(c => {
         if (c.id === activeConversationId) {
+            const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
             const isNewChat = c.messages.length === 0;
             const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-            return { ...c, title: newTitle, messages: [...c.messages, userMessage], createdAt: Date.now() };
+            return { ...c, title: newTitle, messages: [...newMessages, userMessage], createdAt: Date.now() };
         }
         return c;
     }).sort((a,b) => b.createdAt - a.createdAt);
@@ -313,7 +316,7 @@ export default function BuddyAIPage() {
           userId: user.uid,
           persona: activeConversation.persona
       });
-      const assistantMessage: Message = { role: 'model', content: result.response };
+      const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
       
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
@@ -360,7 +363,7 @@ export default function BuddyAIPage() {
             userId: user.uid,
             persona: activeConversation.persona
         });
-        const assistantMessage: Message = { role: 'model', content: result.response };
+        const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
         setConversations(prev => prev.map(c => {
             if (c.id === activeConversationId) {
                 return { ...c, messages: [...historyForRegen, assistantMessage] };
@@ -429,37 +432,56 @@ export default function BuddyAIPage() {
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => (
-                          <div key={index} className="group flex items-start gap-4">
-                              <Avatar className="w-8 h-8 border shadow-sm shrink-0">
-                                  <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                  <AvatarFallback>
-                                      {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
-                                  </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 pt-1 space-y-1">
-                                  <p className="font-semibold text-sm">
-                                      {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
-                                  </p>
-                                  <FormattedContent content={message.content} />
-                                   {message.role === 'model' && !isLoading && (
-                                    <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
-                                            <Copy className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
-                                            <ThumbsUp className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
-                                            <ThumbsDown className="h-4 w-4" />
-                                        </Button>
-                                        {index === activeConversation.messages.length - 1 && (
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
-                                                <RefreshCw className="h-4 w-4" />
+                          <div key={index} className="flex flex-col items-start gap-4">
+                            <div className="group flex items-start gap-4 w-full">
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                    <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
+                                    <AvatarFallback>
+                                        {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 pt-1 space-y-1">
+                                    <p className="font-semibold text-sm">
+                                        {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
+                                    </p>
+                                    <FormattedContent content={message.content} />
+                                    {message.role === 'model' && !isLoading && (
+                                        <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
+                                                <Copy className="h-4 w-4" />
                                             </Button>
-                                        )}
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                                <ThumbsUp className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                                <ThumbsDown className="h-4 w-4" />
+                                            </Button>
+                                            {index === activeConversation.messages.length - 1 && (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
+                                                    <RefreshCw className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            {message.role === 'model' && message.suggestions && message.suggestions.length > 0 && !isLoading && (
+                                <div className="pl-12 w-full">
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        {message.suggestions.map((suggestion, i) => (
+                                            <Button
+                                                key={i}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-auto py-1.5 px-3 text-xs"
+                                                onClick={() => handleSend(suggestion)}
+                                            >
+                                                {suggestion}
+                                            </Button>
+                                        ))}
                                     </div>
-                                  )}
-                              </div>
+                                </div>
+                            )}
                           </div>
                       ))}
                       {isLoading && (

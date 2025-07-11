@@ -15,6 +15,7 @@ import {generateStudyTopics} from './generate-study-topics';
 import {createExercise, getLessons, getUser, Exercise} from '@/lib/data';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
 import { simulateCodeExecution } from './simulate-code-execution';
+import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -31,6 +32,7 @@ export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
 const BuddyChatOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
+  suggestions: z.array(z.string()).optional().describe("A list of relevant follow-up prompts for the user."),
 });
 export type BuddyChatOutput = z.infer<typeof BuddyChatOutputSchema>;
 
@@ -260,6 +262,17 @@ For all interactions, maintain a positive and supportive tone. If you don't know
         prompt: input.userMessage,
     }, { auth });
     
-    return { response: llmResponse.text };
+    const aiResponseText = llmResponse.text;
+    
+    // Generate follow-up suggestions based on the conversation
+    const followUpResult = await generateFollowUpSuggestions({
+        lastUserMessage: input.userMessage,
+        aiResponse: aiResponseText,
+    });
+    
+    return {
+        response: aiResponseText,
+        suggestions: followUpResult.suggestions,
+    };
   }
 );
