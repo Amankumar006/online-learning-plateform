@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUserProgress, UserProgress, getSolutionHistory } from "@/lib/data";
+import { getUserProgress, UserProgress, getSolutionHistory, getUser, User } from "@/lib/data";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Zap, Activity, Clock, TrendingUp } from "lucide-react";
+import { Zap, Activity, Clock, TrendingUp, BookOpenCheck, Award } from "lucide-react";
 import SubjectActivityChart from "@/components/progress/SubjectActivityChart";
 import WeeklyActivityChart from "@/components/progress/WeeklyActivityChart";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -17,8 +17,8 @@ import SolutionBoard from "@/components/progress/SolutionBoard";
 function ProgressSkeleton() {
     return (
         <div className="flex flex-col gap-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {[...Array(3)].map((_, i) => (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {[...Array(4)].map((_, i) => (
                     <Card key={i}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                              <Skeleton className="h-5 w-24" />
@@ -64,7 +64,7 @@ function ProgressSkeleton() {
 }
 
 export default function ProgressPage() {
-  const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [solutionHistory, setSolutionHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,11 +73,11 @@ export default function ProgressPage() {
       if (currentUser) {
         setIsLoading(true);
         try {
-            const [progress, history] = await Promise.all([
-                getUserProgress(currentUser.uid),
+            const [profile, history] = await Promise.all([
+                getUser(currentUser.uid),
                 getSolutionHistory(currentUser.uid)
             ]);
-            setUserProgress(progress);
+            setUserProfile(profile);
             setSolutionHistory(history);
         } catch (error) {
             console.error("Failed to load progress data", error);
@@ -100,7 +100,7 @@ export default function ProgressPage() {
     return <ProgressSkeleton />;
   }
 
-  if (!userProgress) {
+  if (!userProfile) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
             <p className="text-lg font-semibold mb-2">No progress data found.</p>
@@ -109,6 +109,7 @@ export default function ProgressPage() {
     )
   }
   
+  const userProgress = userProfile.progress;
   const timeSpentHours = userProgress.timeSpent ? (userProgress.timeSpent / 3600).toFixed(1) : "0.0";
   const exerciseAccuracy = userProgress.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
     ? Math.round(((userProgress.totalExercisesCorrect || 0) / userProgress.totalExercisesAttempted) * 100)
@@ -125,11 +126,21 @@ export default function ProgressPage() {
              </div>
         </div>
         
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Experience Points</CardTitle>
+                    <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-primary">{userProgress.xp || 0} XP</div>
+                    <p className="text-xs text-muted-foreground">Earned from lessons & exercises</p>
+                </CardContent>
+            </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Exercise Accuracy</CardTitle>
-                    <Zap className="h-4 w-4 text-muted-foreground" />
+                    <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-primary">{exerciseAccuracy}%</div>
@@ -138,22 +149,22 @@ export default function ProgressPage() {
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Skills Mastered</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Lessons Completed</CardTitle>
+                    <BookOpenCheck className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-primary">{userProgress.totalExercisesCorrect || 0}</div>
-                    <p className="text-xs text-muted-foreground">Unique exercises with correct answers</p>
+                    <div className="text-2xl font-bold text-primary">{userProgress.completedLessonIds?.length || 0}</div>
+                    <p className="text-xs text-muted-foreground">Total lessons finished</p>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Time Spent Learning</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Login Streak</CardTitle>
+                    <Award className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-primary">{timeSpentHours} hours</div>
-                    <p className="text-xs text-muted-foreground">Estimated total based on exercises</p>
+                    <div className="text-2xl font-bold text-primary">{userProfile.loginStreak || 0} days</div>
+                    <p className="text-xs text-muted-foreground">Keep up the great work!</p>
                 </CardContent>
             </Card>
         </div>
