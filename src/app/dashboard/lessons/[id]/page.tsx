@@ -169,6 +169,11 @@ const AIBuddy = ({ lessonContent, user, lessonTitle }: { lessonContent: string, 
   );
 }
 
+const tabItems = [
+    { id: 'lesson', label: 'Lesson', icon: BookText },
+    { id: 'exercise', label: 'Exercise', icon: BrainCircuit },
+    { id: 'ai-buddy', label: 'AI Buddy', icon: Bot },
+];
 
 export default function LessonPage() {
   const params = useParams();
@@ -181,12 +186,6 @@ export default function LessonPage() {
 
   const [[activeTab, direction], setActiveTab] = useState(['lesson', 0]);
   
-  const tabItems = [
-    { id: 'lesson', label: 'Lesson', icon: BookText },
-    { id: 'exercise', label: 'Exercise', icon: BrainCircuit },
-    { id: 'ai-buddy', label: 'AI Buddy', icon: Bot },
-  ];
-
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
   const { toast } = useToast();
@@ -358,7 +357,7 @@ export default function LessonPage() {
     } else {
         setHighlighterStyle({ opacity: 0 });
     }
-  }, [activeTab, isLoading, tabItems]);
+  }, [activeTab, isLoading]);
   
   const breadcrumbItems = [
     { href: "/dashboard", label: "Dashboard" },
