@@ -365,6 +365,10 @@ export default function BuddyAIPage() {
             handleNewChat('buddy');
         }
     }
+    // Also remove from localStorage
+    if (user) {
+        localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(newConversations));
+    }
   }
 
   const handleSend = async (prompt?: string) => {

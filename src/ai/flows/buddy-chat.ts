@@ -302,6 +302,14 @@ For all interactions, maintain a positive and supportive tone. If you don't know
         system: systemPrompt,
         history: history,
         prompt: input.userMessage,
+        config: {
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            ],
+        },
     }, { auth });
     
     // Stream tool usage as "thoughts"
@@ -330,5 +338,3 @@ For all interactions, maintain a positive and supportive tone. If you don't know
     return aiResponseText;
   }
 );
-
-    
