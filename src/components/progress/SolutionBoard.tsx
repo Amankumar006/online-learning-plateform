@@ -23,6 +23,7 @@ interface SolutionHistoryItem {
   lessonTitle: string;
   isCorrect: boolean;
   submittedAt: number;
+  attempts: number;
 }
 
 interface SolutionBoardProps {
@@ -60,6 +61,7 @@ export default function SolutionBoard({ history }: SolutionBoardProps) {
               <TableHead>Question</TableHead>
               <TableHead>Lesson</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Attempts</TableHead>
               <TableHead>Attempted</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -81,6 +83,9 @@ export default function SolutionBoard({ history }: SolutionBoardProps) {
                         Incorrect
                     </Badge>
                   )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{item.attempts || 1}</Badge>
                 </TableCell>
                 <TableCell>{format(new Date(item.submittedAt), "PPP")}</TableCell>
                 <TableCell className="text-right">

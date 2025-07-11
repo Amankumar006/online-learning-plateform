@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
 import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
-import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "../ui/input";
@@ -154,6 +154,22 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const totalExercises = exercises.length;
   const currentExercise = exercises[currentExerciseIndex];
 
+  const resetForNewQuestion = () => {
+    setSelectedAnswer(null);
+    setLongFormAnswer("");
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setFeedback(null);
+    setSimulationResult(null);
+    setIsHintVisible(false);
+    
+    if (currentExercise?.type === 'fill_in_the_blanks') {
+        const blankCount = currentExercise.correctAnswers.length;
+        setFibAnswers(Array(blankCount).fill(""));
+        setFibCorrectness(Array(blankCount).fill(false));
+    }
+  };
+
   useEffect(() => {
     if (!userId || !lessonId) {
       setIsLoading(false);
@@ -185,23 +201,8 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   useEffect(() => {
     if (isLoading || !currentExercise) return;
 
-    // Reset component state for the current question
-    setSelectedAnswer(null);
-    setLongFormAnswer("");
-    setIsAnswered(false);
-    setIsCorrect(null);
-    setFeedback(null);
-    setSimulationResult(null);
-    setIsHintVisible(false);
+    resetForNewQuestion();
     
-    // Initialize state specific to exercise type
-    if (currentExercise.type === 'fill_in_the_blanks') {
-        const blankCount = currentExercise.correctAnswers.length;
-        setFibAnswers(Array(blankCount).fill(""));
-        setFibCorrectness(Array(blankCount).fill(false));
-    }
-
-    // Check for a previous response and set state accordingly
     const previousResponse = userResponses.get(currentExercise.id);
     if (previousResponse) {
         setIsAnswered(true);
@@ -227,6 +228,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             setSelectedAnswer(previousResponse.submittedAnswer as string);
         }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentExerciseIndex, isLoading, userResponses, currentExercise]);
 
   const handleFibAnswerChange = (index: number, value: string) => {
@@ -358,6 +360,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
         );
 
         // Optimistically update local state
+        const prevResponse = userResponses.get(currentExercise.id);
         const newResponse: UserExerciseResponse = {
             id: `${userId}_${currentExercise.id}`,
             userId,
@@ -369,7 +372,8 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             isCorrect: correct,
             score,
             feedback: aiFeedback?.feedback,
-            submittedAt: Date.now()
+            submittedAt: Date.now(),
+            attempts: (prevResponse?.attempts || 0) + 1,
         };
         setUserResponses(prev => new Map(prev).set(currentExercise.id, newResponse));
         
@@ -408,6 +412,11 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
       toast({ title: "Lesson Practice Complete!", description: "You've finished all the exercises for this lesson. Great job!" });
     }
   };
+  
+  const handleTryAgain = () => {
+    resetForNewQuestion();
+  };
+
 
   const handlePracticeAgain = async () => {
       if (!lessonId) return;
@@ -678,13 +687,17 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                  </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-2">
               {!isAnswered ? (
                 <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type !== 'long_form' && !selectedAnswer) || (currentExercise.type === 'long_form' && currentExercise.category !== 'math' && !longFormAnswer)}>
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit'}
                 </Button>
-              ) : (
+              ) : isCorrect ? (
                 <Button onClick={handleNext}>Next Question</Button>
+              ) : (
+                <Button onClick={handleTryAgain} variant="secondary">
+                    <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+                </Button>
               )}
             </div>
         </>

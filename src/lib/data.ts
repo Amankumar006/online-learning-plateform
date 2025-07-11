@@ -169,6 +169,7 @@ export interface UserExerciseResponse {
   question: string;
   lessonTitle: string;
   tags?: string[];
+  attempts: number;
 }
 
 export interface LessonRequest {
@@ -793,24 +794,25 @@ export async function saveExerciseAttempt(
     imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);
-    // Use a predictable ID to easily check for existence and avoid duplicates
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
     
     try {
-        const questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join('___') : exercise.question;
+        const responseSnap = await getDoc(responseRef);
+        const isFirstAttempt = !responseSnap.exists();
 
         const dataToSave: Partial<UserExerciseResponse> = {
             userId,
             lessonId: exercise.lessonId,
             exerciseId: exercise.id,
-            question: questionText,
+            question: exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join('___') : exercise.question,
             lessonTitle: lessonTitle,
             submittedAnswer,
             isCorrect,
             score,
             feedback: feedback || "",
             tags: exercise.tags || [],
-            submittedAt: Date.now()
+            submittedAt: Date.now(),
+            attempts: increment(1)
         };
 
         if (imageDataUri) {
@@ -818,72 +820,89 @@ export async function saveExerciseAttempt(
         }
 
         // Save the detailed response record
-        await setDoc(responseRef, dataToSave, { merge: true }); // Use merge to allow for re-attempts if needed in future
-
-        // Then, update aggregate stats in a transaction
-        await runTransaction(db, async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) {
-                throw "User document does not exist!";
-            }
-            const progress = userDoc.data().progress as UserProgress;
-            
-            const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
-            const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-            
-            const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
-            const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
-
-             // --- Weekly Activity Logic ---
-             const weeklyActivity = progress.weeklyActivity || [];
-             const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-             let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
- 
-             if (currentWeek) {
-                 if(isCorrect) {
-                     currentWeek.skillsMastered += 1;
-                 }
-             } else {
-                 currentWeek = {
-                     week: weekStartDateStr,
-                     skillsMastered: (isCorrect ? 1 : 0),
-                     timeSpent: 0
-                 };
-                 weeklyActivity.push(currentWeek);
-             }
-             const sortedWeeklyActivity = weeklyActivity
-                 .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
-                 .slice(-5); // Keep only the last 5 weeks
-
-             // Gamification - XP and Achievements
-            const xpGained = isCorrect ? (10 + (exercise.difficulty * 5)) : 0; // 15, 20, 25 XP
-            let newAchievements: Achievement[] = [];
-            
-            if (isCorrect) {
-                if (totalCorrect === 1) {
-                    newAchievements.push('FIRST_CORRECT_ANSWER');
+        if (isFirstAttempt) {
+            dataToSave.attempts = 1;
+            await setDoc(responseRef, dataToSave);
+        } else {
+            await updateDoc(responseRef, dataToSave);
+        }
+        
+        // Only update aggregate stats on the first attempt
+        if (isFirstAttempt) {
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists()) {
+                    throw "User document does not exist!";
                 }
-                if (totalCorrect >= 10 && exercise.category === 'math') {
-                    newAchievements.push('MATH_WHIZ_10');
-                }
-                if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) {
-                    newAchievements.push('PYTHON_NOVICE');
-                }
-                 if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) {
-                    newAchievements.push('JS_NOVICE');
-                }
-            }
+                const progress = userDoc.data().progress as UserProgress;
+                
+                const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
+                const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
+                
+                const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
+                const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
 
+                // --- Weekly Activity Logic ---
+                const weeklyActivity = progress.weeklyActivity || [];
+                const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+    
+                if (currentWeek) {
+                    if(isCorrect) {
+                        currentWeek.skillsMastered += 1;
+                    }
+                } else {
+                    currentWeek = {
+                        week: weekStartDateStr,
+                        skillsMastered: (isCorrect ? 1 : 0),
+                        timeSpent: 0
+                    };
+                    weeklyActivity.push(currentWeek);
+                }
+                const sortedWeeklyActivity = weeklyActivity
+                    .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
+                    .slice(-5); // Keep only the last 5 weeks
 
-            transaction.update(userRef, { 
-                'progress.totalExercisesAttempted': totalAttempted,
-                'progress.totalExercisesCorrect': totalCorrect,
-                'progress.averageScore': newAverageScore,
-                'progress.weeklyActivity': sortedWeeklyActivity,
-                'progress.xp': increment(xpGained),
-                'progress.achievements': arrayUnion(...newAchievements),
+                // Gamification - XP and Achievements
+                const xpGained = isCorrect ? (10 + (exercise.difficulty * 5)) : 0; // 15, 20, 25 XP
+                let newAchievements: Achievement[] = [];
+                
+                if (isCorrect) {
+                    if (totalCorrect === 1) {
+                        newAchievements.push('FIRST_CORRECT_ANSWER');
+                    }
+                    if (totalCorrect >= 10 && exercise.category === 'math') {
+                        newAchievements.push('MATH_WHIZ_10');
+                    }
+                    if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) {
+                        newAchievements.push('PYTHON_NOVICE');
+                    }
+                    if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) {
+                        newAchievements.push('JS_NOVICE');
+                    }
+                }
+
+                transaction.update(userRef, { 
+                    'progress.totalExercisesAttempted': totalAttempted,
+                    'progress.totalExercisesCorrect': totalCorrect,
+                    'progress.averageScore': newAverageScore,
+                    'progress.weeklyActivity': sortedWeeklyActivity,
+                    'progress.xp': increment(xpGained),
+                    'progress.achievements': arrayUnion(...newAchievements),
+                });
             });
-        });
+        } else if (isCorrect) {
+             // If it's a retry and they got it right, still award XP and increment totalCorrect
+             await runTransaction(db, async (transaction) => {
+                 const userDoc = await transaction.get(userRef);
+                 if (!userDoc.exists()) throw "User document does not exist!";
+                 const xpGained = 10 + (exercise.difficulty * 5);
+                 transaction.update(userRef, {
+                    'progress.totalExercisesCorrect': increment(1),
+                    'progress.xp': increment(xpGained),
+                 });
+             });
+        }
         
         // After saving, check for struggles if the answer was incorrect.
         if (!isCorrect) {
@@ -896,6 +915,7 @@ export async function saveExerciseAttempt(
         throw new Error("Failed to save exercise result.");
     }
 }
+
 
 export async function updateUserTimeSpent(userId: string, seconds: number) {
     if (!userId || seconds <= 0) return;
