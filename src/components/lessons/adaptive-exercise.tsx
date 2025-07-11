@@ -20,6 +20,7 @@ import { Input } from "../ui/input";
 import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
@@ -146,6 +147,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
   const [activeOutputTab, setActiveOutputTab] = useState("console");
+  const [isHintVisible, setIsHintVisible] = useState(false);
   const { toast } = useToast();
 
   const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
@@ -190,6 +192,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     setIsCorrect(null);
     setFeedback(null);
     setSimulationResult(null);
+    setIsHintVisible(false);
     
     // Initialize state specific to exercise type
     if (currentExercise.type === 'fill_in_the_blanks') {
@@ -420,12 +423,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   };
   
   const showHint = () => {
-    if (currentExercise.hint) {
-        toast({
-            title: "Hint",
-            description: currentExercise.hint,
-        });
-    }
+    setIsHintVisible(prev => !prev);
   }
   
   const renderExercise = () => {
@@ -593,12 +591,19 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
             <p className="text-lg mb-6">{currentExercise.type !== 'fill_in_the_blanks' && currentExercise.question}</p>
             {renderExercise()}
             
-            <div className="flex items-center gap-4 mt-4">
+            <div className="mt-4 space-y-2">
                 {currentExercise.hint && !isAnswered && (
                     <Button variant="outline" size="sm" onClick={showHint}>
                         <Lightbulb className="mr-2 h-4 w-4" />
                         Show Hint
                     </Button>
+                )}
+                 {isHintVisible && currentExercise.hint && (
+                    <Alert className="animate-in fade-in-50">
+                        <Lightbulb className="h-4 w-4" />
+                        <AlertTitle>Hint</AlertTitle>
+                        <AlertDescription>{currentExercise.hint}</AlertDescription>
+                    </Alert>
                 )}
                 {isGrading && (
                     <div className="flex items-center text-secondary-foreground text-sm">
