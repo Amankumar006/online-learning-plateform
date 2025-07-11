@@ -645,5 +645,3 @@ export default function BuddyAIPage() {
     </div>
   );
 }
-
-    
