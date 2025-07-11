@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChatStream, StreamedOutput } from '@/ai/flows/buddy-chat';
+import { buddyChat } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,12 +33,11 @@ import { auth } from "@/lib/firebase";
 import { getUser, ProactiveSuggestion, clearProactiveSuggestion } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import FormattedContent from '@/components/common/FormattedContent';
-import { ThoughtBubble } from '@/components/chat/ThoughtBubble';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 
 interface Message {
-    role: 'user' | 'model' | 'thought';
+    role: 'user' | 'model';
     content: string;
     suggestions?: string[];
 }
@@ -374,54 +373,25 @@ export default function BuddyAIPage() {
     setInput('');
     setIsLoading(true);
 
-    let thoughtMessageId: number | null = null;
     try {
-        const stream = await buddyChatStream({
+        const result = await buddyChat({
             userMessage: messageToSend,
             history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
             userId: user.uid,
             persona: activeConversation.persona
         });
+        
+        const assistantMessage: Message = { role: 'model', content: result.response, suggestions: result.suggestions };
 
-        for await (const chunk of stream) {
-            if (chunk.type === 'thought') {
-                 const thoughtMessage: Message = { role: 'thought', content: chunk.content };
-                 setConversations(prev => {
-                     return prev.map(c => {
-                         if (c.id === activeConversationId) {
-                             if (thoughtMessageId !== null) {
-                                 // Replace previous thought
-                                 const updatedMessages = [...c.messages];
-                                 updatedMessages[thoughtMessageId] = thoughtMessage;
-                                 return { ...c, messages: updatedMessages };
-                             } else {
-                                 // Add new thought
-                                 thoughtMessageId = c.messages.length;
-                                 return { ...c, messages: [...c.messages, thoughtMessage] };
-                             }
-                         }
-                         return c;
-                     });
-                 });
-            } else if (chunk.type === 'response') {
-                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions };
-                setConversations(prev => {
-                    return prev.map(c => {
-                        if (c.id === activeConversationId) {
-                            if (thoughtMessageId !== null) {
-                                // Replace the thought bubble with the final answer
-                                const updatedMessages = [...c.messages];
-                                updatedMessages[thoughtMessageId] = assistantMessage;
-                                return { ...c, messages: updatedMessages };
-                            } else {
-                                return { ...c, messages: [...c.messages, assistantMessage] };
-                            }
-                        }
-                        return c;
-                    });
-                });
-            }
-        }
+         setConversations(prev => {
+            return prev.map(c => {
+                if (c.id === activeConversationId) {
+                    return { ...c, messages: [...c.messages, assistantMessage] };
+                }
+                return c;
+            });
+        });
+
 
     } catch (e: any) {
         console.error(e);
@@ -513,9 +483,6 @@ export default function BuddyAIPage() {
               {activeConversation && activeConversation.messages.length > 0 ? (
                   <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
                       {activeConversation.messages.map((message, index) => {
-                          if (message.role === 'thought') {
-                              return <ThoughtBubble key={index} content={message.content} />;
-                          }
                           return (
                           <div key={index} className="flex flex-col items-start gap-4">
                             <div className="group flex items-start gap-4 w-full">
@@ -573,7 +540,7 @@ export default function BuddyAIPage() {
                           </div>
                           )
                       })}
-                      {isLoading && activeConversation.messages.at(-1)?.role !== 'thought' && (
+                      {isLoading && (
                           <div className="flex items-start gap-4">
                               <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                               <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
