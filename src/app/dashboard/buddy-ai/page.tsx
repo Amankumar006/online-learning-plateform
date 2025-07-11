@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChatStream, StreamedOutput } from '@/ai/flows/buddy-chat';
+import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -58,20 +58,6 @@ const getInitials = (name?: string | null) => {
 
 const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-};
-
-const ThoughtBubble = ({ content }: { content: string }) => {
-  return (
-    <div className="flex items-start gap-4">
-        <Avatar className="w-8 h-8 border shadow-sm shrink-0">
-            <AvatarFallback><Bot size={20} /></AvatarFallback>
-        </Avatar>
-        <div className="flex-1 pt-1 flex items-center gap-2 text-muted-foreground animate-in fade-in-50">
-            <Lightbulb className="w-5 h-5 animate-pulse text-yellow-400" />
-            <span className="text-sm italic">{content}</span>
-        </div>
-    </div>
-  );
 };
 
 
@@ -267,7 +253,7 @@ export default function BuddyAIPage() {
     return activeConversation?.persona || 'buddy';
   }, [activeConversation]);
 
-  const handleProactiveSuggestion = (suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
+  const handleProactiveSuggestion = useCallback((suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
         const newId = `convo_${Date.now()}_${Math.random()}`;
         const proactiveConversation: Conversation = {
             id: newId,
@@ -279,7 +265,7 @@ export default function BuddyAIPage() {
         const updatedConversations = [proactiveConversation, ...newConversations];
         setConversations(updatedConversations);
         setActiveConversationId(newId);
-    };
+    }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -318,7 +304,7 @@ export default function BuddyAIPage() {
     });
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleProactiveSuggestion]);
 
   useEffect(() => {
      if (scrollAreaRef.current) {

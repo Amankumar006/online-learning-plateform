@@ -25,6 +25,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { getUser, User } from "@/lib/data";
 
 
 // Enhanced calculation engine with caching and optimizations
@@ -294,6 +297,7 @@ function getShapesBoundingBox(shapes: { x: number, y: number, props: { w: number
 export function CanvasAiMenu() {
     const editor = useEditor();
     const { toast } = useToast();
+    const [userProfile, setUserProfile] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
     const [isSolveDialogOpen, setIsSolveDialogOpen] = useState(false);
@@ -311,6 +315,16 @@ export function CanvasAiMenu() {
     const [isDiagramDialogOpen, setIsDiagramDialogOpen] = useState(false);
     const [diagramPrompt, setDiagramPrompt] = useState("");
     const [diagramType, setDiagramType] = useState("Flowchart");
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                const profile = await getUser(currentUser.uid);
+                setUserProfile(profile);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     // Enhanced calculation engine
     const calculationEngine = useMemo(() => new PremiumCalculateEngine(), []);
@@ -596,7 +610,11 @@ export function CanvasAiMenu() {
             const imageDataUri = await svgToPngDataUri(svg);
             if (!imageDataUri) throw new Error("Could not generate an image from the selection.");
             
-            const result = await explainVisualConcept({ imageDataUri, prompt: explainPrompt });
+            const result = await explainVisualConcept({ 
+                imageDataUri, 
+                prompt: explainPrompt,
+                learningStyle: userProfile?.learningStyle || 'unspecified',
+            });
             const explanationText = formatExplainResult(result);
             
             if (selectionBounds) {

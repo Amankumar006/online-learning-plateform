@@ -14,6 +14,7 @@ import {z} from 'genkit';
 const ExplainVisualConceptInputSchema = z.object({
   imageDataUri: z.string().describe("A PNG image of the user's selection, as a data URI."),
   prompt: z.string().optional().describe("An optional user prompt for additional context, e.g., 'explain this for a 5th grader'."),
+  learningStyle: z.enum(['visual', 'auditory', 'kinesthetic', 'reading/writing', 'unspecified']).optional().describe("The user's preferred learning style to tailor the explanation."),
 });
 export type ExplainVisualConceptInput = z.infer<typeof ExplainVisualConceptInputSchema>;
 
@@ -51,11 +52,18 @@ const prompt = ai.definePrompt({
     *   **explanation**: A clear, multi-paragraph explanation. Use Markdown for formatting (bold, italics).
     *   **keyConcepts**: Identify 2-3 key concepts or terms from the diagram and provide a brief description for each.
     *   **analogy**: Create a simple, relatable analogy to help the user understand the main concept.
-3.  **Tailor the Response:** If the user has provided an additional prompt (e.g., "explain this for a 5th grader" or "focus on the mitochondria"), you MUST tailor your explanation to meet their specific request. If no prompt is given, provide a general, high-level explanation suitable for a high school student.
-
-{{#if prompt}}
-**User's Request:** "{{{prompt}}}"
-{{/if}}
+3.  **Tailor the Response:** You MUST tailor your explanation to meet the user's needs.
+    {{#if learningStyle}}
+    *   **User's Learning Style:** '{{learningStyle}}'. Adapt your explanation:
+        *   For 'visual' learners, focus on describing the visual relationships in the diagram.
+        *   For 'auditory' learners, ensure the analogy is strong and the explanation is conversational.
+        *   For 'reading/writing' learners, provide a structured, step-by-step breakdown.
+        *   For 'kinesthetic' learners, suggest a simple real-world action or interaction related to the concept.
+    {{/if}}
+    {{#if prompt}}
+    *   **User's Specific Request:** "{{{prompt}}}" (e.g., "explain this for a 5th grader"). This is a high-priority instruction.
+    {{/if}}
+    *   If no specific prompt or style is given, provide a general, high-level explanation suitable for a high school student.
 
 **Diagram to explain:**
 {{media url=imageDataUri}}
