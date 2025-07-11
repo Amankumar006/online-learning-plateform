@@ -31,7 +31,7 @@ const BuddyChatInputSchema = z.object({
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
 const StreamedOutputSchema = z.object({
-    type: z.enum(['thought', 'response']),
+    type: z.enum(['thought', 'response', 'error']),
     content: z.string(),
     suggestions: z.array(z.string()).optional(),
 });
@@ -46,28 +46,33 @@ const createExerciseTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async (input, context) => {
-        const auth = context?.auth;
-        if (!auth || !auth.uid) {
-            return "I can't create an exercise because I don't know who you are. Please make sure you are logged in.";
+        try {
+            const auth = context?.auth;
+            if (!auth || !auth.uid) {
+                return "I can't create an exercise because I don't know who you are. Please make sure you are logged in.";
+            }
+            const { prompt } = input;
+            const exercise = await generateCustomExercise({ prompt });
+            
+            let exerciseData: Omit<Exercise, 'id'>;
+            switch (exercise.type) {
+                case 'mcq': case 'true_false':
+                    exerciseData = { ...exercise, correctAnswer: String(exercise.correctAnswer), lessonId: 'custom', isCustom: true, userId: auth.uid, createdAt: Date.now() };
+                    break;
+                case 'long_form': case 'fill_in_the_blanks':
+                    exerciseData = { ...exercise, lessonId: 'custom', isCustom: true, userId: auth.uid, createdAt: Date.now() };
+                    break;
+                default:
+                    return "Sorry, I had trouble creating an exercise of that type. Please try rephrasing your request.";
+            }
+            await createExercise(exerciseData);
+            
+            const questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join(' ___ ') : (exercise as any).question;
+            return `I've created a new exercise for you: "${questionText}". You can find it on your "Practice" page.`;
+        } catch (error) {
+            console.error('Error in createExerciseTool:', error);
+            return 'Sorry, I encountered an internal error while trying to create an exercise.';
         }
-        const { prompt } = input;
-        const exercise = await generateCustomExercise({ prompt });
-        
-        let exerciseData: Omit<Exercise, 'id'>;
-        switch (exercise.type) {
-            case 'mcq': case 'true_false':
-                exerciseData = { ...exercise, correctAnswer: String(exercise.correctAnswer), lessonId: 'custom', isCustom: true, userId: auth.uid, createdAt: Date.now() };
-                break;
-            case 'long_form': case 'fill_in_the_blanks':
-                exerciseData = { ...exercise, lessonId: 'custom', isCustom: true, userId: auth.uid, createdAt: Date.now() };
-                break;
-            default:
-                return "Sorry, I had trouble creating an exercise of that type. Please try rephrasing your request.";
-        }
-        await createExercise(exerciseData);
-        
-        const questionText = exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join(' ___ ') : (exercise as any).question;
-        return `I've created a new exercise for you: "${questionText}". You can find it on your "Practice" page.`;
     }
 );
 
@@ -79,35 +84,40 @@ const suggestTopicsTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async (_, context) => {
-        const auth = context?.auth;
-        if (!auth || !auth.uid) {
-            return "I can't suggest topics without knowing your progress. Please make sure you are logged in.";
+        try {
+            const auth = context?.auth;
+            if (!auth || !auth.uid) {
+                return "I can't suggest topics without knowing your progress. Please make sure you are logged in.";
+            }
+            const [user, lessonsData] = await Promise.all([
+                getUser(auth.uid),
+                getLessons()
+            ]);
+
+            if (!user) return "I couldn't find your profile to check your progress.";
+
+            const progressSummary = `Completed lessons: ${user.progress.completedLessonIds?.length || 0}. Mastery by subject: ${user.progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
+            const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
+            const uncompletedLessonTitles = lessonsData
+                .filter(l => !user.progress.completedLessonIds?.includes(l.id))
+                .map(l => l.title);
+
+            if (uncompletedLessonTitles.length === 0) {
+                return "It looks like you've completed all available lessons! Great job! I can't suggest any new ones right now, but feel free to ask me to create a custom practice exercise for you on any topic."
+            }
+
+            const result = await generateStudyTopics({
+                currentProgress: progressSummary,
+                learningGoals: goals,
+                availableLessons: uncompletedLessonTitles
+            });
+
+            const suggestions = result.suggestedTopics.map(topic => `- ${topic}`).join('\n');
+            return `Based on your progress, here are a few topics I'd recommend you check out next:\n\n${suggestions}\n\nYou can find these on the "Lessons" page.`;
+        } catch (error) {
+            console.error('Error in suggestTopicsTool:', error);
+            return 'Sorry, I encountered an internal error while trying to suggest topics.';
         }
-        const [user, lessonsData] = await Promise.all([
-            getUser(auth.uid),
-            getLessons()
-        ]);
-
-        if (!user) return "I couldn't find your profile to check your progress.";
-
-        const progressSummary = `Completed lessons: ${user.progress.completedLessonIds?.length || 0}. Mastery by subject: ${user.progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
-        const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
-        const uncompletedLessonTitles = lessonsData
-            .filter(l => !user.progress.completedLessonIds?.includes(l.id))
-            .map(l => l.title);
-
-        if (uncompletedLessonTitles.length === 0) {
-            return "It looks like you've completed all available lessons! Great job! I can't suggest any new ones right now, but feel free to ask me to create a custom practice exercise for you on any topic."
-        }
-
-        const result = await generateStudyTopics({
-            currentProgress: progressSummary,
-            learningGoals: goals,
-            availableLessons: uncompletedLessonTitles
-        });
-
-        const suggestions = result.suggestedTopics.map(topic => `- ${topic}`).join('\n');
-        return `Based on your progress, here are a few topics I'd recommend you check out next:\n\n${suggestions}\n\nYou can find these on the "Lessons" page.`;
     }
 );
 
@@ -169,20 +179,24 @@ const generateImageForExplanationTool = ai.defineTool(
         outputSchema: z.string().describe("A markdown string for the generated image, in the format '![<prompt>](<data_uri>)'.")
     },
     async ({ prompt }) => {
-        const { media } = await ai.generate({
-            model: 'googleai/gemini-2.0-flash-preview-image-generation',
-            prompt: prompt,
-            config: {
-                responseModalities: ['TEXT', 'IMAGE'],
-            },
-        });
+        try {
+            const { media } = await ai.generate({
+                model: 'googleai/gemini-2.0-flash-preview-image-generation',
+                prompt: prompt,
+                config: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                },
+            });
 
-        if (!media || !media.url) {
-            return "Sorry, I was unable to generate an image for that prompt. Please try rephrasing your request.";
+            if (!media || !media.url) {
+                return "Sorry, I was unable to generate an image for that prompt. Please try rephrasing your request.";
+            }
+            
+            return `![${prompt}](${media.url})`;
+        } catch (error) {
+            console.error('Error in generateImageForExplanationTool:', error);
+            return 'Sorry, I encountered an internal error while trying to generate an image.';
         }
-        
-        // Return the image as a markdown string
-        return `![${prompt}](${media.url})`;
     }
 );
 
@@ -206,7 +220,7 @@ Space Complexity: **${result.complexity.space}**
 Summary: ${result.analysis.summary}
             `.trim();
         } catch (e) {
-            console.error(e);
+            console.error('Error in analyzeCodeComplexityTool:', e);
             return "I was unable to analyze the complexity of that code snippet.";
         }
     }
@@ -234,18 +248,19 @@ const buddyChatFlow = ai.defineFlow(
   },
   async function* (input, {auth}) {
     
-    const MAX_HISTORY_MESSAGES = 10; // Keep the last 5 user/model turns
+    try {
+        const MAX_HISTORY_MESSAGES = 10; // Keep the last 5 user/model turns
 
-    const history = (input.history || []).slice(-MAX_HISTORY_MESSAGES).map(msg => ({
-        role: msg.role as 'user' | 'model',
-        parts: [{ text: msg.content }],
-    }));
-    
-    let systemPrompt: string;
-    
-    switch (input.persona) {
-        case 'mentor':
-            systemPrompt = `You are a world-class Staff Software Engineer AI, acting as a Code Mentor. Your purpose is to deliver technically precise, in-depth, and actionable advice. You are concise but comprehensive, prioritizing professional software development standards.
+        const history = (input.history || []).slice(-MAX_HISTORY_MESSAGES).map(msg => ({
+            role: msg.role as 'user' | 'model',
+            parts: [{ text: msg.content }],
+        }));
+        
+        let systemPrompt: string;
+        
+        switch (input.persona) {
+            case 'mentor':
+                systemPrompt = `You are a world-class Staff Software Engineer AI, acting as a Code Mentor. Your purpose is to deliver technically precise, in-depth, and actionable advice. You are concise but comprehensive, prioritizing professional software development standards.
 
 **Core Directives:**
 1.  **Analyze First, Answer Second:** When presented with code, do not just fix it. First, analyze its correctness, efficiency, and style.
@@ -264,10 +279,10 @@ const buddyChatFlow = ai.defineFlow(
     *   Use Markdown extensively. Employ '###' for sections, '**bold**' for key terms, and code blocks with language identifiers.
     *   Use blockquotes '> ' for critical advice, security warnings, or best practices.
     *   Present trade-offs clearly, perhaps using a bulleted list. E.g., "- **Approach A:** Faster but uses more memory. - **Approach B:** Slower but more memory-efficient."`;
-            break;
-        case 'buddy':
-        default:
-             systemPrompt = `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion. Your primary goal is to provide exceptionally clear explanations and to actively guide the user's learning journey.
+                break;
+            case 'buddy':
+            default:
+                 systemPrompt = `You are Buddy AI, a friendly, encouraging, and highly knowledgeable study companion. Your primary goal is to provide exceptionally clear explanations and to actively guide the user's learning journey.
 
 **Core Principles:**
 1.  **Be Proactive:** Don't just answer questions. Anticipate the user's needs. After explaining a concept, suggest a relevant next step, such as creating a practice problem, explaining a related topic, or simplifying the concept further.
@@ -292,49 +307,61 @@ const buddyChatFlow = ai.defineFlow(
 - **generateImageForExplanation**: Use this to create diagrams, charts, or illustrations to make complex topics easier to understand.
 
 For all interactions, maintain a positive and supportive tone. If you don't know an answer, admit it and suggest how the user might find the information.`;
-            break;
-    }
-
-
-    const {stream: llmStream, response: llmResponse} = ai.generateStream({
-        model: 'googleai/gemini-2.0-flash',
-        tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool, analyzeCodeComplexityTool],
-        system: systemPrompt,
-        history: history,
-        prompt: input.userMessage,
-        config: {
-            safetySettings: [
-              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-            ],
-        },
-    }, { auth });
-    
-    // Stream tool usage as "thoughts"
-    for await (const chunk of llmStream) {
-        if (chunk.type === 'toolRequest') {
-             yield { type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` };
+                break;
         }
-    }
-    
-    // Await the final response and then generate follow-up suggestions
-    const finalResponse = await llmResponse;
-    const aiResponseText = finalResponse.text;
-    
-    const followUpResult = await generateFollowUpSuggestions({
-        lastUserMessage: input.userMessage,
-        aiResponse: aiResponseText,
-    });
-    
-    // Yield the final response with suggestions
-    yield {
-        type: 'response',
-        content: aiResponseText,
-        suggestions: followUpResult.suggestions,
-    };
 
-    return aiResponseText;
+
+        const {stream: llmStream, response: llmResponse} = ai.generateStream({
+            model: 'googleai/gemini-2.0-flash',
+            tools: [createExerciseTool, suggestTopicsTool, searchTheWebTool, generateImageForExplanationTool, analyzeCodeComplexityTool],
+            system: systemPrompt,
+            history: history,
+            prompt: input.userMessage,
+            config: {
+                safetySettings: [
+                  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                ],
+            },
+        }, { auth });
+        
+        // Stream tool usage as "thoughts"
+        for await (const chunk of llmStream) {
+            if (chunk.type === 'toolRequest') {
+                 yield { type: 'thought', content: `Using tool: \`${chunk.toolRequest.name}\`...` };
+            }
+        }
+        
+        // Await the final response and then generate follow-up suggestions
+        const finalResponse = await llmResponse;
+        const aiResponseText = finalResponse.text;
+        
+        const followUpResult = await generateFollowUpSuggestions({
+            lastUserMessage: input.userMessage,
+            aiResponse: aiResponseText,
+        });
+        
+        // Yield the final response with suggestions
+        yield {
+            type: 'response',
+            content: aiResponseText,
+            suggestions: followUpResult.suggestions,
+        };
+
+        return aiResponseText;
+    } catch (e: any) {
+        console.error("Error in buddyChatFlow:", e);
+        // Yield a specific error message to the client
+        yield {
+            type: 'error',
+            content: `I'm sorry, but an unexpected error occurred. Here are the details:\n\n> ${e.message || 'An unknown internal error happened.'}\n\nPlease try rephrasing your message or starting a new chat.`,
+        };
+        // Still return an empty string to satisfy the flow's output schema
+        return "";
+    }
   }
 );
+
+    

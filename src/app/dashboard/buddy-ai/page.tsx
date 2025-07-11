@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
-import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square } from 'lucide-react';
+import { Bot, User, Loader2, Send, Sparkles, HelpCircle, Trash2, Ellipsis, BookOpen, Briefcase, Menu, Copy, RefreshCw, ThumbsUp, ThumbsDown, Mic, Lightbulb, Volume2, Square, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -40,6 +40,7 @@ interface Message {
     role: 'user' | 'model';
     content: string;
     suggestions?: string[];
+    isError?: boolean;
 }
 
 interface Conversation {
@@ -141,32 +142,32 @@ const SidebarContent = ({ conversations, activeConversationId, onSelectConversat
                                   <span className="truncate">{c.title}</span>
                               </button>
                                 <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
-                                              <Ellipsis className="h-4 w-4" />
-                                          </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent>
-                                          <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                      <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                                  </DropdownMenuItem>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                      <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-                                                      <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                      <AlertDialogAction onClick={() => onDeleteConversation(c.id)}>Delete</AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                          </AlertDialog>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <AlertDialog>
+                                        <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                                                <Ellipsis className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                        </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+                                                <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => onDeleteConversation(c.id)}>Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                               </div>
                           </div>
                       ))}
@@ -403,9 +404,10 @@ export default function BuddyAIPage() {
         for await (const chunk of stream) {
             if (chunk.type === 'thought') {
                 setThought(chunk.content);
-            } else if (chunk.type === 'response') {
-                setThought(null); // Clear thought bubble
-                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions };
+            } else {
+                setThought(null);
+                const isError = chunk.type === 'error';
+                const assistantMessage: Message = { role: 'model', content: chunk.content, suggestions: chunk.suggestions, isError };
                  setConversations(prev => {
                     return prev.map(c => {
                         if (c.id === activeConversationId) {
@@ -416,11 +418,10 @@ export default function BuddyAIPage() {
                 });
             }
         }
-
     } catch (e: any) {
         console.error(e);
-        const errorMessageContent = `Sorry, I ran into an error. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
-        const errorMessage: Message = { role: 'model', content: errorMessageContent };
+        const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
+        const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
         setConversations(prev => prev.map(c => {
             if (c.id === activeConversationId) {
                 return { ...c, messages: [...c.messages, errorMessage] };
@@ -514,28 +515,32 @@ export default function BuddyAIPage() {
                                 <Avatar className="w-8 h-8 border shadow-sm shrink-0">
                                     <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
                                     <AvatarFallback>
-                                        {message.role === 'user' ? getInitials(user?.displayName) : <Bot size={20} />}
+                                        {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={20} /> : <Bot size={20} />)}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 pt-1 space-y-1">
+                                <div className={cn("flex-1 pt-1 space-y-1", message.isError && "text-destructive")}>
                                     <p className="font-semibold text-sm">
                                         {message.role === 'user' ? user?.displayName || 'You' : personas.find(p => p.id === activePersona)?.name || 'Buddy AI'}
                                     </p>
                                     <FormattedContent content={message.content} />
                                     {message.role === 'model' && !isLoading && index === activeConversation.messages.length - 1 && (
                                         <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePlayAudio(message.content, index)}>
-                                                {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
-                                                <Copy className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
-                                                <ThumbsUp className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
-                                                <ThumbsDown className="h-4 w-4" />
-                                            </Button>
+                                            {!message.isError && (
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePlayAudio(message.content, index)}>
+                                                        {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied!"})}}>
+                                                        <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                                        <ThumbsUp className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received, thank you!"})}>
+                                                        <ThumbsDown className="h-4 w-4" />
+                                                    </Button>
+                                                </>
+                                            )}
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegenerate}>
                                                 <RefreshCw className="h-4 w-4" />
                                             </Button>
@@ -640,3 +645,5 @@ export default function BuddyAIPage() {
     </div>
   );
 }
+
+    
