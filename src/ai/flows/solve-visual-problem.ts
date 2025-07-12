@@ -29,7 +29,11 @@ export type SolveVisualProblemOutput = z.infer<typeof SolveVisualProblemOutputSc
 export async function solveVisualProblem(
   input: SolveVisualProblemInput
 ): Promise<SolveVisualProblemOutput> {
-  return solveVisualProblemFlow(input);
+  const result = await solveVisualProblemFlow(input);
+  if (!result || !result.explanation) {
+    throw new Error('The AI was unable to generate a solution for the selection.');
+  }
+  return result;
 }
 
 const prompt = ai.definePrompt({

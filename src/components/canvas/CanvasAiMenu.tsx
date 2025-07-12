@@ -159,7 +159,9 @@ function EnhancedPreview({ shapeId, result, keyword, bounds, onConfirm, evaluati
         if (x + previewWidth > viewportWidth) {
             const leftPagePoint = { x: bounds.minX, y: bounds.y + bounds.h / 2 };
             const leftScreenPoint = editor.pageToScreen(leftPagePoint);
-            x = leftScreenPoint.x - previewWidth - 24;
+            if(leftScreenPoint) {
+              x = leftScreenPoint.x - previewWidth - 24;
+            }
         }
 
         setPosition({ x, y });
@@ -527,7 +529,7 @@ export function CanvasAiMenu() {
             const viewport = editor.getViewportPageBounds();
             const diagramBounds = getShapesBoundingBox(shapes as any);
             
-            if (diagramBounds) {
+            if (diagramBounds && viewport) {
                 const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
                 const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
 

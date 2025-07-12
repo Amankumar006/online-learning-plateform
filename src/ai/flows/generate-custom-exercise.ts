@@ -70,6 +70,7 @@ const generateCustomExerciseFlow = ai.defineFlow(
   async input => {
     const {output} = await prompt(input);
      if (output && output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
+        // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
         output.correctAnswer = output.options[0];
      }
     return output; // Return output directly, which can be null
