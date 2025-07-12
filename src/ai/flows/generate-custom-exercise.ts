@@ -73,6 +73,6 @@ const generateCustomExerciseFlow = ai.defineFlow(
         // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
         output.correctAnswer = output.options[0];
      }
-    return output; // Return output directly, which can be null
+    return output;
   }
 );

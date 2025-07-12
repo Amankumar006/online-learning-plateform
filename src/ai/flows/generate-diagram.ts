@@ -77,9 +77,14 @@ const generateDiagramFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    if (!output || !output.shapes || output.shapes.length === 0) {
-      throw new Error("The AI failed to return a valid diagram structure. Please try rephrasing your prompt.");
+    if (!output) {
+      // If AI returns null, return a valid empty structure.
+      return { shapes: [], arrows: [] };
     }
-    return output;
+    // Ensure shapes and arrows are always arrays, even if the AI omits them.
+    return {
+        shapes: output.shapes || [],
+        arrows: output.arrows || [],
+    };
   }
 );

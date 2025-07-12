@@ -267,7 +267,7 @@ const ENHANCED_KEYWORDS = [
 ];
 
 function getShapesBoundingBox(shapes: { x: number, y: number, props: { w: number, h: number } }[]): Box | null {
-    if (shapes.length === 0) {
+    if (!shapes || shapes.length === 0) {
         return null;
     }
     
@@ -279,8 +279,8 @@ function getShapesBoundingBox(shapes: { x: number, y: number, props: { w: number
     for (const shape of shapes) {
         minX = Math.min(minX, shape.x);
         minY = Math.min(minY, shape.y);
-        maxX = Math.max(maxX, shape.x + shape.props.w);
-        maxY = Math.max(maxY, shape.y + shape.props.h);
+        maxX = Math.max(maxX, shape.x + (shape.props.w || 0));
+        maxY = Math.max(maxY, shape.y + (shape.props.h || 0));
     }
     
     return {
@@ -512,6 +512,7 @@ export function CanvasAiMenu() {
                 diagramType,
             });
     
+            // Safely handle cases where shapes or arrows are not returned
             if (!shapes || shapes.length === 0) {
                 toast({ variant: 'destructive', title: 'AI Error', description: 'The AI could not generate any shapes for this diagram.' });
                 return;
@@ -532,7 +533,9 @@ export function CanvasAiMenu() {
             }
 
             editor.createShapes(shapes as any);
-            editor.createArrows(arrows as any);
+            if (arrows && arrows.length > 0) {
+                editor.createArrows(arrows as any);
+            }
     
             toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
     
