@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId, type TLEditor, getSvgAsImage } from '@tldraw/tldraw';
+import { useEditor, type Box, type TLShapeId, type TLEditor, getSvgAsImage, TLTextShape } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
