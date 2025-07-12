@@ -448,27 +448,26 @@ export function CanvasAiMenu() {
             }
         };
 
+        const handleChange = (entry: any) => {
+            if (entry.source !== 'user' || !entry.changes.updated) return;
+
+            const selectedShape = editor.getOnlySelectedShape();
+            if (!selectedShape || selectedShape.type !== 'text') {
+                setPreview(null);
+                return;
+            }
+            
+            for (const [, to] of Object.values(entry.changes.updated)) {
+                 if (to.id === selectedShape.id && to.type === 'text') {
+                    const bounds = editor.getShapePageBounds(to.id);
+                    // Process immediately for premium feel
+                    handleExpression(to.id, to.props.text, bounds);
+                }
+            }
+        }
+        
         // Immediate processing for ultra-responsive feel
-        const unsubscribe = editor.store.listen(
-            (entry) => {
-                if (entry.source !== 'user' || !entry.changes.updated) return;
-
-                const selectedShape = editor.getOnlySelectedShape();
-                if (!selectedShape || selectedShape.type !== 'text') {
-                    setPreview(null);
-                    return;
-                }
-
-                for (const [, to] of Object.values(entry.changes.updated)) {
-                    if (to.id === selectedShape.id && to.type === 'text') {
-                        const bounds = editor.getShapePageBounds(to.id);
-                        // Process immediately for premium feel
-                        handleExpression(to.id, to.props.text, bounds);
-                    }
-                }
-            }, 
-            { source: 'user', scope: 'document' }
-        );
+        const unsubscribe = editor.store.listen(handleChange, { source: 'user', scope: 'document' });
 
         return () => {
             unsubscribe();

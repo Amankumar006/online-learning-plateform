@@ -5,7 +5,7 @@ import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgres
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
-import { buddyChat } from "@/ai/flows/buddy-chat";
+import { buddyChatStream } from "@/ai/flows/buddy-chat";
 import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal, CheckCircle, Target, MessageSquare } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -76,13 +76,13 @@ const AIBuddyPopover = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle
     const historyForAI = messages.map(m => ({role: m.role, content: m.content}));
 
     try {
-      const result = await buddyChat({ 
+      const result = await buddyChatStream({ 
           userMessage: input, 
           userId: user.uid,
           persona: 'buddy', 
           history: historyForAI,
       });
-      const assistantMessage: Message = { role: 'model', content: result.response };
+      const assistantMessage: Message = { role: 'model', content: result.content };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
       console.error(e);
