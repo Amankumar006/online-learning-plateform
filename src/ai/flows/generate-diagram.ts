@@ -77,6 +77,9 @@ const generateDiagramFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    if (!output || !output.shapes || output.shapes.length === 0) {
+      throw new Error("The AI failed to return a valid diagram structure. Please try rephrasing your prompt.");
+    }
     return output;
   }
 );

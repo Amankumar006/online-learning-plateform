@@ -394,18 +394,17 @@ export function CanvasAiMenu() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [preview, confirmResult]);
 
-    // Enhanced live mode with better performance and detection
+    // Rewritten useEffect to correctly handle the tldraw listener
     useEffect(() => {
         if (!isLiveMode) {
             setPreview(null);
             return;
         }
 
-        // Optimized expression handler with immediate feedback
         const handleExpression = async (shapeId: TLShapeId, text: string, bounds: Box | null) => {
             const startTime = performance.now();
             processCount.current++;
-            
+
             if (!bounds) {
                 setPreview(null);
                 return;
@@ -417,21 +416,18 @@ export function CanvasAiMenu() {
                 return;
             }
 
-            // Enhanced keyword detection
             const detectedKeyword = ENHANCED_KEYWORDS.find(k => k.pattern.test(trimmedText));
             if (!detectedKeyword) {
                 setPreview(null);
                 return;
             }
 
-            // Extract expression
             const expression = trimmedText.replace(detectedKeyword.pattern, '').trim();
             if (!expression) {
                 setPreview(null);
                 return;
             }
 
-            // Use enhanced calculation engine
             const result = await calculationEngine.evaluateExpression(expression, detectedKeyword.keyword);
             
             if (result !== null) {
@@ -450,8 +446,8 @@ export function CanvasAiMenu() {
             }
         };
 
-        const handleChange = (entry: any) => {
-            if (entry.source !== 'user' || !entry.changes.updated) return;
+        const unsubscribe = editor.store.listen((entry) => {
+             if (entry.source !== 'user' || !entry.changes.updated) return;
 
             const selectedShape = editor.getOnlySelectedShape();
             if (!selectedShape || selectedShape.type !== 'text') {
@@ -460,16 +456,12 @@ export function CanvasAiMenu() {
             }
             
             for (const [, to] of Object.values(entry.changes.updated)) {
-                 if (to.id === selectedShape.id && to.type === 'text') {
+                 if (to.id === selectedShape.id && to.type === 'text' && to.props?.text) {
                     const bounds = editor.getShapePageBounds(to.id);
-                    // Process immediately for premium feel
                     handleExpression(to.id, to.props.text, bounds);
                 }
             }
-        }
-        
-        // Immediate processing for ultra-responsive feel
-        const unsubscribe = editor.store.listen(handleChange, { source: 'user', scope: 'document' });
+        });
 
         return () => {
             unsubscribe();
