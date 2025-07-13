@@ -2,12 +2,11 @@
 "use client";
 
 import * as React from "react";
-import { Lesson, Section, Block } from "@/lib/data";
+import { Lesson, Block } from "@/lib/data";
 import Image from "next/image";
-import { Loader2, CheckCircle, Lightbulb, HelpCircle, Code, Copy, Play, Pause } from "lucide-react";
+import { CheckCircle, Lightbulb, HelpCircle, Code, Copy } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
@@ -155,54 +154,19 @@ const BlockRenderer = ({ block }: { block: Block }) => {
     }
 };
 
-interface SectionHeaderProps {
-    section: Section;
-    onPlay: () => void;
-    isGenerating: boolean;
-    isPlaying: boolean;
-}
-
-const SectionHeader = ({ section, onPlay, isGenerating, isPlaying }: SectionHeaderProps) => {
-    return (
-        <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
-            <h2 className={cn("text-2xl font-bold font-headline")}>{section.title}</h2>
-            <Button variant="ghost" size="icon" onClick={onPlay} disabled={isGenerating}>
-                {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause /> : <Play />)}
-                <span className="sr-only">{isPlaying ? "Pause" : "Play"} section</span>
-            </Button>
-        </div>
-    );
-};
-
-
 interface LessonContentProps {
   lesson: Lesson;
-  userId: string;
-  onPlaySection: (section: Section) => void;
-  isGeneratingAudio: boolean;
-  currentSectionTitle: string | null;
 }
 
-export default function LessonContent({ 
-    lesson, 
-    userId, 
-    onPlaySection, 
-    isGeneratingAudio, 
-    currentSectionTitle 
-}: LessonContentProps) {
+export default function LessonContent({ lesson }: LessonContentProps) {
   
   const sections = lesson.sections || [];
 
   const renderContent = () => {
     if (sections.length > 0) {
         return sections.map((section, sIndex) => (
-            <section key={sIndex} id={`section-${sIndex}`} className={cn("mb-8 p-4 rounded-lg transition-all")}>
-                <SectionHeader 
-                    section={section}
-                    onPlay={() => onPlaySection(section)}
-                    isGenerating={isGeneratingAudio && currentSectionTitle === section.title}
-                    isPlaying={currentSectionTitle === section.title}
-                />
+            <section key={sIndex} id={`section-${sIndex}`} className="mb-8 p-4 rounded-lg transition-all">
+                <h2 className="text-2xl font-bold font-headline mt-8 mb-4 border-b pb-2">{section.title}</h2>
                 <div>
                     {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
                 </div>

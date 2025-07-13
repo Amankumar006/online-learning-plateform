@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 declare global {
   interface Window {
@@ -20,7 +20,7 @@ interface SpeechRecognitionHook {
 }
 
 interface UseSpeechRecognitionOptions {
-  onSpeechEnd?: () => void;
+  onSpeechEnd?: (finalTranscript: string) => void;
 }
 
 export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}): SpeechRecognitionHook => {
@@ -41,16 +41,22 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false; // Set to false to auto-stop on silence
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interimTranscript = '';
       let finalTranscript = '';
+
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        finalTranscript += event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
       }
-      setTranscript(finalTranscript);
+      setTranscript(finalTranscript || interimTranscript);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -60,16 +66,12 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
 
     recognition.onend = () => {
       setIsListening(false);
-      if (onSpeechEnd) {
-        onSpeechEnd();
+      // Use a ref for the transcript to get the latest value in the callback
+      if (onSpeechEnd && transcriptRef.current.trim()) {
+        onSpeechEnd(transcriptRef.current);
       }
     };
     
-    recognition.onaudiostart = () => {
-        setTranscript(''); // Clear previous transcript on new audio
-    };
-
-
     recognitionRef.current = recognition;
 
     return () => {
@@ -77,9 +79,17 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         recognitionRef.current.stop();
       }
     };
-  }, [onSpeechEnd]);
+  // We only want to run this once on mount, so dependencies are empty.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Use a ref to keep track of the latest transcript for the onend callback
+  const transcriptRef = useRef(transcript);
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
-  const startListening = () => {
+  const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
       try {
         setTranscript('');
@@ -87,18 +97,17 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         setIsListening(true);
         setError(null);
       } catch (e) {
-        // Handle cases where start() is called too quickly after stopping
         console.error("Could not start recognition:", e);
       }
     }
-  };
+  }, [isListening]);
 
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     }
-  };
+  }, [isListening]);
 
   return {
     isListening,

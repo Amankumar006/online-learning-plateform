@@ -3,18 +3,17 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getAllExercises, ExerciseWithLessonTitle, getLessons, Lesson } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, FilterX, Folder, CheckCircle, XCircle } from "lucide-react";
+import { PlusCircle, FilterX, Folder } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import ExerciseActions from "@/components/admin/ExerciseActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 type GroupedExercises = Record<string, { lessonTitle: string; exercises: ExerciseWithLessonTitle[] }>;
@@ -49,10 +48,9 @@ function ExercisesPageContent() {
   const searchParams = useSearchParams();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('');
-  const [groupedExercises, setGroupedExercises] = useState<GroupedExercises>({});
-
-  const lessonFilter = searchParams.get('lesson');
+  const [allExercises, setAllExercises] = useState<ExerciseWithLessonTitle[]>([]);
+  
+  const lessonFilter = searchParams.get('lesson') || '';
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -61,8 +59,31 @@ function ExercisesPageContent() {
         getAllExercises(),
         getLessons(),
       ]);
-      
-      const grouped = exercisesData.reduce((acc: GroupedExercises, exercise) => {
+      setAllExercises(exercisesData);
+      setLessons(lessonsData);
+      setIsLoading(false);
+    };
+    fetchExercises();
+  }, []);
+
+  const handleFilterChange = (lessonId: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (lessonId) {
+        params.set('lesson', lessonId);
+    } else {
+        params.delete('lesson');
+    }
+    router.push(`/admin/exercises?${params.toString()}`);
+  };
+
+  const clearFilter = () => {
+    handleFilterChange('');
+  };
+
+  const filteredAndGroupedExercises = useMemo((): GroupedExercises => {
+    const exercisesToGroup = lessonFilter ? allExercises.filter(ex => ex.lessonId === lessonFilter) : allExercises;
+    
+    return exercisesToGroup.reduce((acc: GroupedExercises, exercise) => {
         const { lessonId, lessonTitle } = exercise;
         if (!acc[lessonId]) {
           acc[lessonId] = { lessonTitle: lessonTitle || 'Uncategorized', exercises: [] };
@@ -71,26 +92,8 @@ function ExercisesPageContent() {
         return acc;
       }, {});
 
-      setGroupedExercises(grouped);
-      setLessons(lessonsData);
-      
-      if (lessonFilter) {
-        setFilter(lessonFilter);
-      }
-      setIsLoading(false);
-    };
-    fetchExercises();
-  }, []);
+  }, [allExercises, lessonFilter]);
 
-  const handleFilterChange = (lessonId: string) => {
-    setFilter(lessonId);
-    router.push(`/admin/exercises?lesson=${lessonId}`);
-  };
-
-  const clearFilter = () => {
-    setFilter('');
-    router.push('/admin/exercises');
-  };
 
   const breadcrumbItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
@@ -128,17 +131,18 @@ function ExercisesPageContent() {
                     </CardDescription>
                 </div>
                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Select value={filter} onValueChange={handleFilterChange}>
+                    <Select value={lessonFilter} onValueChange={handleFilterChange}>
                         <SelectTrigger className="w-full sm:w-[250px]">
                             <SelectValue placeholder="Filter by lesson..." />
                         </SelectTrigger>
                         <SelectContent>
+                             <SelectItem value="">All Lessons</SelectItem>
                             {lessons.map(lesson => (
                                 <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    {filter && (
+                    {lessonFilter && (
                         <Button variant="ghost" onClick={clearFilter} className="flex-shrink-0">
                             <FilterX className="mr-2 h-4 w-4" /> Clear Filter
                         </Button>
@@ -152,9 +156,9 @@ function ExercisesPageContent() {
             </div>
         </CardHeader>
         <CardContent>
-            {Object.keys(groupedExercises).length > 0 ? (
-                <Accordion type="single" collapsible value={filter} onValueChange={handleFilterChange}>
-                    {Object.entries(groupedExercises).map(([lessonId, group]) => (
+            {Object.keys(filteredAndGroupedExercises).length > 0 ? (
+                <Accordion type="single" collapsible defaultValue={lessonFilter || Object.keys(filteredAndGroupedExercises)[0]}>
+                    {Object.entries(filteredAndGroupedExercises).map(([lessonId, group]) => (
                         <AccordionItem value={lessonId} key={lessonId}>
                             <AccordionTrigger className="hover:no-underline p-4 rounded-lg hover:bg-muted/50 text-lg">
                                 <div className="flex items-center gap-3">
@@ -202,7 +206,7 @@ function ExercisesPageContent() {
 
 export default function AdminExercisesPage() {
   return (
-    <Suspense fallback={<ExercisesSkeleton />}>
+    <Suspense>
       <ExercisesPageContent />
     </Suspense>
   );

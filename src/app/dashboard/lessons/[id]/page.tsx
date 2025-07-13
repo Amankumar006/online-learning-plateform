@@ -6,19 +6,15 @@ import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
 import { buddyChatStream } from "@/ai/flows/buddy-chat";
-import { Bot, BookText, BrainCircuit, Loader2, SendHorizontal, CheckCircle, Target, MessageSquare } from "lucide-react";
+import { Bot, Loader2, SendHorizontal, MessageSquare } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
-import { useToast } from "@/hooks/use-toast";
 import LessonPlayer from "@/components/lessons/lesson-player";
-import { uploadAudioFromDataUrl } from "@/lib/storage";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import FormattedContent from "@/components/common/FormattedContent";
@@ -27,6 +23,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { BrainCircuit } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 
 function LessonPageSkeleton() {
@@ -163,15 +161,6 @@ export default function LessonPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'lesson' | 'practice'>('lesson');
-  const { toast } = useToast();
-
-  // Audio state
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [currentSection, setCurrentSection] = useState<{ title: string; content: string } | null>(null);
-  const [playbackRate, setPlaybackRate] = useState(1);
   
   useEffect(() => {
     let startTime: number;
@@ -189,101 +178,6 @@ export default function LessonPage() {
         }
     };
   }, [user]);
-
-  const getSectionTextContent = (section: any): string => {
-    return section.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content).join('\n\n');
-  };
-
-  const handlePlaySection = async (section: any) => {
-    if (isGeneratingAudio) return;
-    const content = getSectionTextContent(section);
-    if (!content) {
-        toast({ variant: "destructive", title: "No Content", description: "This section has no text to read aloud." });
-        return;
-    }
-    
-    setCurrentSection({ title: section.title, content });
-    setIsGeneratingAudio(true);
-    setAudioUrl(null);
-    if (audioRef.current) {
-        audioRef.current.pause();
-    }
-    
-    try {
-        const result = await generateAudioFromText({ sectionTitle: section.title, sectionContent: content });
-        setAudioUrl(result.audioDataUri);
-    } catch (e: any) {
-        toast({ variant: "destructive", title: "Audio Error", description: e.message || "Failed to generate audio." });
-    } finally {
-        setIsGeneratingAudio(false);
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-  };
-
-  const handleStop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    setAudioUrl(null);
-    setCurrentSection(null);
-  };
-
-  const handleDownload = async () => {
-    if (!audioUrl || !currentSection) return;
-    
-    toast({ title: 'Preparing Download', description: 'Uploading audio to secure storage...' });
-    try {
-        const fileName = `${lesson?.title || 'lesson'}_${currentSection.title}`.replace(/[^a-zA-Z0-9]/g, '_');
-        const publicUrl = await uploadAudioFromDataUrl(audioUrl, fileName);
-        
-        const link = document.createElement('a');
-        link.href = publicUrl;
-        link.download = `${fileName}.wav`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Download Failed", description: e.message || "Could not prepare the audio file for download." });
-    }
-  };
-  
-   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => setIsPlaying(false);
-
-    audio.addEventListener('play', onPlay);
-    audio.addEventListener('pause', onPause);
-    audio.addEventListener('ended', onEnded);
-
-    return () => {
-      audio.removeEventListener('play', onPlay);
-      audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, [audioRef, audioUrl]);
-
-  useEffect(() => {
-    if (audioUrl && audioRef.current) {
-      audioRef.current.src = audioUrl;
-      audioRef.current.playbackRate = playbackRate;
-      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
-    }
-  }, [audioUrl, playbackRate]);
-
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -329,8 +223,6 @@ export default function LessonPage() {
   
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 lg:p-8 w-full">
-      <audio ref={audioRef} />
-      
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold font-headline">{lesson.title}</h1>
         <p className="text-lg text-muted-foreground">{lesson.subject}</p>
@@ -338,24 +230,8 @@ export default function LessonPage() {
       
       {view === 'lesson' && (
         <div className="animate-in fade-in-20">
-          <LessonPlayer
-              isPlaying={isPlaying}
-              isGenerating={isGeneratingAudio}
-              currentSectionTitle={currentSection?.title || null}
-              audioUrl={audioUrl}
-              onPlayPause={handlePlayPause}
-              onStop={handleStop}
-              onDownload={handleDownload}
-              playbackRate={playbackRate}
-              onPlaybackRateChange={setPlaybackRate}
-            />
-            <LessonContent 
-                lesson={lesson} 
-                userId={user.uid}
-                onPlaySection={handlePlaySection}
-                isGeneratingAudio={isGeneratingAudio}
-                currentSectionTitle={currentSection?.title || null}
-            />
+            <LessonPlayer lesson={lesson} />
+            <LessonContent lesson={lesson} />
             <Card className="mt-12 text-center p-8 bg-secondary/30">
                 <CardHeader>
                     <CardTitle>Ready to Practice?</CardTitle>
