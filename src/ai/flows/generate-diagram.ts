@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { GenerateDiagramOutputSchema, GenerateDiagramInputSchema } from '@/ai/schemas/diagram-schemas';
+import { GenerateDiagramOutputSchema, GenerateDiagramInputSchema, TLShape, TLArrowShape } from '@/ai/schemas/diagram-schemas';
 
 export type GenerateDiagramInput = z.infer<typeof GenerateDiagramInputSchema>;
 export type GenerateDiagramOutput = z.infer<typeof GenerateDiagramOutputSchema>;
@@ -34,9 +34,9 @@ const prompt = ai.definePrompt({
 1.  **Analyze the Prompt:** Understand the user's request: "{{{prompt}}}".
 2.  **Determine Diagram Type:** The user wants a "{{{diagramType}}}" diagram.
 3.  **Generate Shapes:** Create an array of shape objects.
-    *   Each shape must have an \`id\`, \`type\` ('geo' or 'text'), \`x\`, \`y\`, and a \`props\` object.
-    *   For 'geo' shapes, \`props\` must include \`geo\` (e.g., 'rectangle'), \`w\`, \`h\`, and \`text\`.
-    *   For 'text' shapes, \`props\` must include \`text\`, \`size\`, and \`align\`.
+    *   Each shape MUST have an \`id\`, \`type\` ('geo' or 'text'), \`x\`, \`y\`, and a \`props\` object.
+    *   For 'geo' shapes, the \`props\` object MUST include \`geo\` (e.g., 'rectangle'), \`w\`, \`h\`, and \`text\`.
+    *   For 'text' shapes, the \`props\` object MUST include \`text\`, \`size\`, and \`align\`.
     *   Position the shapes logically within the 1200x800 canvas. Avoid overlaps. Use 'geo' with 'rectangle' for main entities, classes, or flowchart steps.
 4.  **Generate Arrows:** Create an array of arrow objects to connect the shapes.
     *   Each arrow must have an \`id\`, \`type\` ('arrow'), and a \`start\` and \`end\` object.
@@ -50,7 +50,6 @@ const prompt = ai.definePrompt({
 6.  **Return JSON:** Your final output must be a single JSON object containing the 'shapes' and 'arrows' arrays.
 
 **Example for a simple flowchart:**
-User Prompt: "A process with a start, a decision, and two end points."
 \`\`\`json
 {
   "shapes": [
@@ -69,6 +68,14 @@ User Prompt: "A process with a start, a decision, and two end points."
 `,
 });
 
+// Helper to validate if a shape has the minimum required properties for tldraw
+function isValidShape(shape: any): shape is z.infer<typeof TLShape> {
+  return shape && typeof shape === 'object' && shape.id && shape.type && shape.x !== undefined && shape.y !== undefined && shape.props;
+}
+function isValidArrow(arrow: any): arrow is z.infer<typeof TLArrowShape> {
+    return arrow && typeof arrow === 'object' && arrow.id && arrow.type === 'arrow' && arrow.start && arrow.end;
+}
+
 const generateDiagramFlow = ai.defineFlow(
   {
     name: 'generateDiagramFlow',
@@ -77,14 +84,19 @@ const generateDiagramFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+
     if (!output) {
       // If AI returns null, return a valid empty structure.
       return { shapes: [], arrows: [] };
     }
-    // Ensure shapes and arrows are always arrays, even if the AI omits them.
+
+    // Validate and filter the output from the AI to prevent crashes.
+    const validShapes = (output.shapes || []).filter(isValidShape);
+    const validArrows = (output.arrows || []).filter(isValidArrow);
+    
     return {
-        shapes: output.shapes || [],
-        arrows: output.arrows || [],
+        shapes: validShapes,
+        arrows: validArrows,
     };
   }
 );

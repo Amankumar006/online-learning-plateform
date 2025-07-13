@@ -88,7 +88,7 @@ function formatExplainResult(result: ExplainVisualConceptOutput): string {
 /**
  * Calculates the bounding box of a set of shapes to center them on the canvas.
  */
-function getShapesBoundingBox(shapes: { x: number, y: number, props: { w: number, h: number } }[]): Box | null {
+function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: number, h?: number } }[]): Box | null {
     if (!shapes || shapes.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     shapes.forEach(shape => {
@@ -292,7 +292,7 @@ export function CanvasAiMenu() {
         'loading:diagram',
         ({ shapes, arrows }) => {
             if (!shapes || shapes.length === 0) {
-                toast({ variant: 'destructive', title: 'AI Error', description: 'The AI did not generate any shapes.' });
+                toast({ variant: 'destructive', title: 'AI Error', description: 'The AI did not generate any valid shapes. Please try a different prompt.' });
                 return;
             }
             const viewport = editor.getViewportPageBounds();
