@@ -200,7 +200,7 @@ Summary: ${result.analysis.summary}
 );
 
 
-export function getBuddyChatTools() {
+export async function getBuddyChatTools() {
     return [
         createExerciseTool, 
         suggestTopicsTool, 

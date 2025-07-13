@@ -60,7 +60,7 @@ const buddyChatFlow = ai.defineFlow(
         }));
         
         const systemPrompt = getSystemPrompt(input.persona);
-        const tools = getBuddyChatTools();
+        const tools = await getBuddyChatTools();
         
         const llmResponse = await ai.generate({
             model: 'googleai/gemini-2.0-flash',
