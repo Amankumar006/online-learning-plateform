@@ -35,7 +35,11 @@ export type ExplainVisualConceptOutput = z.infer<typeof ExplainVisualConceptOutp
 export async function explainVisualConcept(
   input: ExplainVisualConceptInput
 ): Promise<ExplainVisualConceptOutput> {
-  return explainVisualConceptFlow(input);
+  const result = await explainVisualConceptFlow(input);
+   if (!result) {
+    throw new Error('The AI was unable to generate an explanation for the selection.');
+  }
+  return result;
 }
 
 const prompt = ai.definePrompt({
