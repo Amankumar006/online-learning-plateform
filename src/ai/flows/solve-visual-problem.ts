@@ -85,7 +85,10 @@ const solveVisualProblemFlow = ai.defineFlow(
   async input => {
     const {output} = await prompt(input);
     if (!output) {
-      throw new Error('The AI was unable to generate a solution for the selection.');
+      // Fallback in case the AI returns nothing.
+      return {
+          explanation: "The AI was unable to generate a solution. Please try rephrasing or a different selection."
+      } as SolveVisualProblemOutput;
     }
     return output;
   }
