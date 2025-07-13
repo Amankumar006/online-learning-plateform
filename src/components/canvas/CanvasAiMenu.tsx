@@ -183,25 +183,10 @@ export function CanvasAiMenu() {
         editor.createShape({ type: 'text', x: position.x, y: position.y, props: { text, size: 'm', font: 'draw', align: 'start' } });
     }, [editor]);
 
-    const handleAction = async <T,>(actionFn: () => Promise<T>, successCallback: (result: T) => void, errorTitle: string) => {
+    const handleGenerateDiagram = async (input: GenerateDiagramInput) => {
         setStatus('loading');
         try {
-            const result = await actionFn();
-            successCallback(result);
-        } catch (error: any) {
-            console.error(`${errorTitle}:`, error);
-            const description = error.message.includes("destructure property") 
-                ? "The AI returned an invalid object. Please try again."
-                : error.message || "An unknown error occurred.";
-            toast({ variant: "destructive", title: errorTitle, description });
-        } finally {
-            setStatus('idle');
-        }
-    };
-
-    const handleGenerateDiagram = (input: GenerateDiagramInput) => handleAction(
-        () => generateDiagram(input),
-        ({ shapes, arrows }) => {
+            const { shapes, arrows } = await generateDiagram(input);
             if (!shapes || shapes.length === 0) {
                 toast({ variant: 'destructive', title: 'Diagram Generation Failed', description: 'The AI did not generate any valid shapes. Please try a more specific prompt.' });
                 return;
@@ -216,34 +201,60 @@ export function CanvasAiMenu() {
             editor.createShapes(shapes as any);
             if (arrows && arrows.length > 0) editor.createArrows(arrows as any);
             toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
-        },
-        'Diagram Generation Failed'
-    );
+        } catch (error: any) {
+            console.error('Diagram Generation Failed:', error);
+            toast({ variant: "destructive", title: 'Diagram Generation Failed', description: error.message || "An unknown error occurred." });
+        } finally {
+            setStatus('idle');
+        }
+    };
     
-    const handleSolveSelection = (context: string) => handleAction(
-        async () => {
+    const handleSolveSelection = async (context: string) => {
+        setStatus('loading');
+        try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
-            if (!imageDataUri) throw new Error("Please select an object or text on the canvas to solve.");
-            return solveVisualProblem({ imageDataUris: [imageDataUri], context });
-        },
-        (result: SolveVisualProblemOutput) => {
+            if (!imageDataUri) {
+                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object or text on the canvas to solve." });
+                return;
+            }
+
+            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context });
+            
+            if (!result || !result.explanation) {
+                 placeResultOnCanvas("I'm sorry, I couldn't find a solution for this selection.");
+                 return;
+            }
+
             let text = result.identifiedType ? `**Type:** ${result.identifiedType}\n\n` : "";
             text += `### Explanation\n${result.explanation}\n\n`;
             if (result.tags && result.tags.length > 0) {
                 text += `**Tags:** ${result.tags.join(', ')}`;
             }
             placeResultOnCanvas(text);
-        },
-        'AI Solve Failed'
-    );
 
-    const handleExplainSelection = (prompt: string) => handleAction(
-        async () => {
+        } catch (error: any) {
+            console.error('AI Solve Failed:', error);
+            toast({ variant: "destructive", title: 'AI Solve Failed', description: error.message || "An unknown error occurred." });
+        } finally {
+            setStatus('idle');
+        }
+    };
+
+    const handleExplainSelection = async (prompt: string) => {
+        setStatus('loading');
+        try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
-            if (!imageDataUri) throw new Error("Please select an object on the canvas to explain.");
-            return explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
-        },
-        (result: ExplainVisualConceptOutput) => {
+            if (!imageDataUri) {
+                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas to explain." });
+                return;
+            }
+            const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
+            
+            if (!result || !result.explanation) {
+                placeResultOnCanvas("I'm sorry, I couldn't generate an explanation for this selection.");
+                return;
+            }
+            
             let text = `### ${result.title}\n\n**Summary:** ${result.summary}\n\n---\n\n${result.explanation}\n\n`;
             if (result.keyConcepts && result.keyConcepts.length > 0) {
                 text += `### Key Concepts\n${result.keyConcepts.map(c => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
@@ -252,9 +263,13 @@ export function CanvasAiMenu() {
                 text += `**Analogy:** *${result.analogy}*`;
             }
             placeResultOnCanvas(text);
-        },
-        'AI Explain Failed'
-    );
+        } catch(error: any) {
+            console.error('AI Explain Failed:', error);
+            toast({ variant: "destructive", title: 'AI Explain Failed', description: error.message || "An unknown error occurred." });
+        } finally {
+            setStatus('idle');
+        }
+    };
 
     return (
         <>
@@ -297,7 +312,7 @@ function DiagramDialog({ onGenerate, isLoading }: { onGenerate: (input: Generate
                 <DialogHeader><DialogTitle>Generate Diagram with AI</DialogTitle><DialogDescription>Describe the diagram you want to create.</DialogDescription></DialogHeader>
                 <div className="grid gap-4 py-4"><Label htmlFor="diagram-prompt">Prompt</Label><Textarea id="diagram-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A simple ER diagram..." rows={4}/></div>
                 <div className="grid gap-4 py-4"><Label htmlFor="diagram-type">Type</Label><Select value={type} onValueChange={setType}><SelectTrigger id="diagram-type"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Flowchart">Flowchart</SelectItem><SelectItem value="ER Diagram">ER Diagram</SelectItem><SelectItem value="System Architecture">System Architecture</SelectItem></SelectContent></Select></div>
-                <DialogFooter><Button onClick={handleSubmit} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 animate-spin" />}Generate</Button></DialogFooter>
+                <DialogFooter><Button onClick={handleSubmit} disabled={isLoading || !prompt.trim()}>{isLoading && <Loader2 className="mr-2 animate-spin" />}Generate</Button></DialogFooter>
             </DialogContent>
         </Dialog>
     );
