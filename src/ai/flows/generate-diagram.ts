@@ -68,7 +68,7 @@ const prompt = ai.definePrompt({
 `,
 });
 
-// Helper to validate if a shape has the minimum required properties for tldraw
+// Helper functions to validate if a shape has the minimum required properties for tldraw
 function isValidShape(shape: any): shape is z.infer<typeof TLShape> {
   return shape && typeof shape === 'object' && shape.id && shape.type && shape.x !== undefined && shape.y !== undefined && shape.props;
 }

@@ -31,7 +31,11 @@ export type GenerateStudyTopicsOutput = z.infer<typeof GenerateStudyTopicsOutput
 export async function generateStudyTopics(
   input: GenerateStudyTopicsInput
 ): Promise<GenerateStudyTopicsOutput> {
-  return generateStudyTopicsFlow(input);
+  const result = await generateStudyTopicsFlow(input);
+  if (!result) {
+    return { suggestedTopics: [] };
+  }
+  return result;
 }
 
 const prompt = ai.definePrompt({

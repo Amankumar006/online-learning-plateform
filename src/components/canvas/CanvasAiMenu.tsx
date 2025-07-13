@@ -189,7 +189,11 @@ export function CanvasAiMenu() {
             const result = await actionFn();
             successCallback(result);
         } catch (error: any) {
-            toast({ variant: "destructive", title: errorTitle, description: error.message || "An unknown error occurred." });
+            console.error(`${errorTitle}:`, error);
+            const description = error.message.includes("destructure property") 
+                ? "The AI returned an invalid object. Please try again."
+                : error.message || "An unknown error occurred.";
+            toast({ variant: "destructive", title: errorTitle, description });
         } finally {
             setStatus('idle');
         }
@@ -199,7 +203,7 @@ export function CanvasAiMenu() {
         () => generateDiagram(input),
         ({ shapes, arrows }) => {
             if (!shapes || shapes.length === 0) {
-                toast({ variant: 'destructive', title: 'AI Error', description: 'The AI did not generate any valid shapes.' });
+                toast({ variant: 'destructive', title: 'Diagram Generation Failed', description: 'The AI did not generate any valid shapes. Please try a more specific prompt.' });
                 return;
             }
             const viewport = editor.getViewportPageBounds();

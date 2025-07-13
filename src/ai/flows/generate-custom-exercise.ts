@@ -69,7 +69,10 @@ const generateCustomExerciseFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-     if (output && output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
+     if (!output) {
+      throw new Error("The AI failed to generate an exercise. Please try rephrasing your prompt.");
+    }
+     if (output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
         // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
         output.correctAnswer = output.options[0];
      }
