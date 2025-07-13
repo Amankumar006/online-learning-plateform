@@ -268,7 +268,7 @@ export default function DashboardNav() {
       </div>
       
        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-2 backdrop-blur-sm md:hidden">
-        <div className="grid h-16 grid-cols-5 gap-1">
+        <div className="grid h-16 grid-cols-6 gap-1">
           {navItems.map((item) => (
             <Link
               key={item.href}
