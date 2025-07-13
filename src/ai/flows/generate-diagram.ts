@@ -44,9 +44,9 @@ const prompt = ai.definePrompt({
     *   Set the arrow's \`start_arrowhead\` and \`end_arrowhead\` properties appropriately for the diagram type (e.g., 'arrow' for flowcharts, 'none' for basic ER diagrams, 'triangle' for UML inheritance).
     *   Optionally add a \`text\` label to the arrow (e.g., for relationship names in ER diagrams).
 5.  **Layout Strategy:**
-    *   For flowcharts and process diagrams, arrange shapes from top-to-bottom or left-to-right.
-    *   For ER diagrams or class diagrams, spread entities out to give room for relationship labels.
-    *   For architectural diagrams, use a hierarchical or layered layout.
+    *   For **flowcharts and process diagrams**, arrange shapes from top-to-bottom or left-to-right.
+    *   For **ER diagrams or class diagrams**, spread entities out to give room for relationship labels and connections.
+    *   For **system architecture diagrams**, use a hierarchical or layered layout (e.g., client, API, database layers).
 6.  **Return JSON:** Your final output must be a single JSON object containing the 'shapes' and 'arrows' arrays.
 
 **Example for a simple flowchart:**

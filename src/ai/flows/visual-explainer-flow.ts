@@ -53,19 +53,19 @@ const prompt = ai.definePrompt({
 2.  **Generate a Structured Explanation:** Create a comprehensive explanation with the following fields:
     *   **title**: A concise, engaging title for the topic.
     *   **summary**: A single sentence that summarizes the core idea.
-    *   **explanation**: A clear, multi-paragraph explanation. Use Markdown for formatting (bold, italics).
+    *   **explanation**: A clear, multi-paragraph explanation. Use Markdown for formatting (bold, italics, lists).
     *   **keyConcepts**: Identify 2-3 key concepts or terms from the diagram and provide a brief description for each.
     *   **analogy**: Create a simple, relatable analogy to help the user understand the main concept.
 3.  **Tailor the Response:** You MUST tailor your explanation to meet the user's needs.
     {{#if learningStyle}}
     *   **User's Learning Style:** '{{learningStyle}}'. Adapt your explanation:
-        *   For 'visual' learners, focus on describing the visual relationships in the diagram.
-        *   For 'auditory' learners, ensure the analogy is strong and the explanation is conversational.
-        *   For 'reading/writing' learners, provide a structured, step-by-step breakdown.
-        *   For 'kinesthetic' learners, suggest a simple real-world action or interaction related to the concept.
+        *   For **'visual'** learners, focus on describing the visual relationships in the diagram. Use phrases like "Notice how the arrows connect..." or "The shape of this component indicates...".
+        *   For **'auditory'** learners, ensure the analogy is strong and the explanation is conversational and easy to read aloud. Use questions to engage them.
+        *   For **'reading/writing'** learners, provide a well-structured, logical breakdown using lists and clear headings.
+        *   For **'kinesthetic'** learners, suggest a simple real-world action or interaction related to the concept (e.g., "Imagine you're building with LEGOs, where each block...").
     {{/if}}
     {{#if prompt}}
-    *   **User's Specific Request:** "{{{prompt}}}" (e.g., "explain this for a 5th grader"). This is a high-priority instruction.
+    *   **User's Specific Request:** "{{{prompt}}}" (e.g., "explain this for a 5th grader"). This is a high-priority instruction. Simplify vocabulary and concepts accordingly.
     {{/if}}
     *   If no specific prompt or style is given, provide a general, high-level explanation suitable for a high school student.
 

@@ -44,7 +44,7 @@ const prompt = ai.definePrompt({
 **Structured Context:**
 {{#if gradeLevel}}- Grade Level: {{gradeLevel}}{{/if}}
 {{#if ageGroup}}- Age Group: {{ageGroup}}{{/if}}
-{{#if curriculumBoard}}- Curriculum Board: {{curriculumBoard}} (Align the question style, terminology, and complexity with this board's standards.){{/if}}
+{{#if curriculumBoard}}- Curriculum Board: {{curriculumBoard}} (You MUST align the question style, terminology, and complexity with this board's standards.){{/if}}
 {{#if difficulty}}- Difficulty: {{difficulty}} (1=easy, 2=medium, 3=hard){{/if}}
 {{#if questionType}}- Preferred Question Type: {{questionType}} (if 'any', choose the best fit for the prompt){{/if}}
 
