@@ -5,7 +5,7 @@ import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgres
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
-import { buddyChatStream } from "@/ai/flows/buddy-chat";
+import { chatWithAIBuddy } from "@/ai/flows/chat-with-ai-buddy";
 import { Bot, Loader2, SendHorizontal, MessageSquare } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -45,13 +45,13 @@ function LessonPageSkeleton() {
 }
 
 interface Message {
-    role: 'user' | 'model';
+    role: 'user' | 'assistant';
     content: string;
 }
 
-const AIBuddyPopover = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle: string }) => {
+const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: `Hello! I can help you with "${lessonTitle}". Ask me to explain a concept or create a practice problem!` }
+    { role: 'assistant', content: `Hello! I can help you with "${lesson.title}". Ask me to explain a concept or summarize the lesson!` }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -70,21 +70,20 @@ const AIBuddyPopover = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-
-    const historyForAI = messages.map(m => ({role: m.role, content: m.content}));
+    
+    // Extract text content from the new lesson structure
+    const lessonContent = lesson.sections?.map(s => s.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n')).join('\n\n') || "No content available.";
 
     try {
-      const result = await buddyChatStream({ 
+      const result = await chatWithAIBuddy({ 
           userMessage: input, 
-          userId: user.uid,
-          persona: 'buddy', 
-          history: historyForAI,
+          lessonContent
       });
-      const assistantMessage: Message = { role: 'model', content: result.content };
+      const assistantMessage: Message = { role: 'assistant', content: result.response };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error: ${e.message}` };
+      const errorMessage: Message = { role: 'assistant', content: `Sorry, I ran into an error: ${e.message}` };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -110,7 +109,7 @@ const AIBuddyPopover = ({ user, lessonTitle }: { user: FirebaseUser, lessonTitle
                  <div className="space-y-4 p-4">
                     {messages.map((message, index) => (
                         <div key={index} className="flex items-start gap-3">
-                            {message.role === 'model' && (
+                            {message.role === 'assistant' && (
                                 <Avatar className="w-8 h-8 shrink-0 border"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                             )}
                             <div className={cn("flex-1 max-w-md p-3 rounded-lg text-sm", message.role === 'user' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-muted')}>
@@ -260,7 +259,7 @@ export default function LessonPage() {
         </div>
       )}
 
-      <AIBuddyPopover user={user} lessonTitle={lesson.title} />
+      <AIBuddyPopover user={user} lesson={lesson} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A conversational AI flow for the AI Study Buddy.
+ * @fileOverview A conversational AI flow for the AI Study Buddy popover on the lesson page.
  *
  * - chatWithAIBuddy - A function that handles the conversation.
  * - ChatWithAIBuddyInput - The input type for the function.
