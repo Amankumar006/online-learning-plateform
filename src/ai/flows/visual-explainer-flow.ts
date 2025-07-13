@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ExplainVisualConceptInputSchema = z.object({
-  imageDataUri: z.string().describe("A PNG image of the user's selection, as a data URI."),
+  imageDataUri: z.string().describe("A PNG image of the user's selection, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
   prompt: z.string().optional().describe("An optional user prompt for additional context, e.g., 'explain this for a 5th grader'."),
   learningStyle: z.enum(['visual', 'auditory', 'kinesthetic', 'reading/writing', 'unspecified']).optional().describe("The user's preferred learning style to tailor the explanation."),
 });
@@ -46,6 +46,7 @@ const prompt = ai.definePrompt({
   name: 'explainVisualConceptPrompt',
   input: {schema: ExplainVisualConceptInputSchema},
   output: {schema: ExplainVisualConceptOutputSchema},
+  model: 'googleai/gemini-2.0-flash', // Explicitly use a multimodal model
   prompt: `You are an expert educator with a talent for making complex topics easy to understand. A user has selected a diagram or concept from their digital whiteboard and wants an explanation.
 
 **Your Task:**

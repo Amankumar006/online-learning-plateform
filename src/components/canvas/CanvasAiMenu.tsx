@@ -8,9 +8,9 @@ import { useEditor, type Box, type TLShapeId, type TLEditor, getSvgAsImage } fro
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { solveVisualProblem, SolveVisualProblemOutput } from "@/ai/flows/solve-visual-problem";
-import { explainVisualConcept, ExplainVisualConceptOutput } from "@/ai/flows/visual-explainer-flow";
-import { generateDiagram, GenerateDiagramInput, GenerateDiagramOutput } from "@/ai/flows/generate-diagram";
+import { solveVisualProblem } from "@/ai/flows/solve-visual-problem";
+import { explainVisualConcept } from "@/ai/flows/visual-explainer-flow";
+import { generateDiagram, GenerateDiagramInput } from "@/ai/flows/generate-diagram";
 import {
   Dialog,
   DialogContent,
@@ -31,18 +31,23 @@ import { getUser, User } from "@/lib/data";
 
 // --- Helper Functions ---
 async function svgToPngDataUri(svg: SVGElement): Promise<string> {
-    const png = await getSvgAsImage(svg, { type: 'png', quality: 1, size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 } });
-    return png || '';
+    try {
+        const png = await getSvgAsImage(svg, { type: 'png', quality: 1, size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 } });
+        if (!png) throw new Error("SVG to PNG conversion resulted in a null value.");
+        return png;
+    } catch (error) {
+        console.error("Error converting SVG to PNG:", error);
+        throw new Error("Failed to convert the selection to a PNG image.");
+    }
 }
+
 
 async function getSelectionAsImageDataUri(editor: TLEditor): Promise<string | null> {
     const selectedShapeIds = editor.getSelectedShapeIds();
     if (selectedShapeIds.length === 0) return null;
     const svg = await editor.getSvg(selectedShapeIds);
     if (!svg) throw new Error("Could not generate an SVG from the selection.");
-    const pngUri = await svgToPngDataUri(svg);
-    if (!pngUri) throw new Error("Could not convert SVG to image.");
-    return pngUri;
+    return svgToPngDataUri(svg);
 }
 
 function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: number, h?: number } }[]): Box | null {
@@ -217,21 +222,17 @@ export function CanvasAiMenu() {
                 toast({ variant: "destructive", title: "Selection Required", description: "Please select an object or text on the canvas to solve." });
                 return;
             }
-
             const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context });
-            
-            if (!result || !result.explanation) {
+            if (!result || !result.explanation || result.explanation.includes("unable to generate a solution")) {
                  placeResultOnCanvas("I'm sorry, I couldn't find a solution for this selection.");
                  return;
             }
-
             let text = result.identifiedType ? `**Type:** ${result.identifiedType}\n\n` : "";
             text += `### Explanation\n${result.explanation}\n\n`;
             if (result.tags && result.tags.length > 0) {
                 text += `**Tags:** ${result.tags.join(', ')}`;
             }
             placeResultOnCanvas(text);
-
         } catch (error: any) {
             console.error('AI Solve Failed:', error);
             toast({ variant: "destructive", title: 'AI Solve Failed', description: error.message || "An unknown error occurred." });
@@ -249,12 +250,10 @@ export function CanvasAiMenu() {
                 return;
             }
             const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
-            
             if (!result || !result.explanation) {
                 placeResultOnCanvas("I'm sorry, I couldn't generate an explanation for this selection.");
                 return;
             }
-            
             let text = `### ${result.title}\n\n**Summary:** ${result.summary}\n\n---\n\n${result.explanation}\n\n`;
             if (result.keyConcepts && result.keyConcepts.length > 0) {
                 text += `### Key Concepts\n${result.keyConcepts.map(c => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;

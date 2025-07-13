@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SolveVisualProblemInputSchema = z.object({
-  imageDataUris: z.array(z.string()).describe("A list of PNG images of the user's selection, as data URIs."),
+  imageDataUris: z.array(z.string()).describe("A list of PNG images of the user's selection, as data URIs that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
   context: z.string().optional().describe("Optional text input describing what the user wants help with."),
 });
 export type SolveVisualProblemInput = z.infer<typeof SolveVisualProblemInputSchema>;
@@ -40,6 +40,7 @@ const prompt = ai.definePrompt({
   name: 'solveVisualProblemPrompt',
   input: {schema: SolveVisualProblemInputSchema},
   output: {schema: SolveVisualProblemOutputSchema},
+  model: 'googleai/gemini-2.0-flash', // Explicitly use a multimodal model
   prompt: `You are a multi-disciplinary expert assistant who analyzes and explains visual selections from a student's canvas. Your job is to understand any type of academic or technical content and provide clear, structured help.
 
 **Instructions:**
@@ -70,7 +71,10 @@ const prompt = ai.definePrompt({
 
 ---
 **Image to Analyze:**
-{{media url=imageDataUris.[0]}}
+{{#each imageDataUris}}
+{{media url=this}}
+{{/each}}
+
 
 Respond with a single JSON object that conforms to the output schema.
 `,
