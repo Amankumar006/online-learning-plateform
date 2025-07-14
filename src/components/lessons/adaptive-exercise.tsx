@@ -27,7 +27,7 @@ const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
 });
 
-const MathSolutionGrader = dynamic(() => import("../practice/math-solution-grader"), {
+const MathSolutionGrader = dynamic(() => import("./math-solution-grader"), {
     ssr: false,
     loading: () => <Skeleton className="w-full h-[550px] rounded-md" />,
 });
