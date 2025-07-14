@@ -34,15 +34,16 @@ const prompt = ai.definePrompt({
 1.  **Analyze the Prompt:** Understand the user's request: "{{{prompt}}}".
 2.  **Determine Diagram Type:** The user wants a "{{{diagramType}}}" diagram.
 3.  **Generate Shapes for Entities:** For each main entity (like a customer, product, or flowchart step), create a 'geo' shape.
-    *   Each shape MUST have an \`id\`, \`type\` ('geo'), \`x\`, \`y\`, and a \`props\` object.
+    *   Each shape MUST have an \`id\` that starts with "shape:", \`type\` ('geo'), \`x\`, \`y\`, and a \`props\` object.
     *   For 'geo' shapes, the \`props\` object MUST include \`geo\` (e.g., 'rectangle'), \`w\`, \`h\`, and \`text\`.
 4.  **Handle Attributes for Complex Entities (like ERDs):**
     *   If the prompt asks for entities with attributes (e.g., a "Customer" with "ID, Name, Address"), create the main 'geo' shape for the entity (e.g., "Customer").
     *   Then, create separate 'text' shapes for *each attribute*.
+    *   Each text shape MUST also have a unique \`id\` that starts with "shape:".
     *   Position these attribute text shapes near their parent entity shape. For example, list them underneath or to the side of the main rectangle.
 5.  **Generate Arrows:** Create an array of arrow objects to connect the shapes.
-    *   Each arrow must have an \`id\`, \`type\` ('arrow'), and a \`start\` and \`end\` object.
-    *   The \`start\` and \`end\` objects must specify the \`id\` of the shape they connect to.
+    *   Each arrow must have an \`id\` that starts with "arrow:", \`type\` ('arrow'), and a \`start\` and \`end\` object.
+    *   The \`start\` and \`end\` objects must specify the \`id\` of the shape they connect to (which must be a "shape:..." id).
     *   Set the arrow's \`start_arrowhead\` and \`end_arrowhead\` properties appropriately for the diagram type.
     *   If the user specifies relationship details (like cardinality in an ERD, e.g., "one-to-many"), add this as a \`text\` label to the arrow.
 6.  **Layout Strategy:**
@@ -86,8 +87,32 @@ const generateDiagramFlow = ai.defineFlow(
     }
 
     // Validate and filter the output from the AI to prevent crashes.
-    const validShapes = (output.shapes || []).filter(isValidShape);
-    const validArrows = (output.arrows || []).filter(isValidArrow);
+    const validShapes = (output.shapes || [])
+        .filter(isValidShape)
+        .map(shape => {
+            // Ensure every shape ID has the "shape:" prefix.
+            if (!shape.id.startsWith('shape:')) {
+                shape.id = `shape:${shape.id}`;
+            }
+            return shape;
+        });
+        
+    const validArrows = (output.arrows || [])
+        .filter(isValidArrow)
+        .map(arrow => {
+             // Ensure every arrow ID has the "arrow:" prefix.
+            if (!arrow.id.startsWith('arrow:')) {
+                arrow.id = `arrow:${arrow.id}`;
+            }
+            // Ensure the start and end IDs are also correctly prefixed.
+            if (arrow.start.id && !arrow.start.id.startsWith('shape:')) {
+                arrow.start.id = `shape:${arrow.start.id}`;
+            }
+             if (arrow.end.id && !arrow.end.id.startsWith('shape:')) {
+                arrow.end.id = `shape:${arrow.end.id}`;
+            }
+            return arrow;
+        });
     
     return {
         shapes: validShapes,
