@@ -46,15 +46,20 @@ async function svgToPngDataUrl(svg: SVGElement): Promise<string | null> {
 }
 
 
-async function getSelectionAsImageDataUri(editor: Editor): Promise<string | null> {
+async function getSelectionAsImageDataUri(editor: Editor): Promise<string> {
     const selectedShapeIds = editor.getSelectedShapeIds();
-    if (selectedShapeIds.length === 0) return null;
+    if (selectedShapeIds.length === 0) {
+      throw new Error("Selection Required");
+    }
     const svg = await editor.getSvg(selectedShapeIds);
     if (!svg) {
-        console.error("Could not generate an SVG from the selection.");
-        return null;
+      throw new Error("SVG Generation Failed");
     }
-    return svgToPngDataUrl(svg);
+    const dataUrl = await svgToPngDataUrl(svg);
+    if (!dataUrl) {
+      throw new Error("PNG Conversion Failed");
+    }
+    return dataUrl;
 }
 
 
@@ -226,12 +231,6 @@ export function CanvasAiMenu() {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
-            if (!imageDataUri) {
-                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas." });
-                setStatus('idle');
-                return;
-            }
-
             const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: prompt });
             
             if (!result || !result.explanation) {
@@ -249,7 +248,10 @@ export function CanvasAiMenu() {
 
         } catch (error: any) {
             console.error(`AI Solve Failed:`, error);
-            toast({ variant: "destructive", title: `AI Solve Failed`, description: error.message || "An unknown error occurred." });
+            const description = error.message === 'Selection Required'
+                ? "Please select an object on the canvas first."
+                : "Could not process selection. Please try selecting the object again or redraw it.";
+            toast({ variant: "destructive", title: `AI Solve Failed`, description: description });
         } finally {
             setStatus('idle');
         }
@@ -259,12 +261,6 @@ export function CanvasAiMenu() {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
-            if (!imageDataUri) {
-                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas." });
-                setStatus('idle');
-                return;
-            }
-
             const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
             
             if (!result) {
@@ -274,16 +270,20 @@ export function CanvasAiMenu() {
 
             let text = `### ${result.title}\n\n**Summary:** ${result.summary}\n\n---\n\n${result.explanation}\n\n`;
             if (result.keyConcepts && result.keyConcepts.length > 0) {
-                text += `### Key Concepts\n${result.keyConcepts.map((c: any) => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
+                 text += `### Key Concepts\n${result.keyConcepts.map((c: any) => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
             }
             if (result.analogy) {
                 text += `**Analogy:** *${result.analogy}*`;
             }
             placeResultOnCanvas(text);
 
-        } catch (error: any) {
+        } catch (error: any)
+        {
             console.error(`AI Explain Failed:`, error);
-            toast({ variant: "destructive", title: `AI Explain Failed`, description: error.message || "An unknown error occurred." });
+            const description = error.message === 'Selection Required'
+                ? "Please select an object on the canvas first."
+                : "Could not process selection. Please try selecting the object again or redraw it.";
+            toast({ variant: "destructive", title: `AI Explain Failed`, description: description });
         } finally {
             setStatus('idle');
         }
