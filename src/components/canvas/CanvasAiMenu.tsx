@@ -45,25 +45,49 @@ async function svgToPngDataUrl(svg: SVGElement): Promise<string | null> {
 }
 
 
-async function getSelectionAsImageDataUri(editor: Editor): Promise<string> {
+// A new, more robust implementation to get the selection as an image.
+// This bypasses the sometimes-unreliable editor.getSvg() method.
+async function getSelectionAsImageDataUri(editor: Editor): Promise<string | null> {
     const selectedShapeIds = editor.getSelectedShapeIds();
     if (selectedShapeIds.length === 0) {
-      throw new Error("Selection Required");
+        throw new Error("Selection Required");
     }
 
-    // Add a small delay to allow the tldraw state to settle before capturing.
-    // This helps prevent race conditions where getSvg() might fail on newly created shapes.
-    await new Promise(resolve => setTimeout(resolve, 200));
+    try {
+        const selectionBounds = editor.getSelectionPageBounds();
+        if (!selectionBounds) {
+            throw new Error("Could not get selection bounds.");
+        }
 
-    const svg = await editor.getSvg(selectedShapeIds);
-    if (!svg) {
-      throw new Error("SVG Generation Failed");
+        const newSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        newSvg.setAttribute('width', String(selectionBounds.w));
+        newSvg.setAttribute('height', String(selectionBounds.h));
+        newSvg.setAttribute('viewBox', `0 0 ${selectionBounds.w} ${selectionBounds.h}`);
+
+        for (const id of selectedShapeIds) {
+            const shapeNode = editor.getShapeNode(id);
+            if (!shapeNode) continue;
+
+            const clonedNode = shapeNode.cloneNode(true) as SVGElement;
+            const shapePageTransform = editor.getShapePageTransform(id)!;
+
+            // Adjust the transform to be relative to the selection bounds, not the page
+            const newTranslateX = shapePageTransform.x - selectionBounds.x;
+            const newTranslateY = shapePageTransform.y - selectionBounds.y;
+            clonedNode.setAttribute('transform', `translate(${newTranslateX}, ${newTranslateY})`);
+            
+            newSvg.appendChild(clonedNode);
+        }
+        
+        const dataUrl = await svgToPngDataUrl(newSvg);
+        if (!dataUrl) {
+          throw new Error("PNG Conversion Failed");
+        }
+        return dataUrl;
+    } catch (e: any) {
+        console.error("Error capturing selection:", e);
+        return null; // Return null instead of throwing to allow for user-friendly error messages
     }
-    const dataUrl = await svgToPngDataUrl(svg);
-    if (!dataUrl) {
-      throw new Error("PNG Conversion Failed");
-    }
-    return dataUrl;
 }
 
 
@@ -235,6 +259,10 @@ export function CanvasAiMenu() {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
+            if (!imageDataUri) {
+                throw new Error("Could not process selection. Please try selecting the object again or redraw it.");
+            }
+
             const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: prompt });
             
             if (!result || !result.explanation) {
@@ -252,10 +280,10 @@ export function CanvasAiMenu() {
 
         } catch (error: any) {
             console.error(`AI Solve Failed:`, error);
-            const description = error.message === 'Selection Required'
+            const description = error.message.includes("Selection Required")
                 ? "Please select an object on the canvas first."
-                : "Could not process selection. Please try selecting the object again or redraw it.";
-            toast({ variant: "destructive", title: `AI Solve Failed`, description: description });
+                : error.message;
+            toast({ variant: "destructive", title: `AI Solve Failed`, description });
         } finally {
             setStatus('idle');
         }
@@ -265,6 +293,10 @@ export function CanvasAiMenu() {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
+             if (!imageDataUri) {
+                throw new Error("Could not process selection. Please try selecting the object again or redraw it.");
+            }
+
             const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
             
             if (!result) {
@@ -284,10 +316,10 @@ export function CanvasAiMenu() {
         } catch (error: any)
         {
             console.error(`AI Explain Failed:`, error);
-            const description = error.message === 'Selection Required'
+             const description = error.message.includes("Selection Required")
                 ? "Please select an object on the canvas first."
-                : "Could not process selection. Please try selecting the object again or redraw it.";
-            toast({ variant: "destructive", title: `AI Explain Failed`, description: description });
+                : error.message;
+            toast({ variant: "destructive", title: `AI Explain Failed`, description });
         } finally {
             setStatus('idle');
         }
