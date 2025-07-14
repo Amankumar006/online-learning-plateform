@@ -40,7 +40,6 @@ const prompt = ai.definePrompt({
   name: 'solveVisualProblemPrompt',
   input: {schema: SolveVisualProblemInputSchema},
   output: {schema: SolveVisualProblemOutputSchema},
-  model: 'googleai/gemini-2.0-flash', // Explicitly use a multimodal model
   prompt: `You are a multi-disciplinary expert assistant who analyzes and explains visual selections from a student's canvas. Your job is to understand any type of academic or technical content and provide clear, structured help.
 
 **Instructions:**
