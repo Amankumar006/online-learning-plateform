@@ -17,9 +17,8 @@ import '@/ai/flows/convert-speech-to-latex.ts';
 import '@/ai/flows/convert-latex-to-speech.ts';
 import '@/ai/flows/grade-math-solution.ts';
 import '@/ai/flows/generate-proactive-suggestion.ts';
-import '@/ai/flows/solve-visual-problem.ts';
-import '@/ai/flows/visual-explainer-flow.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
 import '@/ai/flows/generate-follow-up-suggestions.ts';
 import '@/ai/flows/generate-diagram.ts';
 import '@/ai/flows/chat-with-ai-buddy.ts';
+

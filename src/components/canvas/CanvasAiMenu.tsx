@@ -1,15 +1,14 @@
 
+
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId, type Editor, getSvgAsImage, createShapeId } from '@tldraw/tldraw';
+import { Sparkles, Type, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
+import { useEditor, type Box, type TLShapeId, type Editor } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { solveVisualProblem } from "@/ai/flows/solve-visual-problem";
-import { explainVisualConcept } from "@/ai/flows/visual-explainer-flow";
 import { generateDiagram, GenerateDiagramInput } from "@/ai/flows/generate-diagram";
 import {
   Dialog,
@@ -25,72 +24,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { getUser, User } from "@/lib/data";
+
 
 // --- Helper Functions ---
-async function svgToPngDataUrl(svg: SVGElement): Promise<string | null> {
-    try {
-        const dataUrl = await getSvgAsImage(svg, {
-            type: 'png',
-            quality: 1,
-            size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 },
-        });
-        return dataUrl;
-    } catch (error) {
-        console.error("Error converting SVG to PNG:", error);
-        return null;
-    }
-}
-
-
-// A new, more robust implementation to get the selection as an image.
-// This bypasses the sometimes-unreliable editor.getSvg() method.
-async function getSelectionAsImageDataUri(editor: Editor): Promise<string | null> {
-    const selectedShapeIds = editor.getSelectedShapeIds();
-    if (selectedShapeIds.length === 0) {
-        throw new Error("Selection Required");
-    }
-
-    try {
-        const selectionBounds = editor.getSelectionPageBounds();
-        if (!selectionBounds) {
-            throw new Error("Could not get selection bounds.");
-        }
-
-        const newSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        newSvg.setAttribute('width', String(selectionBounds.w));
-        newSvg.setAttribute('height', String(selectionBounds.h));
-        newSvg.setAttribute('viewBox', `0 0 ${selectionBounds.w} ${selectionBounds.h}`);
-
-        for (const id of selectedShapeIds) {
-            const shapeNode = editor.getShapeNode(id);
-            if (!shapeNode) continue;
-
-            const clonedNode = shapeNode.cloneNode(true) as SVGElement;
-            const shapePageTransform = editor.getShapePageTransform(id)!;
-
-            // Adjust the transform to be relative to the selection bounds, not the page
-            const newTranslateX = shapePageTransform.x - selectionBounds.x;
-            const newTranslateY = shapePageTransform.y - selectionBounds.y;
-            clonedNode.setAttribute('transform', `translate(${newTranslateX}, ${newTranslateY})`);
-            
-            newSvg.appendChild(clonedNode);
-        }
-        
-        const dataUrl = await svgToPngDataUrl(newSvg);
-        if (!dataUrl) {
-          throw new Error("PNG Conversion Failed");
-        }
-        return dataUrl;
-    } catch (e: any) {
-        console.error("Error capturing selection:", e);
-        return null; // Return null instead of throwing to allow for user-friendly error messages
-    }
-}
-
-
 function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: number, h?: number } }[]): Box | null {
     if (!shapes || shapes.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -105,6 +41,41 @@ function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: numbe
 
 
 // --- Custom Hooks ---
+const useCanvasAI = (editor: Editor) => {
+    const [status, setStatus] = useState<'idle' | 'loading'>('idle');
+    const { toast } = useToast();
+
+    const diagram = useMemo(() => ({
+        generate: async (input: GenerateDiagramInput) => {
+            setStatus('loading');
+            try {
+                const { shapes, arrows } = await generateDiagram(input);
+                if (!shapes || shapes.length === 0) {
+                    toast({ variant: 'destructive', title: 'Diagram Generation Failed', description: 'The AI did not generate any valid shapes. Please try a more specific prompt.' });
+                    return;
+                }
+                const viewport = editor.getViewportPageBounds();
+                const diagramBounds = getShapesBoundingBox(shapes as any);
+                if (diagramBounds && viewport) {
+                    const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
+                    const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
+                    shapes.forEach(shape => { shape.x += offsetX; shape.y += offsetY; });
+                }
+                editor.createShapes(shapes as any);
+                if (arrows && arrows.length > 0) editor.createArrows(arrows as any, {});
+                toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
+            } catch (error: any) {
+                console.error('Diagram Generation Failed:', error);
+                toast({ variant: "destructive", title: 'Diagram Generation Failed', description: error.message || "An unknown error occurred." });
+            } finally {
+                setStatus('idle');
+            }
+        }
+    }), [editor, toast]);
+
+    return { status, diagram };
+};
+
 
 const useLiveMath = (editor: Editor, isEnabled: boolean) => {
     const [preview, setPreview] = useState<{ shapeId: TLShapeId; result: string; keyword: string; bounds: Box } | null>(null);
@@ -207,134 +178,17 @@ const LIVE_MATH_KEYWORDS = [
 // --- Main Component ---
 export function CanvasAiMenu() {
     const editor = useEditor();
-    const { toast } = useToast();
-    const [userProfile, setUserProfile] = useState<User | null>(null);
-    const [status, setStatus] = useState<'idle' | 'loading'>('idle');
+    const { status, diagram } = useCanvasAI(editor);
     const [isLiveMode, setIsLiveMode] = useState(false);
     const { preview, confirmPreview } = useLiveMath(editor, isLiveMode);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) setUserProfile(await getUser(currentUser.uid));
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const placeResultOnCanvas = useCallback((text: string) => {
-        const selectionBounds = editor.getSelectionPageBounds();
-        const position = selectionBounds 
-            ? { x: selectionBounds.maxX + 40, y: selectionBounds.y }
-            : { x: editor.getViewportPageBounds().midX, y: editor.getViewportPageBounds().midY };
-        
-        editor.createShape({ type: 'text', x: position.x, y: position.y, props: { text, size: 'm', font: 'draw', align: 'start' } });
-    }, [editor]);
-
-    const handleGenerateDiagram = async (input: GenerateDiagramInput) => {
-        setStatus('loading');
-        try {
-            const { shapes, arrows } = await generateDiagram(input);
-            if (!shapes || shapes.length === 0) {
-                toast({ variant: 'destructive', title: 'Diagram Generation Failed', description: 'The AI did not generate any valid shapes. Please try a more specific prompt.' });
-                return;
-            }
-            const viewport = editor.getViewportPageBounds();
-            const diagramBounds = getShapesBoundingBox(shapes as any);
-            if (diagramBounds && viewport) {
-                const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
-                const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
-                shapes.forEach(shape => { shape.x += offsetX; shape.y += offsetY; });
-            }
-            editor.createShapes(shapes as any);
-            if (arrows && arrows.length > 0) editor.createArrows(arrows as any, {});
-            toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
-        } catch (error: any) {
-            console.error('Diagram Generation Failed:', error);
-            toast({ variant: "destructive", title: 'Diagram Generation Failed', description: error.message || "An unknown error occurred." });
-        } finally {
-            setStatus('idle');
-        }
-    };
-
-    const handleSolveSelection = async (prompt: string) => {
-        setStatus('loading');
-        try {
-            const imageDataUri = await getSelectionAsImageDataUri(editor);
-            if (!imageDataUri) {
-                throw new Error("Could not process selection. Please try selecting the object again or redraw it.");
-            }
-
-            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: prompt });
-            
-            if (!result || !result.explanation) {
-                placeResultOnCanvas(`I'm sorry, I couldn't find a solution for this selection.`);
-                return;
-            }
-            
-            let text = result.identifiedType ? `**Type:** ${result.identifiedType}\n\n` : "";
-            text += `### Explanation\n${result.explanation}\n\n`;
-            if (result.tags && result.tags.length > 0) {
-                text += `**Tags:** ${result.tags.join(', ')}`;
-            }
-            
-            placeResultOnCanvas(text);
-
-        } catch (error: any) {
-            console.error(`AI Solve Failed:`, error);
-            const description = error.message.includes("Selection Required")
-                ? "Please select an object on the canvas first."
-                : error.message;
-            toast({ variant: "destructive", title: `AI Solve Failed`, description });
-        } finally {
-            setStatus('idle');
-        }
-    };
-
-    const handleExplainSelection = async (prompt: string) => {
-        setStatus('loading');
-        try {
-            const imageDataUri = await getSelectionAsImageDataUri(editor);
-             if (!imageDataUri) {
-                throw new Error("Could not process selection. Please try selecting the object again or redraw it.");
-            }
-
-            const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
-            
-            if (!result) {
-                 placeResultOnCanvas(`I'm sorry, I couldn't generate an explanation for this selection.`);
-                 return;
-            }
-
-            let text = `### ${result.title}\n\n**Summary:** ${result.summary}\n\n---\n\n${result.explanation}\n\n`;
-            if (result.keyConcepts && result.keyConcepts.length > 0) {
-                 text += `### Key Concepts\n${result.keyConcepts.map((c: any) => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
-            }
-            if (result.analogy) {
-                text += `**Analogy:** *${result.analogy}*`;
-            }
-            placeResultOnCanvas(text);
-
-        } catch (error: any)
-        {
-            console.error(`AI Explain Failed:`, error);
-             const description = error.message.includes("Selection Required")
-                ? "Please select an object on the canvas first."
-                : error.message;
-            toast({ variant: "destructive", title: `AI Explain Failed`, description });
-        } finally {
-            setStatus('idle');
-        }
-    };
     
-
     return (
         <>
             <div className="absolute top-16 left-3 z-20">
                 <Card className="p-1.5 flex items-center gap-1 shadow-xl backdrop-blur-md bg-white/70 dark:bg-black/70">
                     <Button variant="ghost" size="sm" asChild><Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link></Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
-                    <DiagramDialog onGenerate={handleGenerateDiagram} isLoading={status === 'loading'} />
-                    <SolveDialog onSolve={handleSolveSelection} isLoading={status === 'loading'} />
-                    <ExplainDialog onExplain={handleExplainSelection} isLoading={status === 'loading'} />
+                    <DiagramDialog onGenerate={diagram.generate} isLoading={status === 'loading'} />
                     <Button variant="ghost" size="sm" disabled={true}><Type className="mr-2" />To Text (Soon)</Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
                     <Button variant="ghost" size="sm" onClick={() => setIsLiveMode(!isLiveMode)} className={cn(isLiveMode && "bg-primary/10 text-primary")}>
@@ -373,47 +227,6 @@ function DiagramDialog({ onGenerate, isLoading }: { onGenerate: (input: Generate
     );
 }
 
-function SolveDialog({ onSolve, isLoading }: { onSolve: (context: string) => void, isLoading: boolean }) {
-    const [context, setContext] = useState("");
-    const [isOpen, setIsOpen] = useState(false);
-
-    const handleSubmit = () => {
-        onSolve(context);
-        setIsOpen(false);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}><BrainCircuit className="mr-2" />Solve</Button></DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Solve Selection</DialogTitle><DialogDescription>Provide context to help the AI solve. Make sure to select something on the canvas first.</DialogDescription></DialogHeader>
-                <div className="grid gap-4 py-4"><Label htmlFor="solve-context">Context</Label><Textarea id="solve-context" value={context} onChange={(e) => setContext(e.target.value)} placeholder="e.g., 'Find the area' or 'What is this part of the cell?'"/></div>
-                <DialogFooter><Button onClick={handleSubmit} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 animate-spin" />}Solve</Button></DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ExplainDialog({ onExplain, isLoading }: { onExplain: (prompt: string) => void, isLoading: boolean }) {
-    const [prompt, setPrompt] = useState("");
-    const [isOpen, setIsOpen] = useState(false);
-
-    const handleSubmit = () => {
-        onExplain(prompt);
-        setIsOpen(false);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}><Lightbulb className="mr-2" />Explain</Button></DialogTrigger>
-            <DialogContent>
-                 <DialogHeader><DialogTitle>Explain Selection</DialogTitle><DialogDescription>Provide a prompt for the AI. Make sure to select something on the canvas first.</DialogDescription></DialogHeader>
-                 <div className="grid gap-4 py-4"><Label htmlFor="explain-prompt">Prompt</Label><Textarea id="explain-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., 'Explain this for a 5th grader' or 'What is the significance of this diagram?'"/></div>
-                 <DialogFooter><Button onClick={handleSubmit} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 animate-spin" />}Explain</Button></DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 const LiveMathPreview = ({ preview, onConfirm, editor }: { preview: NonNullable<ReturnType<typeof useLiveMath>['preview']>, onConfirm: () => void, editor: Editor }) => {
     const [position, setPosition] = useState({ x: 0, y: 0 });

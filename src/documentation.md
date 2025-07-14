@@ -56,7 +56,7 @@ Component interaction occurs at several levels:
 -   **User Authentication:** Users can sign up and log in using Firebase Authentication. This secures access to personalized features.
 -   **Personalized Dashboard:** Upon logging in, users are directed to a dashboard (`/dashboard`) that provides an overview of their progress and access to different learning modules.
 -   **Interactive Lessons:** Users can access and complete interactive lessons (`/dashboard/lessons/[id]`). Lessons include text, code blocks, and AI-powered text-to-speech.
--   **Adaptive Exercises:** The platform provides adaptive exercises (`/dashboard/practice/[id]`) that may adjust difficulty or type based on user performance. This likely involves fetching exercise data from Firestore and submitting user answers for evaluation.
+-   **Adaptive Exercises:** The platform provides adaptive exercises (`/dashboard/practice/[id]`) that may adjust difficulty or type based on user performance. This involves fetching exercise data from Firestore and submitting user answers for evaluation.
 -   **Progress Tracking:** User activity and performance on lessons and exercises are tracked and visualized (`/dashboard/progress`). This data is stored in Firestore and potentially aggregated or analyzed in the backend.
 -   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated, standalone chat interface (`/dashboard/buddy-ai`) powered by a central Genkit flow (`buddy-chat.ts`). This AI can:
     *   Adopt different personas (e.g., friendly 'Study Buddy' or technical 'Code Mentor').
