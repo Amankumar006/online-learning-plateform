@@ -1,10 +1,11 @@
 
+
 'use client'
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, BrainCircuit, Type, Lightbulb, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId, type TLEditor, getSvgAsImage } from '@tldraw/tldraw';
+import { useEditor, type Box, type TLShapeId, type Editor, getSvgAsImage, createShapeId } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -30,25 +31,32 @@ import { auth } from "@/lib/firebase";
 import { getUser, User } from "@/lib/data";
 
 // --- Helper Functions ---
-async function svgToPngDataUri(svg: SVGElement): Promise<string> {
+async function svgToPngDataUrl(svg: SVGElement): Promise<string | null> {
     try {
-        const png = await getSvgAsImage(svg, { type: 'png', quality: 1, size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 } });
-        if (!png) throw new Error("SVG to PNG conversion resulted in a null value.");
-        return png;
+        const dataUrl = await getSvgAsImage(svg, {
+            type: 'png',
+            quality: 1,
+            size: { w: svg.width.baseVal.value * 2, h: svg.height.baseVal.value * 2 },
+        });
+        return dataUrl;
     } catch (error) {
         console.error("Error converting SVG to PNG:", error);
-        throw new Error("Failed to convert the selection to a PNG image.");
+        return null;
     }
 }
 
 
-async function getSelectionAsImageDataUri(editor: TLEditor): Promise<string | null> {
+async function getSelectionAsImageDataUri(editor: Editor): Promise<string | null> {
     const selectedShapeIds = editor.getSelectedShapeIds();
     if (selectedShapeIds.length === 0) return null;
     const svg = await editor.getSvg(selectedShapeIds);
-    if (!svg) throw new Error("Could not generate an SVG from the selection.");
-    return svgToPngDataUri(svg);
+    if (!svg) {
+        console.error("Could not generate an SVG from the selection.");
+        return null;
+    }
+    return svgToPngDataUrl(svg);
 }
+
 
 function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: number, h?: number } }[]): Box | null {
     if (!shapes || shapes.length === 0) return null;
@@ -65,7 +73,7 @@ function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: numbe
 
 // --- Custom Hooks ---
 
-const useLiveMath = (editor: TLEditor, isEnabled: boolean) => {
+const useLiveMath = (editor: Editor, isEnabled: boolean) => {
     const [preview, setPreview] = useState<{ shapeId: TLShapeId; result: string; keyword: string; bounds: Box } | null>(null);
     const mathEngine = useMemo(() => ({
         evaluate: (expression: string, operation: string) => {
@@ -157,10 +165,10 @@ const useLiveMath = (editor: TLEditor, isEnabled: boolean) => {
 
 const LIVE_MATH_KEYWORDS = [
   { keyword: '=', pattern: /=\s*$/ },
-  { keyword: 'simplify', pattern: /\b(simplify|expand|factor)\s*$/i },
-  { keyword: 'derive', pattern: /\b(derive|differentiate|d\/dx)\s*$/i },
-  { keyword: 'solve', pattern: /\b(solve|find\s+\w+)\s*$/i },
-  { keyword: 'evaluate', pattern: /\b(evaluate|calc|calculate)\s*$/i },
+  { keyword: 'simplify', pattern: / (simplify|expand|factor)\s*$/i },
+  { keyword: 'derive', pattern: / (derive|differentiate|d\/dx)\s*$/i },
+  { keyword: 'solve', pattern: / (solve|find\s+\w+)\s*$/i },
+  { keyword: 'evaluate', pattern: / (evaluate|calc|calculate)\s*$/i },
 ];
 
 // --- Main Component ---
@@ -204,7 +212,7 @@ export function CanvasAiMenu() {
                 shapes.forEach(shape => { shape.x += offsetX; shape.y += offsetY; });
             }
             editor.createShapes(shapes as any);
-            if (arrows && arrows.length > 0) editor.createArrows(arrows as any);
+            if (arrows && arrows.length > 0) editor.createArrows(arrows as any, {});
             toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
         } catch (error: any) {
             console.error('Diagram Generation Failed:', error);
@@ -213,62 +221,74 @@ export function CanvasAiMenu() {
             setStatus('idle');
         }
     };
-    
-    const handleSolveSelection = async (context: string) => {
+
+    const handleSolveSelection = useCallback(async (prompt: string) => {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
             if (!imageDataUri) {
-                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object or text on the canvas to solve." });
+                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas." });
+                setStatus('idle');
                 return;
             }
-            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context });
-            if (!result || !result.explanation || result.explanation.includes("unable to generate a solution")) {
-                 placeResultOnCanvas("I'm sorry, I couldn't find a solution for this selection.");
-                 return;
+
+            const result = await solveVisualProblem({ imageDataUris: [imageDataUri], context: prompt });
+            
+            if (!result || !result.explanation) {
+                placeResultOnCanvas(`I'm sorry, I couldn't find a solution for this selection.`);
+                return;
             }
+            
             let text = result.identifiedType ? `**Type:** ${result.identifiedType}\n\n` : "";
             text += `### Explanation\n${result.explanation}\n\n`;
             if (result.tags && result.tags.length > 0) {
                 text += `**Tags:** ${result.tags.join(', ')}`;
             }
+            
             placeResultOnCanvas(text);
+
         } catch (error: any) {
-            console.error('AI Solve Failed:', error);
-            toast({ variant: "destructive", title: 'AI Solve Failed', description: error.message || "An unknown error occurred." });
+            console.error(`AI Solve Failed:`, error);
+            toast({ variant: "destructive", title: `AI Solve Failed`, description: error.message || "An unknown error occurred." });
         } finally {
             setStatus('idle');
         }
-    };
+    }, [editor, placeResultOnCanvas, toast]);
 
-    const handleExplainSelection = async (prompt: string) => {
+    const handleExplainSelection = useCallback(async (prompt: string) => {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
             if (!imageDataUri) {
-                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas to explain." });
+                toast({ variant: "destructive", title: "Selection Required", description: "Please select an object on the canvas." });
+                setStatus('idle');
                 return;
             }
+
             const result = await explainVisualConcept({ imageDataUri, prompt, learningStyle: userProfile?.learningStyle || 'unspecified' });
-            if (!result || !result.explanation) {
-                placeResultOnCanvas("I'm sorry, I couldn't generate an explanation for this selection.");
-                return;
+            
+            if (!result) {
+                 placeResultOnCanvas(`I'm sorry, I couldn't generate an explanation for this selection.`);
+                 return;
             }
+
             let text = `### ${result.title}\n\n**Summary:** ${result.summary}\n\n---\n\n${result.explanation}\n\n`;
             if (result.keyConcepts && result.keyConcepts.length > 0) {
-                text += `### Key Concepts\n${result.keyConcepts.map(c => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
+                text += `### Key Concepts\n${result.keyConcepts.map((c: any) => `- **${c.name}:** ${c.description}`).join('\n')}\n\n`;
             }
             if (result.analogy) {
                 text += `**Analogy:** *${result.analogy}*`;
             }
             placeResultOnCanvas(text);
-        } catch(error: any) {
-            console.error('AI Explain Failed:', error);
-            toast({ variant: "destructive", title: 'AI Explain Failed', description: error.message || "An unknown error occurred." });
+
+        } catch (error: any) {
+            console.error(`AI Explain Failed:`, error);
+            toast({ variant: "destructive", title: `AI Explain Failed`, description: error.message || "An unknown error occurred." });
         } finally {
             setStatus('idle');
         }
-    };
+    }, [editor, placeResultOnCanvas, toast, userProfile]);
+    
 
     return (
         <>
@@ -359,7 +379,7 @@ function ExplainDialog({ onExplain, isLoading }: { onExplain: (prompt: string) =
     );
 }
 
-const LiveMathPreview = ({ preview, onConfirm, editor }: { preview: NonNullable<ReturnType<typeof useLiveMath>['preview']>, onConfirm: () => void, editor: TLEditor }) => {
+const LiveMathPreview = ({ preview, onConfirm, editor }: { preview: NonNullable<ReturnType<typeof useLiveMath>['preview']>, onConfirm: () => void, editor: Editor }) => {
     const [position, setPosition] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
