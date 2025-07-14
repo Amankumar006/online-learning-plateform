@@ -4,12 +4,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Type, ArrowLeft, Loader2, Calculator, Check, Zap } from 'lucide-react';
-import { useEditor, type Box, type TLShapeId, type Editor } from '@tldraw/tldraw';
+import { Sparkles, ArrowLeft, Loader2, Calculator, Zap } from 'lucide-react';
+import { useEditor, type Box, type TLShape, type TLShapeId, type Editor } from '@tldraw/tldraw';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { generateDiagram, GenerateDiagramInput } from "@/ai/flows/generate-diagram";
+import { generateDiagram, GenerateDiagramInput, GenerateDiagramOutput } from "@/ai/flows/generate-diagram";
 import {
   Dialog,
   DialogContent,
@@ -24,18 +24,50 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
+import { LiveMathPreview } from "./LiveMathPreview";
+import { useLiveMath } from "@/hooks/use-live-math";
 
+// --- Type Guards ---
+function isShape(item: any): item is Extract<GenerateDiagramOutput['shapes'][number], { props: any }> {
+  return item && typeof item === 'object' && item.type !== 'arrow' && 'props' in item;
+}
+function isArrow(item: any): item is Extract<GenerateDiagramOutput['arrows'][number], { type: 'arrow' }> {
+  return item && typeof item === 'object' && item.type === 'arrow';
+}
 
 // --- Helper Functions ---
-function getShapesBoundingBox(shapes: { x: number, y: number, props: { w?: number, h?: number } }[]): Box | null {
-    if (!shapes || shapes.length === 0) return null;
+function getShapesBoundingBox(items: (TLShape)[], allShapes: TLShape[]): Box | null {
+    if (!items || items.length === 0) return null;
+
+    const shapesMap = new Map(allShapes.map(s => [s.id, s]));
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    shapes.forEach(shape => {
-        minX = Math.min(minX, shape.x);
-        minY = Math.min(minY, shape.y);
-        maxX = Math.max(maxX, shape.x + (shape.props.w || 0));
-        maxY = Math.max(maxY, shape.y + (shape.props.h || 0));
+
+    items.forEach(item => {
+        if (isShape(item)) {
+            minX = Math.min(minX, item.x);
+            minY = Math.min(minY, item.y);
+            maxX = Math.max(maxX, item.x + (item.props.w || 0));
+            maxY = Math.max(maxY, item.y + (item.props.h || 0));
+        } else if (isArrow(item)) {
+            const startShape = shapesMap.get(item.start.id);
+            const endShape = shapesMap.get(item.end.id);
+            if (startShape && isShape(startShape)) {
+                minX = Math.min(minX, startShape.x);
+                minY = Math.min(minY, startShape.y);
+                maxX = Math.max(maxX, startShape.x + (startShape.props.w || 0));
+                maxY = Math.max(maxY, startShape.y + (startShape.props.h || 0));
+            }
+             if (endShape && isShape(endShape)) {
+                minX = Math.min(minX, endShape.x);
+                minY = Math.min(minY, endShape.y);
+                maxX = Math.max(maxX, endShape.x + (endShape.props.w || 0));
+                maxY = Math.max(maxY, endShape.y + (endShape.props.h || 0));
+            }
+        }
     });
+
+    if (!isFinite(minX)) return null;
+
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, minX, minY, maxX, maxY };
 }
 
@@ -56,16 +88,19 @@ const useCanvasAI = (editor: Editor) => {
                 }
                 const viewport = editor.getViewportPageBounds();
                 const allGeneratedItems = [...shapes, ...arrows];
-                const diagramBounds = getShapesBoundingBox(allGeneratedItems as any);
+                const diagramBounds = getShapesBoundingBox(allGeneratedItems, allGeneratedItems);
                 
                 if (diagramBounds && viewport) {
                     const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
                     const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
-                    shapes.forEach(shape => { shape.x += offsetX; shape.y += offsetY; });
+                    allGeneratedItems.forEach(item => {
+                        if('x' in item) item.x += offsetX;
+                        if('y' in item) item.y += offsetY;
+                    });
                 }
 
                 // Create both shapes and arrows using createShapes
-                editor.createShapes([...shapes, ...arrows] as any);
+                editor.createShapes(allGeneratedItems as any);
 
                 toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
             } catch (error: any) {
@@ -80,104 +115,6 @@ const useCanvasAI = (editor: Editor) => {
     return { status, diagram };
 };
 
-
-const useLiveMath = (editor: Editor, isEnabled: boolean) => {
-    const [preview, setPreview] = useState<{ shapeId: TLShapeId; result: string; keyword: string; bounds: Box } | null>(null);
-    const mathEngine = useMemo(() => ({
-        evaluate: (expression: string, operation: string) => {
-            try {
-                switch (operation) {
-                    case '=': return evaluate(expression).toString();
-                    case 'simplify': return simplify(expression).toString();
-                    case 'factor': return rationalize(expression).toString();
-                    case 'derive': return derivative(expression, 'x').toString();
-                    default: return null;
-                }
-            } catch { return null; }
-        }
-    }), []);
-
-    const confirmPreview = useCallback(() => {
-        if (!preview) return;
-        const shape = editor.getShape(preview.shapeId);
-        if (shape?.type === 'text') {
-            const originalText = shape.props.text.trim();
-            const keywordPattern = LIVE_MATH_KEYWORDS.find(k => k.keyword === preview.keyword)?.pattern;
-            if (!keywordPattern) return;
-
-            const expression = originalText.replace(keywordPattern, '').trim();
-            const newText = preview.keyword === '=' ? `${originalText} ${preview.result}` : `${expression} → ${preview.result}`;
-            editor.updateShape({ id: preview.shapeId, type: 'text', props: { text: newText } });
-            setPreview(null);
-        }
-    }, [editor, preview]);
-
-    useEffect(() => {
-        if (!isEnabled) {
-            setPreview(null);
-            return;
-        }
-
-        const handleExpression = (shapeId: TLShapeId, text: string) => {
-            const bounds = editor.getShapePageBounds(shapeId);
-            const keyword = LIVE_MATH_KEYWORDS.find(k => k.pattern.test(text));
-            if (!bounds || !keyword) {
-                setPreview(null);
-                return;
-            }
-            const expression = text.replace(keyword.pattern, '').trim();
-            if (!expression) {
-                setPreview(null);
-                return;
-            }
-            const result = mathEngine.evaluate(expression, keyword.keyword);
-            if (result !== null) {
-                setPreview({ shapeId, result, keyword: keyword.keyword, bounds });
-            } else {
-                setPreview(null);
-            }
-        };
-
-        const dispose = editor.store.listen(entry => {
-            if (entry.source !== 'user' || !entry.changes.updated) return;
-            const selectedShape = editor.getOnlySelectedShape();
-            if (!selectedShape || selectedShape.type !== 'text') {
-                setPreview(null);
-                return;
-            }
-            for (const [, to] of Object.values(entry.changes.updated)) {
-                if (to.id === selectedShape.id && to.type === 'text' && to.props?.text) {
-                    handleExpression(to.id, to.props.text);
-                }
-            }
-        });
-
-        return () => {
-            dispose();
-            setPreview(null);
-        };
-    }, [editor, isEnabled, mathEngine]);
-
-    useEffect(() => {
-        if (!preview) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter') confirmPreview();
-            if (e.key === 'Escape') setPreview(null);
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [preview, confirmPreview]);
-
-    return { preview, confirmPreview };
-};
-
-const LIVE_MATH_KEYWORDS = [
-  { keyword: '=', pattern: /=\s*$/ },
-  { keyword: 'simplify', pattern: / (simplify|expand|factor)\s*$/i },
-  { keyword: 'derive', pattern: / (derive|differentiate|d\/dx)\s*$/i },
-  { keyword: 'solve', pattern: / (solve|find\s+\w+)\s*$/i },
-  { keyword: 'evaluate', pattern: / (evaluate|calc|calculate)\s*$/i },
-];
 
 // --- Main Component ---
 export function CanvasAiMenu() {
@@ -230,37 +167,3 @@ function DiagramDialog({ onGenerate, isLoading }: { onGenerate: (input: Generate
     );
 }
 
-
-const LiveMathPreview = ({ preview, onConfirm, editor }: { preview: NonNullable<ReturnType<typeof useLiveMath>['preview']>, onConfirm: () => void, editor: Editor }) => {
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-
-    useEffect(() => {
-        const { bounds } = preview;
-        const pagePoint = { x: bounds.maxX, y: bounds.y + bounds.h / 2 };
-        const screenPoint = editor.pageToScreen(pagePoint);
-
-        if (!screenPoint) return;
-        
-        const previewWidth = 200; 
-        let x = screenPoint.x + 12;
-
-        if (x + previewWidth > window.innerWidth) {
-            const leftPagePoint = { x: bounds.minX, y: bounds.y + bounds.h / 2 };
-            const leftScreenPoint = editor.pageToScreen(leftPagePoint);
-            if(leftScreenPoint) x = leftScreenPoint.x - previewWidth - 24;
-        }
-        setPosition({ x, y: screenPoint.y });
-    }, [preview, editor]);
-
-    return (
-        <div className="fixed z-50 transition-opacity duration-200 ease-out" style={{ top: `${position.y}px`, left: `${position.x}px`, transform: 'translateY(-50%)' }}>
-            <div className="group relative cursor-pointer rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3 shadow-2xl backdrop-blur-sm" onClick={onConfirm}>
-                <div className="relative flex items-center gap-3">
-                    <span className="font-mono text-sm font-semibold text-primary">{preview.keyword === '=' ? `= ${preview.result}` : `→ ${preview.result}`}</span>
-                    <div className="h-4 w-px bg-border/50" />
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground"><Check className="h-3 w-3" /><span>Enter</span></div>
-                </div>
-            </div>
-        </div>
-    );
-};
