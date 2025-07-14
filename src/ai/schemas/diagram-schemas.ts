@@ -25,6 +25,7 @@ const TLTextShapeProps = TLBaseShapeProps.extend({
 // A base schema for a shape on the canvas
 const TLBaseShape = z.object({
   id: z.string().describe("A unique identifier for the shape, e.g., 'shape:user'"),
+  typeName: z.literal('shape'),
   x: z.number().describe('The x-coordinate of the top-left corner.'),
   y: z.number().describe('The y-coordinate of the top-left corner.'),
 });
@@ -51,6 +52,7 @@ const TLArrowhead = z.enum(['arrow', 'triangle', 'diamond', 'pipe', 'none']);
 // Arrow shape
 export const TLArrowShape = z.object({
   id: z.string().describe("A unique identifier for the arrow, e.g., 'arrow:1'"),
+  typeName: z.literal('shape'),
   type: z.enum(['arrow']),
   start: z.object({
     id: z.string().describe('The ID of the shape where the arrow starts.'),
