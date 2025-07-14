@@ -33,35 +33,30 @@ const prompt = ai.definePrompt({
 **Instructions:**
 1.  **Analyze the Prompt:** Understand the user's request: "{{{prompt}}}".
 2.  **Determine Diagram Type:** The user wants a "{{{diagramType}}}" diagram.
-3.  **Generate Shapes:** Create an array of shape objects.
-    *   Each shape MUST have an \`id\`, \`type\` ('geo' or 'text'), \`x\`, \`y\`, and a \`props\` object.
+3.  **Generate Shapes for Entities:** For each main entity (like a customer, product, or flowchart step), create a 'geo' shape.
+    *   Each shape MUST have an \`id\`, \`type\` ('geo'), \`x\`, \`y\`, and a \`props\` object.
     *   For 'geo' shapes, the \`props\` object MUST include \`geo\` (e.g., 'rectangle'), \`w\`, \`h\`, and \`text\`.
-    *   For 'text' shapes, the \`props\` object MUST include \`text\`, \`size\`, and \`align\`.
-    *   Position the shapes logically within the 1200x800 canvas. Avoid overlaps. Use 'geo' with 'rectangle' for main entities, classes, or flowchart steps.
-4.  **Generate Arrows:** Create an array of arrow objects to connect the shapes.
+4.  **Handle Attributes for Complex Entities (like ERDs):**
+    *   If the prompt asks for entities with attributes (e.g., a "Customer" with "ID, Name, Address"), create the main 'geo' shape for the entity (e.g., "Customer").
+    *   Then, create separate 'text' shapes for *each attribute*.
+    *   Position these attribute text shapes near their parent entity shape. For example, list them underneath or to the side of the main rectangle.
+5.  **Generate Arrows:** Create an array of arrow objects to connect the shapes.
     *   Each arrow must have an \`id\`, \`type\` ('arrow'), and a \`start\` and \`end\` object.
     *   The \`start\` and \`end\` objects must specify the \`id\` of the shape they connect to.
-    *   Set the arrow's \`start_arrowhead\` and \`end_arrowhead\` properties appropriately for the diagram type (e.g., 'arrow' for flowcharts, 'none' for basic ER diagrams, 'triangle' for UML inheritance).
-    *   Optionally add a \`text\` label to the arrow (e.g., for relationship names in ER diagrams).
-5.  **Layout Strategy:**
+    *   Set the arrow's \`start_arrowhead\` and \`end_arrowhead\` properties appropriately for the diagram type.
+    *   If the user specifies relationship details (like cardinality in an ERD, e.g., "one-to-many"), add this as a \`text\` label to the arrow.
+6.  **Layout Strategy:**
     *   For **flowcharts and process diagrams**, arrange shapes from top-to-bottom or left-to-right.
-    *   For **ER diagrams or class diagrams**, spread entities out to give room for relationship labels and connections.
-    *   For **system architecture diagrams**, use a hierarchical or layered layout (e.g., client, API, database layers).
-6.  **Return JSON:** Your final output must be a single JSON object containing the 'shapes' and 'arrows' arrays.
+    *   For **ER diagrams or class diagrams**, spread entities out to give room for relationship labels and connections. Place attribute text shapes close to their parent entity.
+7.  **Return JSON:** Your final output must be a single JSON object containing the 'shapes' and 'arrows' arrays.
 
 **Example for a simple flowchart:**
 \`\`\`json
 {
   "shapes": [
-    { "id": "shape:start", "type": "geo", "x": 500, "y": 50, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "Start" } },
-    { "id": "shape:decision", "type": "geo", "x": 475, "y": 150, "props": { "geo": "diamond", "w": 150, "h": 60, "text": "Is it valid?" } },
-    { "id": "shape:end_yes", "type": "geo", "x": 250, "y": 250, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "End (Yes)" } },
-    { "id": "shape:end_no", "type": "geo", "x": 650, "y": 250, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "End (No)" } }
+    { "id": "shape:start", "type": "geo", "x": 500, "y": 50, "props": { "geo": "rectangle", "w": 100, "h": 50, "text": "Start" } }
   ],
   "arrows": [
-    { "id": "arrow:1", "type": "arrow", "start": { "id": "shape:start" }, "end": { "id": "shape:decision" }, "start_arrowhead": "none", "end_arrowhead": "arrow" },
-    { "id": "arrow:2", "type": "arrow", "start": { "id": "shape:decision" }, "end": { "id": "shape:end_yes" }, "start_arrowhead": "none", "end_arrowhead": "arrow", "text": "Yes" },
-    { "id": "arrow:3", "type": "arrow", "start": { "id": "shape:decision" }, "end": { "id": "shape:end_no" }, "start_arrowhead": "none", "end_arrowhead": "arrow", "text": "No" }
   ]
 }
 \`\`\`

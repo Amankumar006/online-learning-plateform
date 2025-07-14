@@ -55,14 +55,18 @@ const useCanvasAI = (editor: Editor) => {
                     return;
                 }
                 const viewport = editor.getViewportPageBounds();
-                const diagramBounds = getShapesBoundingBox(shapes as any);
+                const allGeneratedItems = [...shapes, ...arrows];
+                const diagramBounds = getShapesBoundingBox(allGeneratedItems as any);
+                
                 if (diagramBounds && viewport) {
                     const offsetX = viewport.midX - (diagramBounds.x + diagramBounds.w / 2);
                     const offsetY = viewport.midY - (diagramBounds.y + diagramBounds.h / 2);
                     shapes.forEach(shape => { shape.x += offsetX; shape.y += offsetY; });
                 }
-                editor.createShapes(shapes as any);
-                if (arrows && arrows.length > 0) editor.createArrows(arrows as any, {});
+
+                // Create both shapes and arrows using createShapes
+                editor.createShapes([...shapes, ...arrows] as any);
+
                 toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
             } catch (error: any) {
                 console.error('Diagram Generation Failed:', error);
@@ -189,7 +193,6 @@ export function CanvasAiMenu() {
                     <Button variant="ghost" size="sm" asChild><Link href="/dashboard"><ArrowLeft className="mr-2" />Dashboard</Link></Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
                     <DiagramDialog onGenerate={diagram.generate} isLoading={status === 'loading'} />
-                    <Button variant="ghost" size="sm" disabled={true}><Type className="mr-2" />To Text (Soon)</Button>
                     <div className="h-6 w-px bg-border/50 mx-2"></div>
                     <Button variant="ghost" size="sm" onClick={() => setIsLiveMode(!isLiveMode)} className={cn(isLiveMode && "bg-primary/10 text-primary")}>
                         {isLiveMode ? <Zap className="mr-2 animate-pulse" /> : <Calculator className="mr-2" />}Live Math
@@ -219,7 +222,7 @@ function DiagramDialog({ onGenerate, isLoading }: { onGenerate: (input: Generate
             <DialogTrigger asChild><Button variant="ghost" size="sm" disabled={isLoading}><Sparkles className="mr-2" />Generate Diagram</Button></DialogTrigger>
             <DialogContent>
                 <DialogHeader><DialogTitle>Generate Diagram with AI</DialogTitle><DialogDescription>Describe the diagram you want to create.</DialogDescription></DialogHeader>
-                <div className="grid gap-4 py-4"><Label htmlFor="diagram-prompt">Prompt</Label><Textarea id="diagram-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A simple ER diagram..." rows={4}/></div>
+                <div className="grid gap-4 py-4"><Label htmlFor="diagram-prompt">Prompt</Label><Textarea id="diagram-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A simple ER diagram for customers, products, and orders..." rows={4}/></div>
                 <div className="grid gap-4 py-4"><Label htmlFor="diagram-type">Type</Label><Select value={type} onValueChange={setType}><SelectTrigger id="diagram-type"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Flowchart">Flowchart</SelectItem><SelectItem value="ER Diagram">ER Diagram</SelectItem><SelectItem value="System Architecture">System Architecture</SelectItem></SelectContent></Select></div>
                 <DialogFooter><Button onClick={handleSubmit} disabled={isLoading || !prompt.trim()}>{isLoading && <Loader2 className="mr-2 animate-spin" />}Generate</Button></DialogFooter>
             </DialogContent>
