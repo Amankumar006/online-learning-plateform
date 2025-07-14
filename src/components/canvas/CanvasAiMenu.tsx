@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, ArrowLeft, Loader2, Calculator, Zap } from 'lucide-react';
 import { useEditor, type Box, type TLShape, type TLShapeId, type Editor } from '@tldraw/tldraw';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { generateDiagram, GenerateDiagramInput, GenerateDiagramOutput } from "@/ai/flows/generate-diagram";
@@ -22,7 +22,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { evaluate, simplify, derivative, rationalize } from 'mathjs';
 import { cn } from "@/lib/utils";
 import { LiveMathPreview } from "./LiveMathPreview";
 import { useLiveMath } from "@/hooks/use-live-math";
@@ -86,8 +85,31 @@ const useCanvasAI = (editor: Editor) => {
                     toast({ variant: 'destructive', title: 'Diagram Generation Failed', description: 'The AI did not generate any valid shapes. Please try a more specific prompt.' });
                     return;
                 }
+
+                // Sanitize all IDs before passing them to the editor
+                const sanitizedShapes = shapes.map(shape => {
+                    if (!shape.id.startsWith('shape:')) {
+                        shape.id = `shape:${shape.id}`;
+                    }
+                    return shape;
+                });
+
+                const sanitizedArrows = arrows.map(arrow => {
+                    if (!arrow.id.startsWith('arrow:')) {
+                        arrow.id = `arrow:${arrow.id}`;
+                    }
+                    if (arrow.start.id && !arrow.start.id.startsWith('shape:')) {
+                        arrow.start.id = `shape:${arrow.start.id}`;
+                    }
+                    if (arrow.end.id && !arrow.end.id.startsWith('shape:')) {
+                        arrow.end.id = `shape:${arrow.end.id}`;
+                    }
+                    return arrow;
+                });
+
+                const allGeneratedItems = [...sanitizedShapes, ...sanitizedArrows];
+                
                 const viewport = editor.getViewportPageBounds();
-                const allGeneratedItems = [...shapes, ...arrows];
                 const diagramBounds = getShapesBoundingBox(allGeneratedItems, allGeneratedItems);
                 
                 if (diagramBounds && viewport) {
@@ -99,7 +121,6 @@ const useCanvasAI = (editor: Editor) => {
                     });
                 }
 
-                // Create both shapes and arrows using createShapes
                 editor.createShapes(allGeneratedItems as any);
 
                 toast({ title: 'Diagram Generated!', description: 'Your diagram has been added to the canvas.' });
@@ -166,4 +187,3 @@ function DiagramDialog({ onGenerate, isLoading }: { onGenerate: (input: Generate
         </Dialog>
     );
 }
-
