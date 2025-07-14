@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +50,11 @@ async function getSelectionAsImageDataUri(editor: Editor): Promise<string> {
     if (selectedShapeIds.length === 0) {
       throw new Error("Selection Required");
     }
+
+    // Add a small delay to allow the tldraw state to settle before capturing.
+    // This helps prevent race conditions where getSvg() might fail on newly created shapes.
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     const svg = await editor.getSvg(selectedShapeIds);
     if (!svg) {
       throw new Error("SVG Generation Failed");
@@ -227,7 +231,7 @@ export function CanvasAiMenu() {
         }
     };
 
-    const handleSolveSelection = useCallback(async (prompt: string) => {
+    const handleSolveSelection = async (prompt: string) => {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
@@ -255,9 +259,9 @@ export function CanvasAiMenu() {
         } finally {
             setStatus('idle');
         }
-    }, [editor, placeResultOnCanvas, toast]);
+    };
 
-    const handleExplainSelection = useCallback(async (prompt: string) => {
+    const handleExplainSelection = async (prompt: string) => {
         setStatus('loading');
         try {
             const imageDataUri = await getSelectionAsImageDataUri(editor);
@@ -287,7 +291,7 @@ export function CanvasAiMenu() {
         } finally {
             setStatus('idle');
         }
-    }, [editor, placeResultOnCanvas, toast, userProfile]);
+    };
     
 
     return (
