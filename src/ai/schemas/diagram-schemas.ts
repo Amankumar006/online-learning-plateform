@@ -20,7 +20,6 @@ const TLGeoShapeProps = TLBaseShapeProps.extend({
 // Props specific to text shapes
 const TLTextShapeProps = TLBaseShapeProps.extend({
     size: z.enum(['s', 'm', 'l', 'xl']),
-    align: z.enum(['start', 'middle', 'end']),
 });
 
 // A base schema for a shape on the canvas
@@ -44,13 +43,13 @@ const TLTextShape = TLBaseShape.extend({
 
 
 // Union of all supported shapes
-const TLShape = z.discriminatedUnion('type', [TLGeoShape, TLTextShape]);
+export const TLShape = z.discriminatedUnion('type', [TLGeoShape, TLTextShape]);
 
 // Arrowhead types
 const TLArrowhead = z.enum(['arrow', 'triangle', 'diamond', 'pipe', 'none']);
 
 // Arrow shape
-const TLArrowShape = z.object({
+export const TLArrowShape = z.object({
   id: z.string().describe("A unique identifier for the arrow, e.g., 'arrow:1'"),
   type: z.enum(['arrow']),
   start: z.object({
