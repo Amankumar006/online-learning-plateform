@@ -33,6 +33,10 @@ export type { GeneratedExercise };
 
 export async function generateExercise(input: GenerateExerciseInput): Promise<GeneratedExercise[]> {
   const result = await generateExerciseFlow(input);
+  // If the flow returns an empty or nullish result, return an empty array to the caller.
+  if (!result || !result.exercises) {
+    return [];
+  }
   return result.exercises;
 }
 

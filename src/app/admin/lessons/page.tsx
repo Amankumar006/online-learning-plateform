@@ -36,7 +36,7 @@ function LessonsSkeleton() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {[...Array(3)].map((_, i) => (
+            {[...Array(5)].map((_, i) => (
               <TableRow key={i}>
                 <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -58,6 +58,7 @@ export default function AdminLessonsPage() {
 
   useEffect(() => {
     const fetchLessons = async () => {
+      setIsLoading(true);
       const lessonsData = await getLessons();
       setLessons(lessonsData);
       setIsLoading(false);
@@ -125,8 +126,8 @@ export default function AdminLessonsPage() {
                 ))
                 ) : (
                 <TableRow>
-                    <TableCell colSpan={4} className="text-center">
-                    No lessons found.
+                    <TableCell colSpan={4} className="text-center p-8 text-muted-foreground">
+                    No lessons found. Click "Create Lesson" to get started.
                     </TableCell>
                 </TableRow>
                 )}
