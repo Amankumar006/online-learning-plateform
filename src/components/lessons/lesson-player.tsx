@@ -38,14 +38,24 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
 
   const handlePlaySection = useCallback(async (section: Section) => {
     if (isGeneratingAudio) return;
-    const content = getSectionTextContent(section);
-    if (!content) {
-        toast({ variant: "destructive", title: "No Content", description: "This section has no text to read aloud." });
+    
+    // If it's the current section, just toggle play/pause
+    if (currentSection?.title === section.title && audioUrl) {
+        onPlayPause();
         return;
     }
     
-    if (currentSection?.title === section.title && audioUrl) {
-        onPlayPause();
+    // Set the new section and audio immediately if URL exists
+    if (section.audioUrl) {
+        setCurrentSection(section);
+        setAudioUrl(section.audioUrl);
+        return;
+    }
+
+    // Fallback: Generate on demand if no URL is present
+    const content = getSectionTextContent(section);
+    if (!content) {
+        toast({ variant: "destructive", title: "No Content", description: "This section has no text to read aloud." });
         return;
     }
 
@@ -81,6 +91,18 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const handleDownload = async () => {
     if (!audioUrl || !currentSection) return;
     
+    // If it's a direct URL, we can download it easily.
+    if (audioUrl.startsWith('https://')) {
+        const link = document.createElement('a');
+        link.href = audioUrl;
+        link.download = `${lesson.title || 'lesson'}_${currentSection.title}.wav`.replace(/[^a-zA-Z0-9_.]/g, '_');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+    }
+    
+    // If it's a data URI, we need to upload first.
     toast({ title: 'Preparing Download', description: 'Uploading audio to secure storage...' });
     try {
         const fileName = `${lesson.title || 'lesson'}_${currentSection.title}`.replace(/[^a-zA-Z0-9]/g, '_');

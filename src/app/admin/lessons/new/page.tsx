@@ -145,7 +145,7 @@ export default function NewLessonPage() {
       await createLesson(lessonData);
       toast({
         title: "Success!",
-        description: "New lesson has been created.",
+        description: "New lesson created. Audio generation has started in the background.",
       });
       router.push("/admin/lessons");
       router.refresh();

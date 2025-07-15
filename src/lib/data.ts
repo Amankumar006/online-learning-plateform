@@ -8,6 +8,7 @@ import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
 import { uploadImageFromDataUrl, uploadAudioFromDataUrl } from './storage';
 import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
 import { generateProactiveSuggestion } from '@/ai/flows/generate-proactive-suggestion';
+import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 
 
 // Old structure
@@ -37,6 +38,7 @@ export type Block = TextBlock | CodeBlock | VideoBlock;
 export interface Section {
     title: string;
     blocks: Block[];
+    audioUrl?: string; // Add optional audioUrl field
 }
 
 
@@ -417,6 +419,37 @@ async function queueEmailsForAnnouncement(subject: string, message: string, link
     }
 }
 
+export async function generateAndStoreLessonAudio(lessonId: string): Promise<void> {
+  const lessonRef = doc(db, 'lessons', lessonId);
+  const lessonDoc = await getDoc(lessonRef);
+  if (!lessonDoc.exists()) {
+    throw new Error("Lesson not found to generate audio for.");
+  }
+
+  const lesson = lessonDoc.data() as Lesson;
+  if (!lesson.sections) return;
+
+  const updatedSections = await Promise.all(
+    lesson.sections.map(async (section, index) => {
+      const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
+      if (!textContent.trim() || section.audioUrl) {
+        return section; // Skip if no text content or audio already exists
+      }
+      try {
+        const { audioDataUri } = await generateAudioFromText({ sectionTitle: section.title, sectionContent: textContent });
+        const fileName = `${lessonId}_section_${index}`;
+        const audioUrl = await uploadAudioFromDataUrl(audioDataUri, fileName);
+        return { ...section, audioUrl };
+      } catch (error) {
+        console.error(`Failed to generate audio for section ${index} of lesson ${lessonId}:`, error);
+        return section; // Return original section on failure
+      }
+    })
+  );
+
+  await updateDoc(lessonRef, { sections: updatedSections });
+}
+
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, "lessons"), lessonData);
@@ -426,6 +459,8 @@ export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<stri
         message: `Explore the new lesson on ${lessonData.subject}. Happy learning!`,
         link: `/dashboard/lessons/${docRef.id}`
     });
+    // Fire-and-forget audio generation
+    generateAndStoreLessonAudio(docRef.id).catch(console.error);
     return docRef.id;
   } catch (error) {
     console.error("Error creating lesson: ", error);
@@ -437,6 +472,8 @@ export async function updateLesson(lessonId: string, lessonData: Partial<Omit<Le
   try {
     const lessonRef = doc(db, 'lessons', lessonId);
     await updateDoc(lessonRef, lessonData);
+    // Fire-and-forget audio generation
+    generateAndStoreLessonAudio(lessonId).catch(console.error);
   } catch (error) {
     console.error("Error updating lesson: ", error);
     throw new Error("Failed to update lesson");
@@ -1054,17 +1091,20 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
         const imageUrl = await uploadImageFromDataUrl(generatedImage.imageUrl, fileName);
 
         // 4. Create Lesson in Firestore
-        const lessonData = {
+        const lessonData: Omit<Lesson, 'id'> = {
             ...lessonContent,
             image: imageUrl,
         };
         const lessonRef = doc(collection(db, 'lessons'));
         transaction.set(lessonRef, lessonData);
+        
+        // 5. Generate Audio in background (don't wait for it)
+        generateAndStoreLessonAudio(lessonRef.id).catch(console.error);
 
-        // 5. Update Request Status
+        // 6. Update Request Status
         transaction.update(requestRef, { status: 'approved' });
 
-        // 6. Create Announcement
+        // 7. Create Announcement
         const announcementData = {
             type: 'new_lesson' as AnnouncementType,
             title: `New Lesson Added: ${lessonData.title}`,

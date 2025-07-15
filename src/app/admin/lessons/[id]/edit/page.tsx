@@ -170,7 +170,7 @@ export default function EditLessonPage() {
       await updateLesson(lessonId, lessonData);
       toast({
         title: "Success!",
-        description: "Lesson has been updated.",
+        description: "Lesson updated. Audio regeneration has started in the background.",
       });
       router.push("/admin/lessons");
       router.refresh();
@@ -186,10 +186,15 @@ export default function EditLessonPage() {
   };
 
   const handleSuggestFollowUp = async () => {
+      if (!lesson) return;
       setIsSuggesting(true);
       setSuggestedTopics([]);
       try {
-        const { suggestions } = await generateFollowUpSuggestions({ lessonId });
+        const lessonContent = lesson.sections?.map(s => s.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n')).join('\n\n') || lesson.description;
+        const { suggestions } = await generateFollowUpSuggestions({ 
+            lastUserMessage: `I just finished the lesson on "${lesson.title}". What's a good follow-up topic?`,
+            aiResponse: lessonContent,
+         });
         setSuggestedTopics(suggestions);
         if (suggestions.length === 0) {
             toast({ title: "No suggestions found.", description: "The AI could not determine a clear next step." });

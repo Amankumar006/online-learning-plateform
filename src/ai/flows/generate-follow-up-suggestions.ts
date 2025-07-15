@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow to generate conversational follow-up suggestions.
@@ -35,13 +36,13 @@ const prompt = ai.definePrompt({
   name: 'generateFollowUpSuggestionsPrompt',
   input: {schema: GenerateFollowUpSuggestionsInputSchema},
   output: {schema: GenerateFollowUpSuggestionsOutputSchema},
-  prompt: `You are an expert at anticipating a user's needs in a conversation. Based on the last user message and the AI's response, generate 2-4 short, relevant follow-up prompts that the user might want to ask next.
+  prompt: `You are an expert at anticipating a user's needs in a conversation or after completing a learning module. Based on the last user message and the AI's response (or the content of a completed lesson), generate 2-4 short, relevant follow-up prompts that the user might want to ask or learn about next.
 
 These prompts should be phrased as if the user is saying them.
 
 **Conversation Turn:**
 User: "{{{lastUserMessage}}}"
-AI: "{{{aiResponse}}}"
+AI Response / Lesson Content: "{{{aiResponse}}}"
 
 **Examples of Good Follow-up Prompts:**
 - "Explain that in simpler terms."
