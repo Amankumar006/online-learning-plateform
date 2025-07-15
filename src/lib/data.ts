@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit } from 'firebase/firestore';
@@ -432,8 +431,8 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
 
   const updatedSections = await Promise.all(
     lesson.sections.map(async (section, index) => {
-      // Skip if audio already exists
-      if (section.audioUrl) {
+      // Skip if audio already exists or no text content
+      if (section.audioUrl || !section.blocks.some(b => b.type === 'text')) {
         return section;
       }
       
@@ -455,6 +454,43 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
   );
 
   await updateDoc(lessonRef, { sections: updatedSections });
+}
+
+export async function generateAndCacheLessonAudioForSection(lessonId: string, sectionIndex: number): Promise<string> {
+  const lessonRef = doc(db, 'lessons', lessonId);
+  const lessonDoc = await getDoc(lessonRef);
+
+  if (!lessonDoc.exists()) {
+    throw new Error("Lesson not found");
+  }
+
+  const lesson = lessonDoc.data() as Lesson;
+  const section = lesson.sections?.[sectionIndex];
+
+  if (!section) {
+    throw new Error("Section not found");
+  }
+
+  // If URL already exists, just return it
+  if (section.audioUrl) {
+    return section.audioUrl;
+  }
+
+  const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
+  if (!textContent.trim()) {
+    throw new Error("Section has no text content to generate audio from.");
+  }
+
+  // Generate, Upload, and Update
+  const { audioDataUri } = await generateAudioFromText({ sectionTitle: section.title, sectionContent: textContent });
+  const fileName = `${lessonId}_section_${sectionIndex}_${Date.now()}`; // Add timestamp to avoid overwrites
+  const audioUrl = await uploadAudioFromDataUrl(audioDataUri, fileName);
+
+  const updatedSections = [...(lesson.sections || [])];
+  updatedSections[sectionIndex] = { ...section, audioUrl };
+  await updateDoc(lessonRef, { sections: updatedSections });
+
+  return audioUrl;
 }
 
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
