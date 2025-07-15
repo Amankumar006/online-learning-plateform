@@ -502,7 +502,7 @@ export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<stri
         message: `Explore the new lesson on ${lessonData.subject}. Happy learning!`,
         link: `/dashboard/lessons/${docRef.id}`
     });
-    // Fire-and-forget audio generation
+    // Fire-and-forget audio generation, don't await it
     generateAndStoreLessonAudio(docRef.id).catch(console.error);
     return docRef.id;
   } catch (error) {
