@@ -64,7 +64,7 @@ export default function LessonLayout({
   }
   
   return (
-    <div className="flex h-screen w-full flex-col font-body">
+    <div className="flex min-h-screen w-full flex-col font-body">
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
         <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/lessons"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Lessons</Link>
@@ -95,7 +95,7 @@ export default function LessonLayout({
             </DropdownMenu>
         </div>
       </header>
-      <main className="flex-1 flex flex-col overflow-y-auto">
+      <main className="flex-1 flex flex-col">
         {children}
       </main>
     </div>
