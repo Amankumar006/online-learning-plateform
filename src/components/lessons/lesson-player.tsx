@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, Square, Loader2, Download, ListMusic, Volume2 } from "lucide-react";
 import { Lesson, Section } from "@/lib/data";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
-import { uploadAudioFromDataUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +48,7 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
                 setCurrentlyPlayingSectionTitle(null);
                 return;
             }
+            toast({ title: "Generating Audio...", description: "Please wait while we prepare the audio for this section." });
             const result = await generateAudioFromText({ sectionTitle: section.title, sectionContent: content });
             audioUrl = result.audioDataUri;
         }
@@ -100,7 +100,7 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
                     onClick={() => handlePlaySection(section)}
                     disabled={isGeneratingAudio && !isCurrentSection}
                     className={cn(
-                        "w-full text-left p-4 pr-6 flex items-center justify-between rounded-lg transition-colors border bg-background/30",
+                        "w-full text-left p-4 pr-6 flex items-center justify-between rounded-lg transition-all border bg-background/30",
                         isCurrentSection 
                             ? "border-primary/50 ring-2 ring-primary/30" 
                             : "hover:bg-muted/50 border-muted-foreground/20"
