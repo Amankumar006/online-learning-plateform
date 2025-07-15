@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, updateUserTimeSpent, clearProactiveSuggestion } from "@/lib/data";
+import { getLesson, getExercises, updateUserTimeSpent, Lesson, Exercise } from "@/lib/data";
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
@@ -72,7 +72,6 @@ const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }
     setInput('');
     setIsLoading(true);
     
-    // Extract text content from the new lesson structure
     const lessonContent = lesson.sections?.map(s => s.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n')).join('\n\n') || "No content available.";
 
     try {
@@ -81,7 +80,7 @@ const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }
           lessonContext: lessonContent,
           history: messages.map(msg => ({ role: msg.role, content: msg.content })),
           userId: user.uid,
-          persona: 'buddy' // Persona can be customized if needed
+          persona: 'buddy'
       });
       const assistantMessage: Message = { role: 'model', content: result.content, isError: result.type === 'error' };
       setMessages(prev => [...prev, assistantMessage]);
@@ -175,7 +174,7 @@ export default function LessonPage() {
         if (user && startTime) {
             const endTime = Date.now();
             const elapsedTimeInSeconds = Math.round((endTime - startTime) / 1000);
-            if (elapsedTimeInSeconds > 5) { // Only track if user spent more than 5 seconds
+            if (elapsedTimeInSeconds > 5) { 
                 updateUserTimeSpent(user.uid, elapsedTimeInSeconds).catch(console.error);
             }
         }

@@ -3,28 +3,21 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Square, Loader2, Download } from "lucide-react";
+import { Play, Pause, Square, Loader2, Download, ListMusic, Volume2 } from "lucide-react";
 import { Lesson, Section } from "@/lib/data";
 import { generateAudioFromText } from "@/ai/flows/generate-audio-from-text";
 import { uploadAudioFromDataUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 const getSectionTextContent = (section: Section): string => {
     return section.blocks?.filter((b) => b.type === 'text').map((b) => (b as any).content).join('\n\n') || '';
 };
 
-const SectionPlayer = ({ section, onPlay, isGenerating, isPlaying }: { section: Section, onPlay: () => void, isGenerating: boolean, isPlaying: boolean}) => (
-    <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
-        <h2 className="text-2xl font-bold font-headline">{section.title}</h2>
-        <Button variant="ghost" size="icon" onClick={onPlay} disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="animate-spin" /> : (isPlaying ? <Pause /> : <Play />)}
-            <span className="sr-only">{isPlaying ? "Pause section" : "Play section"}</span>
-        </Button>
-    </div>
-);
 
 export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const { toast } = useToast();
@@ -39,20 +32,17 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const handlePlaySection = useCallback(async (section: Section) => {
     if (isGeneratingAudio) return;
     
-    // If it's the current section, just toggle play/pause
     if (currentSection?.title === section.title && audioUrl) {
         onPlayPause();
         return;
     }
     
-    // Set the new section and audio immediately if URL exists
     if (section.audioUrl) {
         setCurrentSection(section);
         setAudioUrl(section.audioUrl);
         return;
     }
 
-    // Fallback: Generate on demand if no URL is present
     const content = getSectionTextContent(section);
     if (!content) {
         toast({ variant: "destructive", title: "No Content", description: "This section has no text to read aloud." });
@@ -91,7 +81,6 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const handleDownload = async () => {
     if (!audioUrl || !currentSection) return;
     
-    // If it's a direct URL, we can download it easily.
     if (audioUrl.startsWith('https://')) {
         const link = document.createElement('a');
         link.href = audioUrl;
@@ -102,7 +91,6 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
         return;
     }
     
-    // If it's a data URI, we need to upload first.
     toast({ title: 'Preparing Download', description: 'Uploading audio to secure storage...' });
     try {
         const fileName = `${lesson.title || 'lesson'}_${currentSection.title}`.replace(/[^a-zA-Z0-9]/g, '_');
@@ -149,61 +137,101 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   return (
     <>
       <audio ref={audioRef} />
+      
+      {/* Sections List */}
+      <div className="space-y-2 mb-8">
+         {lesson.sections?.map((section, index) => (
+            <button 
+                key={index}
+                onClick={() => handlePlaySection(section)}
+                disabled={isGeneratingAudio && currentSection?.title !== section.title}
+                className={cn(
+                    "w-full text-left p-3 flex items-center justify-between rounded-lg transition-colors border",
+                    currentSection?.title === section.title 
+                        ? "bg-primary/10 border-primary/30 text-primary" 
+                        : "hover:bg-muted/50"
+                )}
+            >
+                <span className="font-semibold">{section.title}</span>
+                <div className="w-6 h-6 flex items-center justify-center">
+                    {isGeneratingAudio && currentSection?.title === section.title 
+                        ? <Loader2 className="animate-spin" /> 
+                        : (isPlaying && currentSection?.title === section.title ? <Volume2 /> : <Play />)}
+                </div>
+            </button>
+         ))}
+      </div>
+      
+      {/* Bottom Player Bar */}
       <div className={cn(
-        "sticky top-[65px] z-30 transition-all duration-300",
-        (isGeneratingAudio || audioUrl) ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
+        "fixed bottom-0 left-0 right-0 z-50 transition-all duration-300",
+        (isGeneratingAudio || audioUrl) ? "translate-y-0" : "translate-y-full"
       )}>
-        <Card className="mb-6 bg-background/80 backdrop-blur-sm shadow-lg">
-          <CardContent className="p-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 overflow-hidden">
-                <Button variant="secondary" size="icon" onClick={onPlayPause} disabled={isGeneratingAudio || !audioUrl} className="shrink-0">
-                    {isGeneratingAudio ? <Loader2 className="animate-spin"/> : (isPlaying ? <Pause /> : <Play />)}
-                </Button>
-                <div className="flex flex-col overflow-hidden">
-                    <span className="text-xs text-muted-foreground uppercase">Now Playing</span>
-                    <span className="font-semibold truncate text-sm">
-                        {isGeneratingAudio ? "Generating audio..." : (currentSection?.title || "Select a section to play")}
-                    </span>
+        <div className="bg-background/80 backdrop-blur-sm border-t p-2">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+                 <div className="flex items-center gap-3 overflow-hidden">
+                    <Button variant="secondary" size="icon" onClick={onPlayPause} disabled={isGeneratingAudio || !audioUrl} className="shrink-0 w-12 h-12">
+                        {isGeneratingAudio ? <Loader2 className="animate-spin"/> : (isPlaying ? <Pause /> : <Play />)}
+                    </Button>
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="font-semibold truncate text-sm">
+                            {isGeneratingAudio ? "Generating audio..." : (currentSection?.title || "Select a section to play")}
+                        </span>
+                        <span className="text-xs text-muted-foreground uppercase">{lesson.title}</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <Select value={String(playbackRate)} onValueChange={(value) => setPlaybackRate(Number(value))}>
+                        <SelectTrigger className="w-[80px] sm:w-[90px] h-9 text-xs">
+                            <SelectValue placeholder="Speed" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="0.75">0.75x</SelectItem>
+                            <SelectItem value="1">1x</SelectItem>
+                            <SelectItem value="1.25">1.25x</SelectItem>
+                            <SelectItem value="1.5">1.5x</SelectItem>
+                            <SelectItem value="2">2x</SelectItem>
+                        </SelectContent>
+                    </Select>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon"><ListMusic /><span className="sr-only">Playlist</span></Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="p-0 w-80 mb-2">
+                            <div className="p-3">
+                                <h4 className="font-semibold text-sm">Lesson Sections</h4>
+                            </div>
+                             <Separator />
+                             <ScrollArea className="h-[250px] p-1">
+                                {lesson.sections?.map((section, index) => (
+                                     <button 
+                                        key={index}
+                                        onClick={() => handlePlaySection(section)}
+                                        disabled={isGeneratingAudio && currentSection?.title !== section.title}
+                                        className={cn(
+                                            "w-full text-left p-2 flex items-center justify-between rounded-md transition-colors text-sm",
+                                            currentSection?.title === section.title 
+                                                ? "bg-primary/10 text-primary" 
+                                                : "hover:bg-muted/50"
+                                        )}
+                                    >
+                                        <span className="truncate">{section.title}</span>
+                                        <div className="w-5 h-5 flex items-center justify-center">
+                                             {isGeneratingAudio && currentSection?.title === section.title 
+                                                ? <Loader2 className="animate-spin w-4 h-4" /> 
+                                                : (isPlaying && currentSection?.title === section.title ? <Volume2 className="w-4 h-4" /> : <Play className="w-4 h-4" />)}
+                                        </div>
+                                    </button>
+                                ))}
+                            </ScrollArea>
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="ghost" size="icon" onClick={handleDownload} disabled={!audioUrl || isGeneratingAudio}><Download /><span className="sr-only">Download</span></Button>
+                    <Button variant="ghost" size="icon" onClick={handleStop}><Square /><span className="sr-only">Stop</span></Button>
                 </div>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2">
-                <Select
-                    value={String(playbackRate)}
-                    onValueChange={(value) => setPlaybackRate(Number(value))}
-                >
-                    <SelectTrigger className="w-[80px] sm:w-[90px] h-9 text-xs">
-                        <SelectValue placeholder="Speed" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="0.75">0.75x</SelectItem>
-                        <SelectItem value="1">1x</SelectItem>
-                        <SelectItem value="1.25">1.25x</SelectItem>
-                        <SelectItem value="1.5">1.5x</SelectItem>
-                        <SelectItem value="2">2x</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Button variant="ghost" size="icon" onClick={handleDownload} disabled={!audioUrl || isGeneratingAudio} className="shrink-0">
-                    <Download className="h-4 w-4"/>
-                    <span className="sr-only">Download Audio</span>
-                </Button>
-                <Button variant="ghost" size="icon" onClick={handleStop} className="shrink-0">
-                    <Square />
-                    <span className="sr-only">Stop</span>
-                </Button>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-
-       {lesson.sections?.map((section, index) => (
-            <SectionPlayer 
-                key={index}
-                section={section}
-                onPlay={() => handlePlaySection(section)}
-                isGenerating={isGeneratingAudio && currentSection?.title === section.title}
-                isPlaying={isPlaying && currentSection?.title === section.title}
-            />
-       ))}
     </>
   );
 }
