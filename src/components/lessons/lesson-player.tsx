@@ -11,13 +11,19 @@ import { cn } from "@/lib/utils";
 export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isMountedRef = useRef(true);
 
-  // Optimistically store updated section data with new audio URLs
   const [localSections, setLocalSections] = useState<Section[]>(lesson.sections || []);
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [currentlyPlayingSectionTitle, setCurrentlyPlayingSectionTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setLocalSections(lesson.sections || []);
@@ -27,7 +33,6 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   const handlePlaySection = useCallback(async (section: Section, sectionIndex: number) => {
     if (isGeneratingAudio) return;
     
-    // If clicking the currently playing section, toggle play/pause
     if (currentlyPlayingSectionTitle === section.title && audioRef.current && !isGeneratingAudio) {
         if (isPlaying) {
             audioRef.current.pause();
@@ -37,35 +42,49 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
         return;
     }
 
-    setCurrentlyPlayingSectionTitle(section.title);
-    if (audioRef.current) audioRef.current.src = '';
+    if (isMountedRef.current) {
+      setCurrentlyPlayingSectionTitle(section.title);
+      if (audioRef.current) audioRef.current.src = '';
+    }
     
     try {
         let audioUrl = section.audioUrl;
 
-        // If no cached URL, generate, cache, and then play it.
         if (!audioUrl) {
-            setIsGeneratingAudio(true);
-            toast({ title: "Generating Audio...", description: "This will be saved for future use. Please wait." });
+            if (isMountedRef.current) {
+              setIsGeneratingAudio(true);
+              toast({ title: "Generating Audio...", description: "This will be saved for future use. Please wait." });
+            }
             audioUrl = await generateAndCacheLessonAudioForSection(lesson.id, sectionIndex);
+            
+            if (isMountedRef.current) {
+              setLocalSections(prevSections => {
+                  const newSections = [...prevSections];
+                  newSections[sectionIndex] = { ...newSections[sectionIndex], audioUrl };
+                  return newSections;
+              });
+            }
+        }
 
-            // Optimistically update local state so we don't regenerate again
-            setLocalSections(prevSections => {
-                const newSections = [...prevSections];
-                newSections[sectionIndex] = { ...newSections[sectionIndex], audioUrl };
-                return newSections;
+        if (audioRef.current && isMountedRef.current) {
+            audioRef.current.src = audioUrl;
+            audioRef.current.play().catch(e => {
+              console.error("Audio play failed:", e);
+              if (isMountedRef.current) {
+                  toast({ variant: "destructive", title: "Playback Error", description: "Could not play the audio file." });
+              }
             });
         }
-
-        if (audioRef.current) {
-            audioRef.current.src = audioUrl;
-            audioRef.current.play().catch(e => console.error("Audio play failed:", e));
-        }
     } catch (e: any) {
-        toast({ variant: "destructive", title: "Audio Error", description: e.message || "Failed to generate or play audio." });
-        setCurrentlyPlayingSectionTitle(null);
+        console.error("Audio Generation/Caching Error:", e);
+        if (isMountedRef.current) {
+            toast({ variant: "destructive", title: "Audio Generation Failed", description: e.message || "An unknown error occurred while preparing audio." });
+            setCurrentlyPlayingSectionTitle(null);
+        }
     } finally {
-        setIsGeneratingAudio(false);
+        if (isMountedRef.current) {
+            setIsGeneratingAudio(false);
+        }
     }
   }, [currentlyPlayingSectionTitle, isGeneratingAudio, isPlaying, toast, lesson.id]);
 
@@ -73,11 +92,13 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPlay = () => isMountedRef.current && setIsPlaying(true);
+    const onPause = () => isMountedRef.current && setIsPlaying(false);
     const onEnded = () => {
-        setIsPlaying(false);
-        setCurrentlyPlayingSectionTitle(null);
+        if (isMountedRef.current) {
+          setIsPlaying(false);
+          setCurrentlyPlayingSectionTitle(null);
+        }
     };
 
     audio.addEventListener('play', onPlay);
@@ -99,6 +120,8 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
          {localSections.map((section, index) => {
             const isCurrentSection = currentlyPlayingSectionTitle === section.title;
             const isLoadingThisSection = isGeneratingAudio && isCurrentSection;
+            const isAudioCached = !!section.audioUrl;
+
             return (
                 <button 
                     key={index}
@@ -108,14 +131,19 @@ export default function LessonPlayer({ lesson }: { lesson: Lesson }) {
                         "w-full text-left p-4 pr-6 flex items-center justify-between rounded-lg transition-all border bg-background/30",
                         isCurrentSection 
                             ? "border-primary/50 ring-2 ring-primary/30" 
-                            : "hover:bg-muted/50 border-muted-foreground/20"
+                            : "hover:bg-muted/50 border-muted-foreground/20",
+                        isLoadingThisSection && "animate-pulse"
                     )}
                 >
                     <span className="font-semibold">{section.title}</span>
-                    <div className="w-6 h-6 flex items-center justify-center text-primary">
+                    <div className="relative w-6 h-6 flex items-center justify-center text-primary">
                         {isLoadingThisSection 
                             ? <Loader2 className="animate-spin" /> 
                             : (isPlaying && isCurrentSection ? <Pause /> : <Play />)}
+                        
+                        {isAudioCached && !isCurrentSection && (
+                           <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-500" />
+                        )}
                     </div>
                 </button>
             )
