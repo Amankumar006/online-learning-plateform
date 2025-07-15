@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Square, Loader2, Download, ListMusic, Volume2 } from "lucide-react";
+import { Play, Pause, Square, Loader2, Download } from "lucide-react";
 import { Lesson, Section, generateAndCacheLessonAudioForSection } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
