@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { getLesson, updateLesson, Lesson, Section } from "@/lib/data";
-import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight } from "lucide-react";
+import { getLesson, updateLesson, Lesson, Section, generateAndStoreLessonAudio } from "@/lib/data";
+import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +58,7 @@ export default function EditLessonPage() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isRegeneratingAudio, setIsRegeneratingAudio] = useState(false);
   
   // Form state
   const [title, setTitle] = useState("");
@@ -170,7 +171,7 @@ export default function EditLessonPage() {
       await updateLesson(lessonId, lessonData);
       toast({
         title: "Success!",
-        description: "Lesson updated. Audio regeneration has started in the background.",
+        description: "Lesson updated. Audio regeneration for new sections has started in the background.",
       });
       router.push("/admin/lessons");
       router.refresh();
@@ -206,6 +207,23 @@ export default function EditLessonPage() {
           setIsSuggesting(false);
       }
   };
+
+  const handleRegenerateAudio = async () => {
+    if (!lessonId) return;
+    setIsRegeneratingAudio(true);
+    toast({ title: "Starting Audio Regeneration", description: "The system will now attempt to generate audio for any missing sections. This may take a few moments." });
+    try {
+        await generateAndStoreLessonAudio(lessonId);
+        toast({ title: "Success!", description: "Audio regeneration process completed." });
+        // Re-fetch lesson data to get the new audio URLs
+        await fetchLessonData();
+    } catch (error: any) {
+        console.error(error);
+        toast({ variant: "destructive", title: "Audio Error", description: "An error occurred during audio regeneration." });
+    } finally {
+        setIsRegeneratingAudio(false);
+    }
+  }
   
   const handleCreateFollowUp = (topic: string) => {
       const query = new URLSearchParams({
@@ -225,7 +243,7 @@ export default function EditLessonPage() {
     { href: `/admin/lessons/${lessonId}/edit`, label: lesson?.title || "Edit Lesson" },
   ];
   
-  const canGenerate = isGeneratingImage || isUploadingImage || isSuggesting;
+  const canGenerate = isGeneratingImage || isUploadingImage || isSuggesting || isRegeneratingAudio;
 
   if (isLoading) {
       return (
@@ -383,10 +401,15 @@ export default function EditLessonPage() {
         <div className="sticky top-24">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary"/> What's Next?</CardTitle>
-                    <CardDescription>Generate AI-powered suggestions for a follow-up lesson based on this one.</CardDescription>
+                    <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary"/> AI Actions</CardTitle>
+                    <CardDescription>Use AI to enhance this lesson after saving any initial changes.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                     <Button onClick={handleRegenerateAudio} disabled={isRegeneratingAudio || isSaving} className="w-full">
+                        {isRegeneratingAudio ? <Loader2 className="animate-spin mr-2" /> : <RefreshCw className="mr-2" />}
+                        Regenerate Audio
+                    </Button>
+                    <hr/>
                     <Button onClick={handleSuggestFollowUp} disabled={isSuggesting} className="w-full">
                         {isSuggesting ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
                         Suggest Follow-up Topics

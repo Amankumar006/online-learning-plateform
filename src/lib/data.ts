@@ -423,7 +423,8 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
   const lessonRef = doc(db, 'lessons', lessonId);
   const lessonDoc = await getDoc(lessonRef);
   if (!lessonDoc.exists()) {
-    throw new Error("Lesson not found to generate audio for.");
+    console.error("Lesson not found to generate audio for.");
+    return;
   }
 
   const lesson = lessonDoc.data() as Lesson;
@@ -431,10 +432,16 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
 
   const updatedSections = await Promise.all(
     lesson.sections.map(async (section, index) => {
-      const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
-      if (!textContent.trim() || section.audioUrl) {
-        return section; // Skip if no text content or audio already exists
+      // Skip if audio already exists
+      if (section.audioUrl) {
+        return section;
       }
+      
+      const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
+      if (!textContent.trim()) {
+        return section; // Skip if no text content
+      }
+
       try {
         const { audioDataUri } = await generateAudioFromText({ sectionTitle: section.title, sectionContent: textContent });
         const fileName = `${lessonId}_section_${index}`;
@@ -442,7 +449,7 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
         return { ...section, audioUrl };
       } catch (error) {
         console.error(`Failed to generate audio for section ${index} of lesson ${lessonId}:`, error);
-        return section; // Return original section on failure
+        return section; // Return original section on failure, allowing for retries
       }
     })
   );
@@ -472,7 +479,7 @@ export async function updateLesson(lessonId: string, lessonData: Partial<Omit<Le
   try {
     const lessonRef = doc(db, 'lessons', lessonId);
     await updateDoc(lessonRef, lessonData);
-    // Fire-and-forget audio generation
+    // Fire-and-forget audio generation for any new sections
     generateAndStoreLessonAudio(lessonId).catch(console.error);
   } catch (error) {
     console.error("Error updating lesson: ", error);
