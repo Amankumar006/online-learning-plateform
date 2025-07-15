@@ -3,16 +3,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress } from "@/lib/data";
+import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp, Sparkles, Pen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function DashboardSkeleton() {
   return (
@@ -148,6 +149,13 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, []);
 
+  const handleDismissSuggestion = () => {
+    if (user) {
+        clearProactiveSuggestion(user.uid);
+        setUserProfile(prev => prev ? { ...prev, proactiveSuggestion: null } : null);
+    }
+  };
+
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
@@ -236,6 +244,21 @@ export default function DashboardPage() {
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
                     <p className="text-muted-foreground text-lg">Let's continue your learning journey.</p>
                 </div>
+                
+                {userProfile.proactiveSuggestion && (
+                    <Alert className="mb-6 bg-accent/20 border-accent/50">
+                        <Sparkles className="h-4 w-4 text-accent" />
+                        <AlertTitle className="font-semibold text-accent">A Message from Your AI Buddy!</AlertTitle>
+                        <AlertDescription className="flex items-start justify-between gap-4">
+                           <span>{userProfile.proactiveSuggestion.message}</span>
+                            <div className="flex gap-2 -mt-1 -mr-1">
+                                <Button size="sm" onClick={() => router.push('/dashboard/buddy-ai')}>Chat Now</Button>
+                                <Button size="sm" variant="ghost" onClick={handleDismissSuggestion}>Dismiss</Button>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     

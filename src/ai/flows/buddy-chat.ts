@@ -25,6 +25,7 @@ const BuddyChatInputSchema = z.object({
   userId: z.string().describe("The ID of the current user, used for context-aware actions."),
   history: z.array(MessageSchema).optional().describe('The conversation history.'),
   persona: PersonaSchema.optional().default('buddy').describe("The AI's persona, which determines its personality and expertise."),
+  lessonContext: z.string().optional().describe('The content of a lesson the user is currently viewing, if any. This should be used as the primary source of truth for lesson-specific questions.'),
 });
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
@@ -59,15 +60,20 @@ const buddyChatFlow = ai.defineFlow(
             parts: [{ text: msg.content }],
         }));
         
-        const systemPrompt = getSystemPrompt(input.persona);
+        const systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
         const tools = await getBuddyChatTools();
         
+        let promptText = input.userMessage;
+        if(input.lessonContext) {
+            promptText = `LESSON CONTEXT:\n---\n${input.lessonContext}\n---\n\nUSER MESSAGE: ${input.userMessage}`;
+        }
+
         const llmResponse = await ai.generate({
             model: 'googleai/gemini-2.0-flash',
             tools,
             system: systemPrompt,
             history: history,
-            prompt: input.userMessage,
+            prompt: promptText,
             config: {
                 safetySettings: [
                   { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },

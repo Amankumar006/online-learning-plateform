@@ -1,12 +1,12 @@
 
 "use client";
 
-import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, updateUserTimeSpent } from "@/lib/data";
+import { getLesson, getExercises, getUserProgress, Lesson, Exercise, UserProgress, updateUserTimeSpent, clearProactiveSuggestion } from "@/lib/data";
 import { notFound, useParams } from "next/navigation";
 import LessonContent from "@/components/lessons/lesson-content";
 import AdaptiveExercise from "@/components/lessons/adaptive-exercise";
-import { chatWithAIBuddy } from "@/ai/flows/chat-with-ai-buddy";
-import { Bot, Loader2, SendHorizontal, MessageSquare } from "lucide-react";
+import { buddyChatStream } from "@/ai/flows/buddy-chat";
+import { Bot, Loader2, SendHorizontal, MessageSquare, Sparkles } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -45,13 +45,14 @@ function LessonPageSkeleton() {
 }
 
 interface Message {
-    role: 'user' | 'assistant';
+    role: 'user' | 'model';
     content: string;
+    isError?: boolean;
 }
 
 const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: `Hello! I can help you with "${lesson.title}". Ask me to explain a concept or summarize the lesson!` }
+    { role: 'model', content: `Hello! I can help you with "${lesson.title}". Ask me to explain a concept or summarize the lesson!` }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -75,15 +76,18 @@ const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }
     const lessonContent = lesson.sections?.map(s => s.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n')).join('\n\n') || "No content available.";
 
     try {
-      const result = await chatWithAIBuddy({ 
+      const result = await buddyChatStream({ 
           userMessage: input, 
-          lessonContent
+          lessonContext: lessonContent,
+          history: messages.map(msg => ({ role: msg.role, content: msg.content })),
+          userId: user.uid,
+          persona: 'buddy' // Persona can be customized if needed
       });
-      const assistantMessage: Message = { role: 'assistant', content: result.response };
+      const assistantMessage: Message = { role: 'model', content: result.content, isError: result.type === 'error' };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { role: 'assistant', content: `Sorry, I ran into an error: ${e.message}` };
+      const errorMessage: Message = { role: 'model', content: `Sorry, I ran into an error: ${e.message}`, isError: true };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -103,13 +107,13 @@ const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }
         </PopoverTrigger>
         <PopoverContent align="end" className="w-96 p-0 flex flex-col h-[60vh]">
              <div className="p-3 border-b">
-                <h4 className="font-medium text-sm">AI Study Buddy</h4>
+                <h4 className="font-medium text-sm flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> AI Study Buddy</h4>
             </div>
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
                  <div className="space-y-4 p-4">
                     {messages.map((message, index) => (
                         <div key={index} className="flex items-start gap-3">
-                            {message.role === 'assistant' && (
+                            {message.role === 'model' && (
                                 <Avatar className="w-8 h-8 shrink-0 border"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
                             )}
                             <div className={cn("flex-1 max-w-md p-3 rounded-lg text-sm", message.role === 'user' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-muted')}>
