@@ -54,21 +54,8 @@ export default function StudyRoomPage() {
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center h-full">
-                <StudyRoomHeader
-                  room={room}
-                  onToggleChat={() => {}}
-                  participants={[]}
-                  lessons={[]}
-                  onAddLessonImage={() => {}}
-                  isOwner={false}
-                  onEndSession={() => {}}
-                  currentUser={null}
-                  onToggleHandRaise={() => {}}
-                />
-                <div className="flex-grow flex items-center justify-center text-destructive">
-                    Error: {error}
-                </div>
+            <div className="flex flex-col items-center justify-center h-screen">
+                <p className="text-destructive">Error: {error}</p>
             </div>
         );
     }
@@ -88,27 +75,28 @@ export default function StudyRoomPage() {
     }
 
     return (
-        <div className="w-full h-full">
-            <StudyRoomHeader
-              room={room}
-              onToggleChat={() => setIsChatOpen(prev => !prev)}
-              participants={participants}
-              lessons={lessons}
-              onAddLessonImage={addLessonImageToCanvas}
-              isOwner={room?.ownerId === appUser.uid}
-              onEndSession={endSession}
-              currentUser={appUser}
-              onToggleHandRaise={toggleHandRaise}
-            />
-            {/* The fixed container ensures a stable coordinate system for tldraw */}
-            <div className="fixed inset-0 pt-20">
+        <div className="h-screen w-screen">
+            <div className="fixed inset-0">
                 <Tldraw
                     store={store}
                     autoFocus
                 />
             </div>
-            {isChatOpen && (
-                <div className="fixed right-0 top-20 bottom-0 w-full max-w-sm border-l bg-background shadow-lg z-10">
+            <div className="absolute top-0 left-0 right-0 z-10">
+                 <StudyRoomHeader
+                    room={room}
+                    onToggleChat={() => setIsChatOpen(prev => !prev)}
+                    participants={participants}
+                    lessons={lessons}
+                    onAddLessonImage={addLessonImageToCanvas}
+                    isOwner={room?.ownerId === appUser.uid}
+                    onEndSession={endSession}
+                    currentUser={appUser}
+                    onToggleHandRaise={toggleHandRaise}
+                 />
+            </div>
+             {isChatOpen && (
+                <div className="absolute top-20 right-0 bottom-0 w-full max-w-sm bg-background shadow-lg z-10 border-l">
                     <ChatPanel 
                         messages={messages} 
                         currentUser={appUser} 
