@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MessageSquare, Share2, BookOpen } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ParticipantList } from "./ParticipantList";
@@ -17,6 +17,17 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 
@@ -62,12 +73,17 @@ interface StudyRoomHeaderProps {
   participants: User[];
   lessons: Lesson[];
   onAddLessonImage: (lesson: Lesson) => void;
+  isOwner: boolean;
+  onEndSession: () => void;
+  currentUser: User | null;
+  onToggleHandRaise: () => void;
 }
 
-export default function StudyRoomHeader({ roomId, onToggleChat, participants, lessons, onAddLessonImage }: StudyRoomHeaderProps) {
+export default function StudyRoomHeader({ roomId, onToggleChat, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
+  const isHandRaised = participants.find(p => p.uid === currentUser?.uid)?.handRaised || false;
 
   const handleShare = () => {
     const url = `${window.location.origin}${pathname}`;
@@ -83,7 +99,7 @@ export default function StudyRoomHeader({ roomId, onToggleChat, participants, le
       <div className="flex items-center gap-2">
          <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Link>
          </Button>
          <ParticipantList participants={participants} />
@@ -106,12 +122,37 @@ export default function StudyRoomHeader({ roomId, onToggleChat, participants, le
           </DialogContent>
         </Dialog>
 
+        <Button variant={isHandRaised ? "secondary" : "outline"} onClick={onToggleHandRaise}>
+            <Hand className="mr-2 h-4 w-4" /> {isHandRaised ? "Lower Hand" : "Raise Hand"}
+        </Button>
+
         <Button variant="outline" onClick={handleShare}>
           <Share2 className="mr-2 h-4 w-4" /> Share
         </Button>
          <Button variant="secondary" onClick={onToggleChat}>
           <MessageSquare className="mr-2 h-4 w-4" /> Chat
         </Button>
+        {isOwner && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Power className="mr-2 h-4 w-4" /> End Session
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>End Session for Everyone?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will make the whiteboard read-only for all participants. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={onEndSession}>End Session</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+        )}
       </div>
     </header>
   );

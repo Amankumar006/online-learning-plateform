@@ -114,6 +114,7 @@ export interface User {
   ageGroup?: string;
   loginStreak: number;
   lastLoginDate: string; // YYYY-MM-DD
+  handRaised?: boolean;
 }
 
 // New Exercise Data Structure
@@ -208,7 +209,8 @@ export interface StudyRoom {
     id: string;
     ownerId: string;
     createdAt: Timestamp;
-    roomState?: string; 
+    roomState?: string;
+    status: 'active' | 'ended';
 }
 
 export interface ChatMessage {
@@ -1235,9 +1237,15 @@ export async function createStudyRoomSession(ownerId: string): Promise<string> {
     await setDoc(newRoomRef, {
         ownerId,
         createdAt: Timestamp.now(),
-        roomState: null, // Initialize with no state
+        roomState: null,
+        status: 'active',
     });
     return newRoomRef.id;
+}
+
+export async function endStudyRoomSession(roomId: string): Promise<void> {
+    const roomRef = doc(db, 'studyRooms', roomId);
+    await updateDoc(roomRef, { status: 'ended' });
 }
 
 export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
@@ -1254,11 +1262,13 @@ export async function updateStudyRoomState(roomId: string, roomState: string): P
     await updateDoc(roomRef, { roomState });
 }
 
-export function getStudyRoomStateListener(roomId: string, callback: (state: string | null) => void) {
+export function getStudyRoomStateListener(roomId: string, callback: (roomData: StudyRoom | null) => void) {
     const roomRef = doc(db, 'studyRooms', roomId);
     return onSnapshot(roomRef, (doc) => {
         if (doc.exists()) {
-            callback(doc.data().roomState || null);
+            callback({ id: doc.id, ...doc.data() } as StudyRoom);
+        } else {
+            callback(null);
         }
     });
 }
@@ -1301,6 +1311,18 @@ export async function setParticipantStatus(roomId: string, user: User) {
         uid: user.uid,
         name: user.name,
         photoURL: user.photoURL || null,
+        handRaised: false, // Default to hand down
+    }, { merge: true });
+}
+
+export async function toggleHandRaise(roomId: string, userId: string) {
+    const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
+    await runTransaction(db, async (transaction) => {
+        const participantDoc = await transaction.get(participantRef);
+        if (participantDoc.exists()) {
+            const currentStatus = participantDoc.data().handRaised || false;
+            transaction.update(participantRef, { handRaised: !currentStatus });
+        }
     });
 }
 

@@ -38,7 +38,18 @@ export default function StudyRoomPage() {
         return () => unsubscribe();
     }, []);
     
-    const { store, error, isLoading, messages, sendMessage, participants, addLessonImageToCanvas } = useStudyRoom(roomId, appUser);
+    const { 
+        store, 
+        error, 
+        isLoading, 
+        messages, 
+        sendMessage, 
+        participants, 
+        addLessonImageToCanvas,
+        room,
+        endSession,
+        toggleHandRaise
+    } = useStudyRoom(roomId, appUser);
 
 
     if (error) {
@@ -50,6 +61,10 @@ export default function StudyRoomPage() {
                   participants={[]}
                   lessons={[]}
                   onAddLessonImage={() => {}}
+                  isOwner={false}
+                  onEndSession={() => {}}
+                  currentUser={null}
+                  onToggleHandRaise={() => {}}
                 />
                 <div className="flex-grow flex items-center justify-center text-destructive">
                     Error: {error}
@@ -80,6 +95,10 @@ export default function StudyRoomPage() {
               participants={participants}
               lessons={lessons}
               onAddLessonImage={addLessonImageToCanvas}
+              isOwner={room?.ownerId === appUser.uid}
+              onEndSession={endSession}
+              currentUser={appUser}
+              onToggleHandRaise={toggleHandRaise}
             />
             <div className="flex-grow flex relative">
                  <div className="flex-grow h-full">

@@ -9,9 +9,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { User } from "@/lib/data";
+import { Hand } from "lucide-react";
+
+interface Participant extends User {
+    handRaised?: boolean;
+}
 
 interface ParticipantListProps {
-  participants: User[];
+  participants: Participant[];
 }
 
 const getInitials = (name?: string) => {
@@ -31,10 +36,17 @@ export function ParticipantList({ participants }: ParticipantListProps) {
           <TooltipProvider key={participant.uid}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Avatar className="h-8 w-8 border-2 border-background">
-                  <AvatarImage src={participant.photoURL || undefined} />
-                  <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-8 w-8 border-2 border-background">
+                    <AvatarImage src={participant.photoURL || undefined} />
+                    <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
+                  </Avatar>
+                  {participant.handRaised && (
+                    <div className="absolute -bottom-1 -right-1 rounded-full bg-yellow-400 p-0.5 border-2 border-background">
+                      <Hand className="h-3 w-3 text-black" />
+                    </div>
+                  )}
+                </div>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{participant.name}</p>

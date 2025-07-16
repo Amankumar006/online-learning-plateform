@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson } from '@/lib/data';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb } from '@/lib/data';
 import { throttle } from 'lodash';
 
 const SAVE_STATE_INTERVAL = 500;
@@ -18,9 +18,11 @@ export function useStudyRoom(roomId: string, user: User | null) {
     
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
-            updateStudyRoomState(roomId, snapshot);
+            if (room?.status !== 'ended') {
+                updateStudyRoomState(roomId, snapshot);
+            }
         }, SAVE_STATE_INTERVAL, { trailing: true }),
-        [roomId]
+        [roomId, room?.status]
     );
 
     useEffect(() => {
@@ -43,6 +45,9 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                 if (initialRoom) {
                     setRoom(initialRoom);
+                    if (initialRoom.status === 'ended') {
+                        store.setReadOnly(true, 'session_ended');
+                    }
                      if (initialRoom.roomState) {
                         try {
                             store.loadSnapshot(JSON.parse(initialRoom.roomState));
@@ -57,12 +62,18 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 }
 
                 // Listener for whiteboard state
-                stateUnsubscribe = getStudyRoomStateListener(roomId, (newState) => {
-                    if (newState) {
-                        try {
-                            store.loadSnapshot(JSON.parse(newState));
-                        } catch (e) {
-                            console.error("Failed to parse or load room state:", e);
+                stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
+                    if (roomData) {
+                        setRoom(roomData);
+                         if (roomData.status === 'ended') {
+                            store.setReadOnly(true, 'session_ended');
+                        }
+                        if (roomData.roomState) {
+                            try {
+                                store.loadSnapshot(JSON.parse(roomData.roomState));
+                            } catch (e) {
+                                console.error("Failed to parse or load room state:", e);
+                            }
                         }
                     }
                 });
@@ -122,12 +133,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
     }, [roomId, user, store, saveStateToFirestore]);
     
     const handleSendMessage = (content: string, userName: string) => {
-        if (!user) return;
+        if (!user || room?.status === 'ended') return;
         sendStudyRoomMessage(roomId, user.uid, userName, content);
     };
 
     const addLessonImageToCanvas = useCallback((lesson: Lesson) => {
-        if (!store) return;
+        if (!store || room?.status === 'ended') return;
 
         // Create a deterministic asset ID from the image URL
         const assetId = getHashForString(lesson.image);
@@ -163,7 +174,19 @@ export function useStudyRoom(roomId: string, user: User | null) {
             },
         });
 
-    }, [store]);
+    }, [store, room?.status]);
+
+    const endSession = useCallback(async () => {
+        if (room?.ownerId === user?.uid) {
+            await endStudyRoomSession(roomId);
+        }
+    }, [roomId, user?.uid, room?.ownerId]);
+    
+    const toggleHandRaise = useCallback(async () => {
+        if (user) {
+            await toggleHandRaiseInDb(roomId, user.uid);
+        }
+    }, [roomId, user]);
 
     return { 
         store, 
@@ -173,5 +196,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
         sendMessage: handleSendMessage,
         participants,
         addLessonImageToCanvas,
+        room,
+        endSession,
+        toggleHandRaise
     };
 }
