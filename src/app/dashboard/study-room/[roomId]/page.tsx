@@ -100,15 +100,13 @@ export default function StudyRoomPage() {
               currentUser={appUser}
               onToggleHandRaise={toggleHandRaise}
             />
-            <div className="flex-grow flex relative">
-                 <div className="flex-grow h-full relative">
-                    <div className="absolute inset-0">
-                        <Tldraw
-                            store={store}
-                            autoFocus
-                        />
-                    </div>
-                 </div>
+            <div className="flex-grow relative">
+                <div className="absolute inset-0">
+                    <Tldraw
+                        store={store}
+                        autoFocus
+                    />
+                </div>
                  {isChatOpen && (
                      <div className="absolute right-0 top-0 h-full w-full max-w-sm border-l bg-background shadow-lg z-10">
                         <ChatPanel 
