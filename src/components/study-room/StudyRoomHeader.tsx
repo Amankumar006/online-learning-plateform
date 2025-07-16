@@ -3,16 +3,16 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface StudyRoomHeaderProps {
   roomId: string;
-  isOwner: boolean;
+  onToggleChat: () => void;
 }
 
-export default function StudyRoomHeader({ roomId, isOwner }: StudyRoomHeaderProps) {
+export default function StudyRoomHeader({ roomId, onToggleChat }: StudyRoomHeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
 
@@ -33,8 +33,11 @@ export default function StudyRoomHeader({ roomId, isOwner }: StudyRoomHeaderProp
         </Link>
       </Button>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" onClick={handleShare}>
-          <Share2 className="mr-2 h-4 w-4" /> Share Session
+        <Button variant="outline" onClick={handleShare}>
+          <Share2 className="mr-2 h-4 w-4" /> Share
+        </Button>
+         <Button variant="secondary" onClick={onToggleChat}>
+          <MessageSquare className="mr-2 h-4 w-4" /> Chat
         </Button>
       </div>
     </header>

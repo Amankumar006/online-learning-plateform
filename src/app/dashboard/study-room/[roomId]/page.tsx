@@ -1,8 +1,8 @@
 
 "use client";
 
-import { Tldraw } from "tldraw";
-import "tldraw/tldraw.css";
+import { Tldraw } from "@tldraw/tldraw";
+import "@tldraw/tldraw.css";
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -11,24 +11,35 @@ import { auth } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import StudyRoomHeader from "@/components/study-room/StudyRoomHeader";
+import { ChatPanel } from "@/components/study-room/ChatPanel";
+import { User as AppUser } from "@/lib/data";
+import { getUser } from "@/lib/data";
 
 export default function StudyRoomPage() {
     const params = useParams();
     const roomId = params.roomId as string;
     const [user, setUser] = useState<User | null>(null);
-    const { store, isOwner, error, isLoading } = useStudyRoom(roomId, user?.uid);
+    const [appUser, setAppUser] = useState<AppUser | null>(null);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+                const profile = await getUser(currentUser.uid);
+                setAppUser(profile);
+            }
         });
         return () => unsubscribe();
     }, []);
+    
+    const { store, error, isLoading, messages, sendMessage } = useStudyRoom(roomId, user?.uid);
+
 
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-full">
-                <StudyRoomHeader roomId={roomId} isOwner={false} />
+                <StudyRoomHeader roomId={roomId} onToggleChat={() => {}} />
                 <div className="flex-grow flex items-center justify-center text-destructive">
                     Error: {error}
                 </div>
@@ -36,7 +47,7 @@ export default function StudyRoomPage() {
         );
     }
     
-    if (isLoading || !store || !user) {
+    if (isLoading || !store || !user || !appUser) {
         return (
             <div className="flex flex-col items-center justify-center h-screen">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -44,16 +55,31 @@ export default function StudyRoomPage() {
             </div>
         );
     }
+    
+    const handleSendMessage = (content: string) => {
+        if (!appUser) return;
+        sendMessage(content, appUser.name || "Anonymous");
+    }
 
     return (
         <div className="w-full h-screen flex flex-col">
-            <StudyRoomHeader roomId={roomId} isOwner={isOwner} />
-            <div className="flex-grow">
-                 <Tldraw
-                    store={store}
-                    autoFocus
-                    isReadonly={!isOwner}
-                />
+            <StudyRoomHeader roomId={roomId} onToggleChat={() => setIsChatOpen(prev => !prev)} />
+            <div className="flex-grow flex relative">
+                 <div className="flex-grow h-full">
+                    <Tldraw
+                        store={store}
+                        autoFocus
+                    />
+                 </div>
+                 {isChatOpen && (
+                     <div className="absolute right-0 top-0 h-full w-full max-w-sm border-l bg-background shadow-lg z-10">
+                        <ChatPanel 
+                            messages={messages} 
+                            currentUser={appUser} 
+                            onSendMessage={handleSendMessage}
+                        />
+                     </div>
+                 )}
             </div>
         </div>
     );

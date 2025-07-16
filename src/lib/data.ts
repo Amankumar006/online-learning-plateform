@@ -208,9 +208,15 @@ export interface StudyRoom {
     id: string;
     ownerId: string;
     createdAt: Timestamp;
-    // We will store the tldraw state as a stringified object for simplicity in the MVP.
-    // This can be evolved to a subcollection of shapes for more granular control later.
     roomState?: string; 
+}
+
+export interface ChatMessage {
+    id: string;
+    userId: string;
+    userName: string;
+    content: string;
+    createdAt: Timestamp;
 }
 
 
@@ -1254,5 +1260,28 @@ export function getStudyRoomStateListener(roomId: string, callback: (state: stri
         if (doc.exists()) {
             callback(doc.data().roomState || null);
         }
+    });
+}
+
+export async function sendStudyRoomMessage(roomId: string, userId: string, userName: string, content: string) {
+    const messagesCollection = collection(db, 'studyRooms', roomId, 'messages');
+    await addDoc(messagesCollection, {
+        userId,
+        userName,
+        content,
+        createdAt: Timestamp.now(),
+    });
+}
+
+export function getStudyRoomMessagesListener(roomId: string, callback: (messages: ChatMessage[]) => void): () => void {
+    const messagesCollection = collection(db, 'studyRooms', roomId, 'messages');
+    const q = query(messagesCollection, orderBy('createdAt', 'asc'));
+
+    return onSnapshot(q, (snapshot) => {
+        const messages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as ChatMessage));
+        callback(messages);
     });
 }

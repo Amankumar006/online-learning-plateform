@@ -3,10 +3,9 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { Editor, createTLStore, defaultShapeUtils } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom } from '@/lib/data';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener } from '@/lib/data';
 import { throttle } from 'lodash';
 
-// The interval (in milliseconds) at which to save the room state to Firestore.
 const SAVE_STATE_INTERVAL = 500;
 
 export function useStudyRoom(roomId: string, userId?: string) {
@@ -14,10 +13,8 @@ export function useStudyRoom(roomId: string, userId?: string) {
     const [loading, setLoading] = useState(true);
     const [room, setRoom] = useState<StudyRoom | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     
-    const isOwner = useMemo(() => room?.ownerId === userId, [room, userId]);
-
-    // Throttle the function that saves the state to Firestore to avoid excessive writes.
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
             updateStudyRoomState(roomId, snapshot);
@@ -28,12 +25,14 @@ export function useStudyRoom(roomId: string, userId?: string) {
     useEffect(() => {
         if (!userId) return;
 
-        let unsubscribe: (() => void) | undefined;
+        let stateUnsubscribe: (() => void) | undefined;
+        let messagesUnsubscribe: (() => void) | undefined;
+        let saveUnsubscribe: (() => void) | undefined;
+
         let stillMounted = true;
         
         const setup = async () => {
             try {
-                // 1. Fetch initial room data to check ownership
                 const initialRoom = await getStudyRoom(roomId);
                 if (!stillMounted) return;
 
@@ -45,37 +44,33 @@ export function useStudyRoom(roomId: string, userId?: string) {
                     return;
                 }
 
-                // 2. Set up a real-time listener for the room state
-                unsubscribe = getStudyRoomStateListener(roomId, (newState) => {
+                // Listener for whiteboard state
+                stateUnsubscribe = getStudyRoomStateListener(roomId, (newState) => {
                     if (newState) {
                         try {
-                            // On update, load the new state into the store.
-                            // We use JSON.parse because we store the state as a stringified object.
                             store.loadSnapshot(JSON.parse(newState));
                         } catch (e) {
                             console.error("Failed to parse or load room state:", e);
                         }
                     }
                 });
+
+                // Listener for chat messages
+                messagesUnsubscribe = getStudyRoomMessagesListener(roomId, (newMessages) => {
+                    if (stillMounted) {
+                        setMessages(newMessages);
+                    }
+                });
                 
-                // 3. If the current user is the owner, set up a listener to save their changes.
-                if (initialRoom.ownerId === userId) {
-                    const saveUnsubscribe = store.listen(
-                        (event) => {
-                            if (event.source !== 'user') return;
-                            // When the user makes a change, save the new state.
-                            const snapshot = JSON.stringify(store.getSnapshot());
-                            saveStateToFirestore(snapshot);
-                        },
-                        { source: 'user', scope: 'document' }
-                    );
-                     // Add the save listener's unsubscribe to the main unsubscribe function.
-                    const originalUnsubscribe = unsubscribe;
-                    unsubscribe = () => {
-                        originalUnsubscribe?.();
-                        saveUnsubscribe();
-                    };
-                }
+                // Listener to save local changes to Firestore (for everyone)
+                saveUnsubscribe = store.listen(
+                    (event) => {
+                        if (event.source !== 'user') return;
+                        const snapshot = JSON.stringify(store.getSnapshot());
+                        saveStateToFirestore(snapshot);
+                    },
+                    { source: 'user', scope: 'document' }
+                );
                 
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
@@ -93,9 +88,22 @@ export function useStudyRoom(roomId: string, userId?: string) {
 
         return () => {
             stillMounted = false;
-            unsubscribe?.();
+            stateUnsubscribe?.();
+            messagesUnsubscribe?.();
+            saveUnsubscribe?.();
         };
     }, [roomId, userId, store, saveStateToFirestore]);
+    
+    const handleSendMessage = (content: string, userName: string) => {
+        if (!userId) return;
+        sendStudyRoomMessage(roomId, userId, userName, content);
+    }
 
-    return { store, error, isLoading: loading, isOwner };
+    return { 
+        store, 
+        error, 
+        isLoading: loading, 
+        messages,
+        sendMessage: handleSendMessage,
+    };
 }
