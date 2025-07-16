@@ -1,19 +1,34 @@
 
 "use client";
 
-import { Bot, Calculator, ClipboardEdit, X, CheckSquare } from 'lucide-react';
+import { Bot, Calculator, CheckSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUtilitySidebar, PanelType } from '@/hooks/use-utility-sidebar';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import QuickChatPanel from './QuickChatPanel';
 import TasksPanel from './TasksPanel';
+import MathEditor from '@/components/lessons/math-editor';
+import { useState } from 'react';
+import { ScrollArea } from '../ui/scroll-area';
 
 const sidebarTools = [
   { type: 'chat' as PanelType, icon: Bot, label: 'Quick Chat' },
   { type: 'tasks' as PanelType, icon: CheckSquare, label: 'Tasks' },
   { type: 'math' as PanelType, icon: Calculator, label: 'Math Solver' },
 ];
+
+const MathSolverPanel = () => {
+    const [value, setValue] = useState('');
+    return (
+        <ScrollArea className="h-full">
+            <div className="p-4">
+                <MathEditor value={value} onValueChange={setValue} />
+            </div>
+        </ScrollArea>
+    );
+};
+
 
 export default function UtilitySidebar() {
   const { openPanel, togglePanel } = useUtilitySidebar();
@@ -25,7 +40,7 @@ export default function UtilitySidebar() {
       case 'tasks':
         return <TasksPanel />;
       case 'math':
-        return <div className="p-4"><h3 className="font-semibold">Math Solver</h3><p className="text-sm text-muted-foreground">This feature is coming soon.</p></div>;
+        return <MathSolverPanel />;
       default:
         return null;
     }
@@ -60,7 +75,7 @@ export default function UtilitySidebar() {
         <div
           className={cn(
             "transition-all duration-300 ease-in-out bg-background border-l shadow-lg overflow-hidden",
-            openPanel ? 'w-[350px]' : 'w-0'
+            openPanel ? 'w-[350px] lg:w-[450px] xl:w-[550px]' : 'w-0'
           )}
         >
           {openPanel && (
