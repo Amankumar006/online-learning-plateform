@@ -88,7 +88,7 @@ export default function StudyRoomPage() {
     }
 
     return (
-        <div className="w-full flex flex-col">
+        <div className="w-full h-full">
             <StudyRoomHeader
               room={room}
               onToggleChat={() => setIsChatOpen(prev => !prev)}
@@ -100,21 +100,22 @@ export default function StudyRoomPage() {
               currentUser={appUser}
               onToggleHandRaise={toggleHandRaise}
             />
-            <main className="relative" style={{ height: 'calc(100vh - 5rem)' }}>
+            {/* The fixed container ensures a stable coordinate system for tldraw */}
+            <div className="fixed inset-0 pt-20">
                 <Tldraw
                     store={store}
                     autoFocus
                 />
-                 {isChatOpen && (
-                     <div className="absolute right-0 top-0 h-full w-full max-w-sm border-l bg-background shadow-lg z-10">
-                        <ChatPanel 
-                            messages={messages} 
-                            currentUser={appUser} 
-                            onSendMessage={handleSendMessage}
-                        />
-                     </div>
-                 )}
-            </main>
+            </div>
+            {isChatOpen && (
+                <div className="fixed right-0 top-20 bottom-0 w-full max-w-sm border-l bg-background shadow-lg z-10">
+                    <ChatPanel 
+                        messages={messages} 
+                        currentUser={appUser} 
+                        onSendMessage={handleSendMessage}
+                    />
+                </div>
+            )}
         </div>
     );
 }
