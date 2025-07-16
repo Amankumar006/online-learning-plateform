@@ -28,7 +28,7 @@ const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
 });
 
-const MathSolutionGrader = dynamic(() => import("./math-solution-grader"), {
+const MathSolutionGrader = dynamic(() => import("../lessons/math-solution-grader"), {
     ssr: false,
     loading: () => <Skeleton className="w-full h-[550px] rounded-md" />,
 });
@@ -445,12 +445,8 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                                         </Button>
                                     )}
                                 </div>
-                                <TabsContent value="console" className="mt-0">
-                                    <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
-                                </TabsContent>
-                                <TabsContent value="analysis" className="mt-0">
-                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} />
-                                </TabsContent>
+                                <TabsContent value="console" className="mt-0"><ConsoleOutput result={simulationResult} isLoading={isSimulating} /></TabsContent>
+                                <TabsContent value="analysis" className="mt-0"><AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} /></TabsContent>
                             </Tabs>
                         </div>
                     </div>
