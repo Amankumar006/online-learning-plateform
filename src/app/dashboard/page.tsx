@@ -3,10 +3,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion } from "@/lib/data";
+import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion, getPublicStudyRooms, StudyRoom } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp, Sparkles, Pen, Users } from "lucide-react";
+import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp, Sparkles, Pen, Users, Globe } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import StartStudyRoom from "@/components/dashboard/StartStudyRoom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function DashboardSkeleton() {
   return (
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(true);
+  const [publicRooms, setPublicRooms] = useState<StudyRoom[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -101,14 +103,16 @@ export default function DashboardPage() {
         setUser(currentUser);
         setIsLoading(true);
         try {
-            const [profile, progress, lessonsData] = await Promise.all([
+            const [profile, progress, lessonsData, publicRoomsData] = await Promise.all([
                 getUser(currentUser.uid),
                 getUserProgress(currentUser.uid),
-                getLessons()
+                getLessons(),
+                getPublicStudyRooms()
             ]);
             setUserProfile(profile);
             setUserProgress(progress);
             setLessons(lessonsData);
+            setPublicRooms(publicRoomsData);
             
             const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
             const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
@@ -338,33 +342,42 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                    {/* Explore Subjects */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
-                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground mb-4">Explore Subjects</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            {subjectEntries.map(([subject, count]) => (
-                                 <Link href={`/dashboard/lessons`} key={subject} className="block group">
-                                    <div className="h-full rounded-lg bg-white/5 dark:bg-black/10 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4 text-center transition-all duration-300 hover:-translate-y-1.5 hover:bg-white/10 dark:hover:bg-black/20 hover:shadow-lg hover:shadow-accent/10">
-                                        <div className="p-4 bg-white/10 dark:bg-black/20 rounded-lg">
-                                            {getSubjectIcon(subject)}
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-foreground">{subject}</p>
-                                            <p className="text-sm text-muted-foreground">{count} Lessons</p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
+                    {/* Public Study Rooms */}
+                    <Card className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
+                        <CardHeader className="p-0 mb-4">
+                            <CardTitle className="text-xl font-bold tracking-tight font-headline text-foreground flex items-center gap-2">
+                                <Globe className="h-5 w-5"/> Public Study Rooms
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {publicRooms.length > 0 ? (
+                                <div className="space-y-3">
+                                    {publicRooms.map(room => (
+                                        <Link href={`/dashboard/study-room/${room.id}`} key={room.id} className="block p-3 rounded-md hover:bg-white/10 dark:hover:bg-black/20 transition-colors group">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-semibold">{room.name}</p>
+                                                    {room.lessonTitle && <p className="text-xs text-muted-foreground">Topic: {room.lessonTitle}</p>}
+                                                </div>
+                                                <Button variant="secondary" size="sm" className="h-8">Join</Button>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8">No public study rooms are active right now. Why not start one?</p>
+                            )}
+                        </CardContent>
+                    </Card>
+
                      {/* Study Room */}
                     <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
                         <div className="p-4 bg-accent/10 rounded-full mb-4">
                             <Users className="w-8 h-8 text-accent" />
                         </div>
-                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Study Room</h3>
+                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Create a Study Room</h3>
                         <p className="text-muted-foreground mt-2 mb-4">Collaborate with others on a shared whiteboard in real-time.</p>
-                        {user && <StartStudyRoom userId={user.uid} />}
+                        {user && <StartStudyRoom userId={user.uid} lessons={lessons}/>}
                     </div>
                 </div>
             </div>

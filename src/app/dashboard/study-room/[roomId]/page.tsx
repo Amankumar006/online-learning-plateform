@@ -56,7 +56,7 @@ export default function StudyRoomPage() {
         return (
             <div className="flex flex-col items-center justify-center h-full">
                 <StudyRoomHeader
-                  roomId={roomId}
+                  room={room}
                   onToggleChat={() => {}}
                   participants={[]}
                   lessons={[]}
@@ -90,7 +90,7 @@ export default function StudyRoomPage() {
     return (
         <div className="w-full h-screen flex flex-col">
             <StudyRoomHeader
-              roomId={roomId}
+              room={room}
               onToggleChat={() => setIsChatOpen(prev => !prev)}
               participants={participants}
               lessons={lessons}

@@ -4,11 +4,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ParticipantList } from "./ParticipantList";
-import { User, Lesson } from "@/lib/data";
+import { User, Lesson, StudyRoom } from "@/lib/data";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
+import { Badge } from "../ui/badge";
 
 interface LessonLoaderProps {
   lessons: Lesson[];
@@ -68,7 +69,7 @@ const LessonLoader = ({ lessons, onSelectLesson, closeDialog }: LessonLoaderProp
 
 
 interface StudyRoomHeaderProps {
-  roomId: string;
+  room: StudyRoom | null;
   onToggleChat: () => void;
   participants: User[];
   lessons: Lesson[];
@@ -79,7 +80,7 @@ interface StudyRoomHeaderProps {
   onToggleHandRaise: () => void;
 }
 
-export default function StudyRoomHeader({ roomId, onToggleChat, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
+export default function StudyRoomHeader({ room, onToggleChat, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
@@ -95,15 +96,25 @@ export default function StudyRoomHeader({ roomId, onToggleChat, participants, le
   };
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 md:px-6">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-50 flex h-20 shrink-0 items-center justify-between border-b bg-background px-4 md:px-6">
+      <div className="flex items-center gap-4">
          <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Link>
          </Button>
-         <ParticipantList participants={participants} />
+         <div className="flex flex-col">
+            <h1 className="font-semibold text-lg flex items-center gap-2">
+                {room?.name || 'Study Room'}
+                <Badge variant="outline" className="capitalize">
+                    {room?.visibility === 'public' ? <Globe className="mr-1 h-3 w-3"/> : <Lock className="mr-1 h-3 w-3"/>}
+                    {room?.visibility}
+                </Badge>
+            </h1>
+            {room?.lessonTitle && <p className="text-xs text-muted-foreground">Topic: {room.lessonTitle}</p>}
+         </div>
       </div>
+       <ParticipantList participants={participants} />
       <div className="flex items-center gap-2">
          <Dialog open={isLessonLoaderOpen} onOpenChange={setIsLessonLoaderOpen}>
           <DialogTrigger asChild>

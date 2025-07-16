@@ -208,6 +208,10 @@ export interface Announcement {
 export interface StudyRoom {
     id: string;
     ownerId: string;
+    name: string;
+    visibility: 'public' | 'private';
+    lessonId?: string;
+    lessonTitle?: string;
     createdAt: Timestamp;
     roomState?: string;
     status: 'active' | 'ended';
@@ -1232,15 +1236,30 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 }
 
 // Study Room Functions
-export async function createStudyRoomSession(ownerId: string): Promise<string> {
+export async function createStudyRoomSession(
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status'>
+): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
-    await setDoc(newRoomRef, {
-        ownerId,
+    const payload: Omit<StudyRoom, 'id'> = {
+        ...data,
         createdAt: Timestamp.now(),
-        roomState: null,
         status: 'active',
-    });
+    };
+    await setDoc(newRoomRef, payload);
     return newRoomRef.id;
+}
+
+
+export async function getPublicStudyRooms(): Promise<StudyRoom[]> {
+    const q = query(
+        collection(db, 'studyRooms'),
+        where('visibility', '==', 'public'),
+        where('status', '==', 'active'),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoom));
 }
 
 export async function endStudyRoomSession(roomId: string): Promise<void> {
