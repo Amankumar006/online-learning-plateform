@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { getUser, getLessons, getPublicStudyRooms, User, Lesson, StudyRoom } from '@/lib/data';
+import { getUser, getLessons, getStudyRoomsForUser, User, Lesson, StudyRoom } from '@/lib/data';
 import StartStudyRoom from '@/components/dashboard/StartStudyRoom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Globe } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 
 function StudyRoomSkeleton() {
     return (
@@ -44,7 +44,7 @@ export default function StudyRoomsPage() {
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [appUser, setAppUser] = useState<User | null>(null);
     const [lessons, setLessons] = useState<Lesson[]>([]);
-    const [publicRooms, setPublicRooms] = useState<StudyRoom[]>([]);
+    const [studyRooms, setStudyRooms] = useState<StudyRoom[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -53,14 +53,14 @@ export default function StudyRoomsPage() {
             if (currentUser) {
                 setUser(currentUser);
                 try {
-                    const [profile, allLessons, publicRoomsData] = await Promise.all([
+                    const [profile, allLessons, roomsData] = await Promise.all([
                         getUser(currentUser.uid),
                         getLessons(),
-                        getPublicStudyRooms()
+                        getStudyRoomsForUser(currentUser.uid)
                     ]);
                     setAppUser(profile);
                     setLessons(allLessons);
-                    setPublicRooms(publicRoomsData);
+                    setStudyRooms(roomsData);
                 } catch (error) {
                     console.error("Failed to load study room data:", error);
                 } finally {
@@ -97,17 +97,20 @@ export default function StudyRoomsPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Globe className="h-5 w-5" />
-                        Public Study Rooms
+                        Available Study Rooms
                     </CardTitle>
-                    <CardDescription>Join an active session below or create your own.</CardDescription>
+                    <CardDescription>Join an active session below or create your own private or public room.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {publicRooms.length > 0 ? (
+                    {studyRooms.length > 0 ? (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {publicRooms.map(room => (
+                            {studyRooms.map(room => (
                                 <Card key={room.id} className="p-4 flex flex-col justify-between">
                                     <div>
-                                        <h3 className="font-semibold">{room.name}</h3>
+                                        <h3 className="font-semibold flex items-center gap-2">
+                                          {room.visibility === 'public' ? <Globe className="h-4 w-4 text-muted-foreground" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+                                          {room.name}
+                                        </h3>
                                         {room.lessonTitle && (
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 Topic: {room.lessonTitle}
@@ -122,7 +125,7 @@ export default function StudyRoomsPage() {
                         </div>
                     ) : (
                         <div className="text-center text-muted-foreground py-16">
-                            <p>No public rooms are active right now.</p>
+                            <p>No study rooms are active right now.</p>
                             <p className="text-sm mt-1">Why not start one?</p>
                         </div>
                     )}

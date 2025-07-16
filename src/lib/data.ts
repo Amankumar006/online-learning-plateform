@@ -210,8 +210,8 @@ export interface StudyRoom {
     ownerId: string;
     name: string;
     visibility: 'public' | 'private';
-    lessonId?: string;
-    lessonTitle?: string;
+    lessonId?: string | null;
+    lessonTitle?: string | null;
     createdAt: Timestamp;
     roomState?: string;
     status: 'active' | 'ended';
@@ -1236,16 +1236,42 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 }
 
 // Study Room Functions
-export async function getPublicStudyRooms(): Promise<StudyRoom[]> {
-    const q = query(
+export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
+    if (!userId) {
+        return [];
+    }
+    // Query for public rooms
+    const publicRoomsQuery = query(
         collection(db, 'studyRooms'),
         where('visibility', '==', 'public'),
-        where('status', '==', 'active'),
-        orderBy('createdAt', 'desc'),
-        limit(10)
+        where('status', '==', 'active')
     );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoom));
+
+    // Query for private rooms owned by the user
+    const privateRoomsQuery = query(
+        collection(db, 'studyRooms'),
+        where('visibility', '==', 'private'),
+        where('ownerId', '==', userId),
+        where('status', '==', 'active')
+    );
+
+    const [publicSnapshot, privateSnapshot] = await Promise.all([
+        getDocs(publicRoomsQuery),
+        getDocs(privateRoomsQuery)
+    ]);
+
+    const roomsMap = new Map<string, StudyRoom>();
+
+    publicSnapshot.docs.forEach(doc => {
+        roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+    });
+
+    privateSnapshot.docs.forEach(doc => {
+        roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+    });
+
+    // Convert map values to array and sort by creation date
+    return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
 export async function endStudyRoomSession(roomId: string): Promise<void> {
