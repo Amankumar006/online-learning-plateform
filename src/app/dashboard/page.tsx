@@ -3,19 +3,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion, getPublicStudyRooms, StudyRoom } from "@/lib/data";
+import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp, Sparkles, Pen, Users, Globe } from "lucide-react";
+import { ArrowRight, Bot, BookOpen, BrainCircuit, Users, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import StartStudyRoom from "@/components/dashboard/StartStudyRoom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function DashboardSkeleton() {
   return (
@@ -63,19 +60,20 @@ function DashboardSkeleton() {
                     </div>
                 </div>
 
-                {/* Subjects Skeleton */}
-                <div className="mt-8">
-                     <Skeleton className="h-6 w-32 mb-4" />
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[...Array(4)].map((_, i) => (
-                             <div key={i} className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
-                                <Skeleton className="p-3 h-14 w-14 rounded-lg" />
-                                <div className="space-y-2 flex-1 w-full">
-                                    <Skeleton className="h-5 w-full" />
-                                    <Skeleton className="h-4 w-1/2 mx-auto" />
-                                </div>
-                            </div>
-                        ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+                     <div className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
+                        <Skeleton className="p-3 h-14 w-14 rounded-lg" />
+                        <div className="space-y-2 flex-1 w-full">
+                            <Skeleton className="h-5 w-full" />
+                            <Skeleton className="h-4 w-1/2 mx-auto" />
+                        </div>
+                    </div>
+                     <div className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
+                        <Skeleton className="p-3 h-14 w-14 rounded-lg" />
+                        <div className="space-y-2 flex-1 w-full">
+                            <Skeleton className="h-5 w-full" />
+                            <Skeleton className="h-4 w-1/2 mx-auto" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -88,31 +86,26 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(true);
-  const [publicRooms, setPublicRooms] = useState<StudyRoom[]>([]);
 
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
         try {
-          const [profile, progress, lessonsData, publicRoomsData] = await Promise.all([
+          const [profile, progress, lessonsData] = await Promise.all([
               getUser(currentUser.uid),
               getUserProgress(currentUser.uid),
               getLessons(),
-              getPublicStudyRooms()
           ]);
           setUserProfile(profile);
           setUserProgress(progress);
           setLessons(lessonsData);
-          setPublicRooms(publicRoomsData);
           
           if (progress) {
             const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
@@ -152,7 +145,6 @@ export default function DashboardPage() {
             setIsLoading(false);
         }
       } else {
-        setIsLoading(false);
         router.push('/login');
       }
     });
@@ -161,8 +153,8 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleDismissSuggestion = () => {
-    if (user) {
-        clearProactiveSuggestion(user.uid);
+    if (userProfile) {
+        clearProactiveSuggestion(userProfile.uid);
         setUserProfile(prev => prev ? { ...prev, proactiveSuggestion: null } : null);
     }
   };
@@ -170,31 +162,6 @@ export default function DashboardPage() {
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
-  
-  const subjects = lessons.reduce((acc, lesson) => {
-    const subject = lesson.subject || 'General';
-    if (!acc[subject]) {
-        acc[subject] = 0;
-    }
-    acc[subject]++;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const subjectIcons: Record<string, React.ReactNode> = {
-    'Science': <FlaskConical className="w-8 h-8 text-red-500 dark:text-red-400" />,
-    'History': <Landmark className="w-8 h-8 text-yellow-500 dark:text-yellow-400" />,
-    'Mathematics': <Calculator className="w-8 h-8 text-blue-500 dark:text-blue-400" />,
-    'Computer Science': <Terminal className="w-8 h-8 text-green-500 dark:text-green-400" />,
-    'Web Development': <Code className="w-8 h-8 text-purple-500 dark:text-purple-400" />,
-    'Biology': <Leaf className="w-8 h-8 text-teal-500 dark:text-teal-400" />,
-    'default': <BookOpen className="w-8 h-8 text-gray-500 dark:text-gray-400" />
-  };
-
-  const getSubjectIcon = (subject: string) => {
-    return subjectIcons[subject] || subjectIcons.default;
-  };
-
-  const subjectEntries = Object.entries(subjects);
   
   const nextLesson = findLessonForTopic(suggestedTopics[0]) || lessons.find(l => !userProgress?.completedLessonIds?.includes(l.id));
 
@@ -343,45 +310,25 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                    {/* Public Study Rooms */}
-                    <Card className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
-                        <CardHeader className="p-0 mb-4">
-                            <CardTitle className="text-xl font-bold tracking-tight font-headline text-foreground flex items-center gap-2">
-                                <Globe className="h-5 w-5"/> Public Study Rooms
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {publicRooms.length > 0 ? (
-                                <div className="space-y-3">
-                                    {publicRooms.map(room => (
-                                        <Link href={`/dashboard/study-room/${room.id}`} key={room.id} className="block p-3 rounded-md hover:bg-white/10 dark:hover:bg-black/20 transition-colors group">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-semibold">{room.name}</p>
-                                                    {room.lessonTitle && <p className="text-xs text-muted-foreground">Topic: {room.lessonTitle}</p>}
-                                                </div>
-                                                <Button variant="secondary" size="sm" className="h-8">Join</Button>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground text-center py-8">No public study rooms are active right now. Why not start one?</p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                     {/* Study Room */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+                     <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
+                        <div className="p-4 bg-primary/10 rounded-full mb-4">
+                            <BrainCircuit className="w-8 h-8 text-primary" />
+                        </div>
+                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Practice Exercises</h3>
+                        <p className="text-muted-foreground mt-2 mb-4">Hone your skills with adaptive problems.</p>
+                        <Button asChild><Link href="/dashboard/practice">Start Practice</Link></Button>
+                    </div>
+                     <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
                         <div className="p-4 bg-accent/10 rounded-full mb-4">
                             <Users className="w-8 h-8 text-accent" />
                         </div>
-                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Create a Study Room</h3>
-                        <p className="text-muted-foreground mt-2 mb-4">Collaborate with others on a shared whiteboard in real-time.</p>
-                        {user && <StartStudyRoom userId={user.uid} lessons={lessons}/>}
+                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Study Rooms</h3>
+                        <p className="text-muted-foreground mt-2 mb-4">Collaborate with others in real-time.</p>
+                        <Button asChild><Link href="/dashboard/study-room">Join a Room</Link></Button>
                     </div>
-                </div>
+                 </div>
+
             </div>
         </div>
       </div>
