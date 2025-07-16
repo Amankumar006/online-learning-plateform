@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { Editor, createTLStore, defaultShapeUtils } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus } from '@/lib/data';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson } from '@/lib/data';
 import { throttle } from 'lodash';
 
 const SAVE_STATE_INTERVAL = 500;
@@ -43,6 +43,13 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                 if (initialRoom) {
                     setRoom(initialRoom);
+                     if (initialRoom.roomState) {
+                        try {
+                            store.loadSnapshot(JSON.parse(initialRoom.roomState));
+                        } catch (e) {
+                            console.error("Failed to parse or load room state:", e);
+                        }
+                    }
                 } else {
                     setError("Study room not found.");
                     setLoading(false);
@@ -98,9 +105,15 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
         setup();
 
+        const handleBeforeUnload = () => {
+            if(user?.uid) removeParticipantStatus(roomId, user.uid);
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         return () => {
             stillMounted = false;
             removeParticipantStatus(roomId, user.uid);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             stateUnsubscribe?.();
             messagesUnsubscribe?.();
             saveUnsubscribe?.();
@@ -111,7 +124,46 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const handleSendMessage = (content: string, userName: string) => {
         if (!user) return;
         sendStudyRoomMessage(roomId, user.uid, userName, content);
-    }
+    };
+
+    const addLessonImageToCanvas = useCallback((lesson: Lesson) => {
+        if (!store) return;
+
+        // Create a deterministic asset ID from the image URL
+        const assetId = getHashForString(lesson.image);
+
+        // Add the asset to the store
+        store.put([
+            {
+                id: assetId,
+                type: 'asset',
+                typeName: 'asset',
+                props: {
+                    name: lesson.title,
+                    src: lesson.image,
+                    w: 1280, // Example width, tldraw will adjust
+                    h: 720,  // Example height
+                    isAnimated: false,
+                    mimeType: 'image/png', // Assume PNG, can be made more robust
+                },
+            },
+        ]);
+
+        // Create an image shape that uses the asset
+        store.createShape({
+            id: createShapeId(),
+            type: 'image',
+            x: 200,
+            y: 200,
+            props: {
+                assetId: assetId,
+                w: 640,
+                h: 360,
+                url: lesson.image,
+            },
+        });
+
+    }, [store]);
 
     return { 
         store, 
@@ -120,5 +172,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         messages,
         sendMessage: handleSendMessage,
         participants,
+        addLessonImageToCanvas,
     };
 }
