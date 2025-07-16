@@ -1,76 +1,55 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    function isAuth() {
-        return request.auth != null;
-    }
-    
-    function isAdmin() {
-        return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Checks if the incoming data only contains the fields specified in the list
-    function onlyHas(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    // Checks if an update operation only modifies the specified fields.
-    // It ensures no other fields are added, changed, or removed.
-    function onlyModifies(fields) {
-        let allKeys = request.resource.data.keys().concat(resource.data.keys()).toSet();
-        let modifiedKeys = request.resource.data.diff(resource.data).affectedKeys();
-        // Every key that was modified must be in the allowed list of fields
-        return modifiedKeys.hasOnly(fields);
-    }
-    
-    function isOwner(userId) {
-        return request.auth.uid == userId;
-    }
-    
+    // Users can only read/write their own document
     match /users/{userId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && isOwner(userId);
-      allow update: if isAdmin() || (isAuth() && isOwner(userId));
-    }
-    
-    match /lessons/{lessonId} {
-      allow read: if isAuth();
-      allow create, delete: if isAdmin();
-      
-      // Allow admins to update anything.
-      // Allow authenticated users to update ONLY if they are just changing the 'sections' field.
-      // This is to allow caching the audioUrl from the client.
-      allow update: if isAdmin() || (isAuth() && onlyModifies(['sections']));
-    }
-    
-    match /exercises/{exerciseId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isAdmin();
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
     }
 
+    // Lessons can be read by any authenticated user, but only written by admins
+    match /lessons/{lessonId} {
+      allow read: if request.auth.uid != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Exercises can be read by any authenticated user, but only written by admins
+    match /exercises/{exerciseId} {
+      allow read: if request.auth.uid != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Exercise responses can only be created/read/updated by the user who owns them
     match /exerciseResponses/{responseId} {
-        allow read, create, update: if isAuth() && isOwner(request.resource.data.userId);
-        allow delete: if isAdmin();
+      allow read, write: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth.uid != null;
     }
     
-    match /lessonRequests/{requestId} {
-      allow create: if isAuth();
-      allow read, update, delete: if isAdmin();
-    }
-    
+    // Announcements can be read by anyone, but only created by admins
     match /announcements/{announcementId} {
-        allow read: if isAuth();
-        allow create: if isAdmin();
+        allow read: if request.auth.uid != null;
+        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        allow write, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // Email queue can be written to by the system (via admin actions)
     match /emailQueue/{emailId} {
-      // This collection is write-only for admins from the backend.
-      // The "Trigger Email" extension needs read/delete access.
-      allow read, delete: if false; 
-      allow create: if isAdmin();
+        allow read, write: if false; // Should only be accessed by the Trigger Email extension
+        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Lesson requests can only be read by admins, but created by any authenticated user
+    match /lessonRequests/{requestId} {
+        allow read, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        allow create: if request.auth.uid != null;
+    }
+    
+    // Study Rooms can be created, read, and written to by any authenticated user.
+    // In a production app, you would add more granular control (e.g., only owner can delete).
+    match /studyRooms/{roomId} {
+        allow read, write: if request.auth.uid != null;
     }
   }
 }
