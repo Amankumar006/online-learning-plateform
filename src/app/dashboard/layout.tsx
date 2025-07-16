@@ -7,8 +7,9 @@ import React, { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import DashboardNav from "@/components/dashboard/DashboardNav";
-import { cn } from "@/lib/utils";
 import { handleUserLogin } from "@/lib/data";
+import { UtilitySidebarProvider } from "@/hooks/use-utility-sidebar";
+import UtilitySidebar from "@/components/dashboard/UtilitySidebar";
 
 function DashboardLoader() {
   return (
@@ -40,7 +41,6 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, [router]);
 
-  // Don't render the main DashboardNav on specific pages
   const noNavPaths = [
     /^\/dashboard\/lessons\/[^/]+$/,
     /^\/dashboard\/study-room\/[^/]+$/,
@@ -57,11 +57,16 @@ export default function DashboardLayout({
   }
   
   return (
-    <div className="flex h-screen w-full flex-col font-body">
-      <DashboardNav />
-      <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6 lg:p-8">
-        {children}
-      </main>
-    </div>
+    <UtilitySidebarProvider>
+        <div className="flex h-screen w-full flex-col font-body">
+          <DashboardNav />
+          <div className="flex flex-1 overflow-hidden">
+             <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6 lg:p-8">
+                {children}
+            </main>
+            <UtilitySidebar />
+          </div>
+        </div>
+    </UtilitySidebarProvider>
   );
 }
