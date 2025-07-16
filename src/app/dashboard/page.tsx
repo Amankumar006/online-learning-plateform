@@ -101,8 +101,8 @@ export default function DashboardPage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setIsLoading(true);
       if (currentUser) {
+        setUser(currentUser);
         try {
-          setUser(currentUser);
           const [profile, progress, lessonsData, publicRoomsData] = await Promise.all([
               getUser(currentUser.uid),
               getUserProgress(currentUser.uid),
@@ -114,32 +114,36 @@ export default function DashboardPage() {
           setLessons(lessonsData);
           setPublicRooms(publicRoomsData);
           
-          const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
-          const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
-          
-          const uncompletedLessonTitles = lessonsData
-              .filter(l => !progress.completedLessonIds?.includes(l.id))
-              .map(l => l.title);
-          
-          if (uncompletedLessonTitles.length > 0) {
-                generateStudyTopics({ 
-                  currentProgress: progressSummary, 
-                  learningGoals: goals,
-                  availableLessons: uncompletedLessonTitles
-                })
-                .then(result => {
-                    setSuggestedTopics(result.suggestedTopics);
-                })
-                .catch(err => {
-                    console.error("Failed to generate study topics:", err);
-                      setSuggestedTopics([]);
-                })
-                .finally(() => {
-                    setIsGeneratingTopics(false);
-                });
+          if (progress) {
+            const progressSummary = `Completed lessons: ${progress.completedLessonIds?.length || 0}. Mastery by subject: ${progress.subjectsMastery?.map(s => `${s.subject}: ${s.mastery}%`).join(', ') || 'None'}.`;
+            const goals = 'Achieve mastery in all available subjects and discover new areas of interest.';
+            
+            const uncompletedLessonTitles = lessonsData
+                .filter(l => !progress.completedLessonIds?.includes(l.id))
+                .map(l => l.title);
+            
+            if (uncompletedLessonTitles.length > 0) {
+                  generateStudyTopics({ 
+                    currentProgress: progressSummary, 
+                    learningGoals: goals,
+                    availableLessons: uncompletedLessonTitles
+                  })
+                  .then(result => {
+                      setSuggestedTopics(result.suggestedTopics);
+                  })
+                  .catch(err => {
+                      console.error("Failed to generate study topics:", err);
+                        setSuggestedTopics([]);
+                  })
+                  .finally(() => {
+                      setIsGeneratingTopics(false);
+                  });
+            } else {
+                setSuggestedTopics([]);
+                setIsGeneratingTopics(false);
+            }
           } else {
-              setSuggestedTopics([]);
-              setIsGeneratingTopics(false);
+            setIsGeneratingTopics(false);
           }
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error);
@@ -149,11 +153,12 @@ export default function DashboardPage() {
         }
       } else {
         setIsLoading(false);
+        router.push('/login');
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleDismissSuggestion = () => {
     if (user) {
@@ -198,6 +203,7 @@ export default function DashboardPage() {
   }
 
   if (!user || !userProfile || !userProgress) {
+    // This case can happen briefly or on error, redirecting is handled in useEffect
     return <DashboardSkeleton />;
   }
   
