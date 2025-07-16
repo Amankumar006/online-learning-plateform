@@ -88,7 +88,7 @@ export default function StudyRoomPage() {
     }
 
     return (
-        <div className="w-full h-screen flex flex-col">
+        <div className="w-full flex flex-col">
             <StudyRoomHeader
               room={room}
               onToggleChat={() => setIsChatOpen(prev => !prev)}
@@ -100,13 +100,11 @@ export default function StudyRoomPage() {
               currentUser={appUser}
               onToggleHandRaise={toggleHandRaise}
             />
-            <div className="flex-grow relative">
-                <div className="absolute inset-0">
-                    <Tldraw
-                        store={store}
-                        autoFocus
-                    />
-                </div>
+            <main className="relative" style={{ height: 'calc(100vh - 5rem)' }}>
+                <Tldraw
+                    store={store}
+                    autoFocus
+                />
                  {isChatOpen && (
                      <div className="absolute right-0 top-0 h-full w-full max-w-sm border-l bg-background shadow-lg z-10">
                         <ChatPanel 
@@ -116,7 +114,7 @@ export default function StudyRoomPage() {
                         />
                      </div>
                  )}
-            </div>
+            </main>
         </div>
     );
 }
