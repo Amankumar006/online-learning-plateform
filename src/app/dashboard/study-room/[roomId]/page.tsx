@@ -101,11 +101,13 @@ export default function StudyRoomPage() {
               onToggleHandRaise={toggleHandRaise}
             />
             <div className="flex-grow flex relative">
-                 <div className="flex-grow h-full">
-                    <Tldraw
-                        store={store}
-                        autoFocus
-                    />
+                 <div className="flex-grow h-full relative">
+                    <div className="absolute inset-0">
+                        <Tldraw
+                            store={store}
+                            autoFocus
+                        />
+                    </div>
                  </div>
                  {isChatOpen && (
                      <div className="absolute right-0 top-0 h-full w-full max-w-sm border-l bg-background shadow-lg z-10">
