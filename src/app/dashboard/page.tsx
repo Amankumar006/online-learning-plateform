@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion, createStudyRoomSession } from "@/lib/data";
+import { getUser, User, getLessons, Lesson, getUserProgress, UserProgress, clearProactiveSuggestion } from "@/lib/data";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { ArrowRight, Bot, MessageSquare, BookOpen, BrainCircuit, User as UserIcon, BookOpenCheck, FlaskConical, Landmark, Calculator, Terminal, Leaf, Code, TrendingUp, Sparkles, Pen, Users } from "lucide-react";
@@ -14,8 +14,7 @@ import { generateStudyTopics } from "@/ai/flows/generate-study-topics";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import StartStudyRoom from "@/components/dashboard/StartStudyRoom";
 
 function DashboardSkeleton() {
   return (
@@ -88,7 +87,6 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -96,7 +94,6 @@ export default function DashboardPage() {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(true);
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -160,27 +157,6 @@ export default function DashboardPage() {
     }
   };
   
-  const handleCreateStudyRoom = async () => {
-    if (!user) return;
-    setIsCreatingRoom(true);
-    try {
-        const roomId = await createStudyRoomSession(user.uid);
-        toast({
-            title: "Study Room Created!",
-            description: "Redirecting you to your new collaborative space."
-        });
-        router.push(`/dashboard/study-room/${roomId}`);
-    } catch (error) {
-        console.error("Failed to create study room:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not create a new study room. Please try again."
-        });
-        setIsCreatingRoom(false);
-    }
-  };
-
   const findLessonForTopic = (topicTitle: string) => {
     return lessons.find(l => l.title === topicTitle) || null;
   }
@@ -388,10 +364,7 @@ export default function DashboardPage() {
                         </div>
                         <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Study Room</h3>
                         <p className="text-muted-foreground mt-2 mb-4">Collaborate with others on a shared whiteboard in real-time.</p>
-                        <Button onClick={handleCreateStudyRoom} disabled={isCreatingRoom}>
-                            {isCreatingRoom ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pen className="mr-2 h-4 w-4" />}
-                            Start a Study Session
-                        </Button>
+                        {user && <StartStudyRoom userId={user.uid} />}
                     </div>
                 </div>
             </div>
