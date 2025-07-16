@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot } from 'firebase/firestore';
 import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -200,6 +200,17 @@ export interface Announcement {
     message: string;
     link?: string;
     createdAt: Timestamp;
+}
+
+
+// --- Study Room Types ---
+export interface StudyRoom {
+    id: string;
+    ownerId: string;
+    createdAt: Timestamp;
+    // We will store the tldraw state as a stringified object for simplicity in the MVP.
+    // This can be evolved to a subcollection of shapes for more granular control later.
+    roomState?: string; 
 }
 
 
@@ -1210,4 +1221,38 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
         // Return empty array on error to prevent crashing the UI
         return [];
     }
+}
+
+// Study Room Functions
+export async function createStudyRoomSession(ownerId: string): Promise<string> {
+    const newRoomRef = doc(collection(db, 'studyRooms'));
+    await setDoc(newRoomRef, {
+        ownerId,
+        createdAt: Timestamp.now(),
+        roomState: null, // Initialize with no state
+    });
+    return newRoomRef.id;
+}
+
+export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
+    const roomRef = doc(db, 'studyRooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (roomSnap.exists()) {
+        return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
+    }
+    return null;
+}
+
+export async function updateStudyRoomState(roomId: string, roomState: string): Promise<void> {
+    const roomRef = doc(db, 'studyRooms', roomId);
+    await updateDoc(roomRef, { roomState });
+}
+
+export function getStudyRoomStateListener(roomId: string, callback: (state: string | null) => void) {
+    const roomRef = doc(db, 'studyRooms', roomId);
+    return onSnapshot(roomRef, (doc) => {
+        if (doc.exists()) {
+            callback(doc.data().roomState || null);
+        }
+    });
 }
