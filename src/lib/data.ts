@@ -202,21 +202,6 @@ export interface Announcement {
     createdAt: Timestamp;
 }
 
-export interface CanvasSession {
-    id: string;
-    ownerId: string;
-    status: 'active' | 'ended' | 'archived';
-    createdAt: Timestamp;
-    lastModifiedAt: Timestamp;
-}
-
-export interface CanvasShape {
-    id: string;
-    type: string;
-    props: object;
-    // ... other tldraw shape properties
-}
-
 
 export async function getUser(userId: string): Promise<User | null> {
     try {
@@ -1225,45 +1210,4 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
         // Return empty array on error to prevent crashing the UI
         return [];
     }
-}
-
-
-// Canvas Functions
-export async function createCanvasSession(userId: string): Promise<string> {
-  const sessionData: Omit<CanvasSession, 'id'> = {
-    ownerId: userId,
-    status: 'active',
-    createdAt: Timestamp.now(),
-    lastModifiedAt: Timestamp.now(),
-  };
-  const docRef = await addDoc(collection(db, 'canvasSessions'), sessionData);
-  return docRef.id;
-}
-
-export async function getCanvasSession(sessionId: string): Promise<CanvasSession | null> {
-  const docRef = doc(db, 'canvasSessions', sessionId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as CanvasSession;
-  }
-  return null;
-}
-
-export function getShapesCollectionRef(sessionId: string) {
-    return collection(db, 'canvasSessions', sessionId, 'shapes');
-}
-
-export async function addShape(sessionId: string, shape: any) {
-    const shapeRef = doc(getShapesCollectionRef(sessionId), shape.id);
-    await setDoc(shapeRef, shape);
-}
-
-export async function updateShape(sessionId: string, shape: any) {
-    const shapeRef = doc(getShapesCollectionRef(sessionId), shape.id);
-    await updateDoc(shapeRef, shape);
-}
-
-export async function deleteShape(sessionId: string, shapeId: string) {
-    const shapeRef = doc(getShapesCollectionRef(sessionId), shapeId);
-    await deleteDoc(shapeRef);
 }
