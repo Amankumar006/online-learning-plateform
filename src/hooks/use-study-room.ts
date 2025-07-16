@@ -8,6 +8,8 @@ import throttle from 'lodash/throttle';
 import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+const SAVE_STATE_INTERVAL = 1000; // ms
+
 // Moved from data.ts to keep client-side logic isolated
 export async function createStudyRoomSession(
     data: Omit<StudyRoom, 'id' | 'createdAt' | 'status'>
