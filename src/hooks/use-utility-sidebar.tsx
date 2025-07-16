@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-export type PanelType = 'chat' | 'notes' | 'math' | null;
+export type PanelType = 'chat' | 'tasks' | 'math' | null;
 
 interface UtilitySidebarContextType {
   openPanel: PanelType;

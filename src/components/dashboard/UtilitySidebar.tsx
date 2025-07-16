@@ -1,16 +1,17 @@
 
 "use client";
 
-import { Bot, Calculator, ClipboardEdit, X } from 'lucide-react';
+import { Bot, Calculator, ClipboardEdit, X, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUtilitySidebar, PanelType } from '@/hooks/use-utility-sidebar';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import QuickChatPanel from './QuickChatPanel';
+import TasksPanel from './TasksPanel';
 
 const sidebarTools = [
   { type: 'chat' as PanelType, icon: Bot, label: 'Quick Chat' },
-  { type: 'notes' as PanelType, icon: ClipboardEdit, label: 'Notes' },
+  { type: 'tasks' as PanelType, icon: CheckSquare, label: 'Tasks' },
   { type: 'math' as PanelType, icon: Calculator, label: 'Math Solver' },
 ];
 
@@ -21,8 +22,8 @@ export default function UtilitySidebar() {
     switch (openPanel) {
       case 'chat':
         return <QuickChatPanel />;
-      case 'notes':
-        return <div className="p-4"><h3 className="font-semibold">Notes</h3><p className="text-sm text-muted-foreground">This feature is coming soon.</p></div>;
+      case 'tasks':
+        return <TasksPanel />;
       case 'math':
         return <div className="p-4"><h3 className="font-semibold">Math Solver</h3><p className="text-sm text-muted-foreground">This feature is coming soon.</p></div>;
       default:
