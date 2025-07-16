@@ -18,4 +18,6 @@ import '@/ai/flows/grade-math-solution.ts';
 import '@/ai/flows/generate-proactive-suggestion.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
 import '@/ai/flows/generate-follow-up-suggestions.ts';
+import '@/ai/flows/study-room-buddy.ts';
+
 

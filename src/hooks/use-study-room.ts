@@ -7,6 +7,7 @@ import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoo
 import throttle from 'lodash/throttle';
 import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -32,7 +33,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [participants, setParticipants] = useState<User[]>([]);
-    
+    const lastProcessedMessageId = useRef<string | null>(null);
+
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
             if (room?.status !== 'ended') {
@@ -171,6 +173,45 @@ export function useStudyRoom(roomId: string, user: User | null) {
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId, user, store, saveStateToFirestore]);
+
+    // Effect to handle AI triggers
+    useEffect(() => {
+        const lastMessage = messages[messages.length - 1];
+        if (
+            lastMessage &&
+            lastMessage.id !== lastProcessedMessageId.current &&
+            lastMessage.userId !== 'buddy-ai' && // Don't trigger on AI's own messages
+            lastMessage.content.includes('@BuddyAI')
+        ) {
+            lastProcessedMessageId.current = lastMessage.id;
+
+            const triggerAI = async () => {
+                const history = messages.slice(-10, -1).map(msg => ({
+                    role: msg.userId === 'buddy-ai' ? 'model' : 'user',
+                    content: msg.content
+                }));
+                
+                try {
+                    const result = await studyRoomBuddy({
+                        userMessage: lastMessage.content,
+                        history,
+                        lessonContext: room?.lessonTitle || undefined
+                    });
+                    
+                    if (result.response) {
+                        // Post response back to chat as Buddy AI
+                        await sendStudyRoomMessage(roomId, 'buddy-ai', 'Buddy AI', result.response);
+                    }
+                } catch (error) {
+                    console.error("Error calling Study Room Buddy AI:", error);
+                    await sendStudyRoomMessage(roomId, 'buddy-ai', 'Buddy AI', "Sorry, I encountered an error and couldn't process that request.");
+                }
+            };
+            
+            triggerAI();
+        }
+    }, [messages, room?.lessonTitle, roomId]);
+
     
     const handleSendMessage = (content: string, userName: string) => {
         if (!user || room?.status === 'ended') return;

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send } from "lucide-react";
+import { Send, Bot } from "lucide-react";
 import { ChatMessage, User as AppUser } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "date-fns";
@@ -51,6 +51,8 @@ export function ChatPanel({ messages, currentUser, onSendMessage }: ChatPanelPro
         <div className="space-y-4">
           {messages.map((msg) => {
             const isCurrentUser = msg.userId === currentUser.uid;
+            const isBuddy = msg.userId === 'buddy-ai';
+
             return (
               <div
                 key={msg.id}
@@ -58,10 +60,14 @@ export function ChatPanel({ messages, currentUser, onSendMessage }: ChatPanelPro
               >
                  {!isCurrentUser && (
                     <Avatar className="h-8 w-8">
-                        <AvatarFallback>{getInitials(msg.userName)}</AvatarFallback>
+                        {isBuddy && <AvatarFallback><Bot size={20}/></AvatarFallback>}
+                        {!isBuddy && <AvatarFallback>{getInitials(msg.userName)}</AvatarFallback>}
                     </Avatar>
                  )}
-                <div className={cn("max-w-xs md:max-w-md rounded-lg p-3 text-sm", isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                <div className={cn("max-w-xs md:max-w-md rounded-lg p-3 text-sm", 
+                  isCurrentUser ? 'bg-primary text-primary-foreground' : 
+                  isBuddy ? 'bg-secondary' : 'bg-muted'
+                )}>
                     {!isCurrentUser && (
                         <p className="font-semibold text-xs mb-1">{msg.userName}</p>
                     )}
@@ -86,7 +92,7 @@ export function ChatPanel({ messages, currentUser, onSendMessage }: ChatPanelPro
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Type a message... (@BuddyAI to ask)"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSend();
             }}
