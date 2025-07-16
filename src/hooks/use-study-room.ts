@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb } from '@/lib/data';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener } from '@/lib/data';
 import throttle from 'lodash/throttle';
 import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -33,6 +33,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [participants, setParticipants] = useState<User[]>([]);
+    const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
 
     const saveStateToFirestore = useMemo(() =>
@@ -58,6 +59,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         let messagesUnsubscribe: (() => void) | undefined;
         let saveUnsubscribe: (() => void) | undefined;
         let participantsUnsubscribe: (() => void) | undefined;
+        let resourcesUnsubscribe: (() => void) | undefined;
         let expiryTimeout: NodeJS.Timeout | undefined;
 
         let stillMounted = true;
@@ -131,6 +133,13 @@ export function useStudyRoom(roomId: string, user: User | null) {
                         setParticipants(newParticipants);
                     }
                 });
+
+                // Listener for resources
+                resourcesUnsubscribe = getStudyRoomResourcesListener(roomId, (newResources) => {
+                    if(stillMounted) {
+                        setResources(newResources);
+                    }
+                });
                 
                 // Listener to save local changes to Firestore (for everyone)
                 saveUnsubscribe = store.listen(
@@ -170,6 +179,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             messagesUnsubscribe?.();
             saveUnsubscribe?.();
             participantsUnsubscribe?.();
+            resourcesUnsubscribe?.();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId, user, store, saveStateToFirestore]);
@@ -274,6 +284,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         addLessonImageToCanvas,
         room,
         endSession,
-        toggleHandRaise
+        toggleHandRaise,
+        resources
     };
 }

@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ParticipantList } from "./ParticipantList";
@@ -26,12 +26,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
-import { formatDistanceToNowStrict } from "date-fns";
 
 interface LessonLoaderProps {
   lessons: Lesson[];
@@ -110,6 +108,7 @@ const CountdownTimer = ({ expiryTimestamp, status }: { expiryTimestamp: number, 
 interface StudyRoomHeaderProps {
   room: StudyRoom | null;
   onToggleChat: () => void;
+  onToggleResources: () => void;
   participants: User[];
   lessons: Lesson[];
   onAddLessonImage: (lesson: Lesson) => void;
@@ -119,7 +118,7 @@ interface StudyRoomHeaderProps {
   onToggleHandRaise: () => void;
 }
 
-export default function StudyRoomHeader({ room, onToggleChat, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
+export default function StudyRoomHeader({ room, onToggleChat, onToggleResources, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
@@ -179,6 +178,9 @@ export default function StudyRoomHeader({ room, onToggleChat, participants, less
 
         <Button variant="outline" onClick={handleShare}>
           <Share2 className="mr-2 h-4 w-4" /> Share
+        </Button>
+         <Button variant="secondary" onClick={onToggleResources}>
+          <Link2 className="mr-2 h-4 w-4" /> Resources
         </Button>
          <Button variant="secondary" onClick={onToggleChat}>
           <MessageSquare className="mr-2 h-4 w-4" /> Chat
