@@ -40,11 +40,18 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, [router]);
 
-  // Don't render the main DashboardNav on the specific lesson page
-  if (pathname.match(/^\/dashboard\/lessons\/[^/]+$/)) {
+  // Don't render the main DashboardNav on specific pages
+  const noNavPaths = [
+    /^\/dashboard\/lessons\/[^/]+$/,
+    /^\/dashboard\/study-room\/[^/]+$/,
+  ];
+
+  const hideNav = noNavPaths.some(path => path.test(pathname));
+
+  if (hideNav) {
     return <>{children}</>;
   }
-
+  
   if (isLoading) {
     return <DashboardLoader />;
   }
