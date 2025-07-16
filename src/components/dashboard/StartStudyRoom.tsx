@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { createStudyRoomSession, Lesson } from "@/lib/data";
+import { Lesson } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Loader2, Pen, PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { createStudyRoomSession } from "@/hooks/use-study-room";
 
 const roomSchema = z.object({
   name: z.string().min(3, "Room name must be at least 3 characters."),

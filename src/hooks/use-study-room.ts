@@ -5,8 +5,25 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
 import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb } from '@/lib/data';
 import { throttle } from 'lodash';
+import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const SAVE_STATE_INTERVAL = 500;
+
+// Moved from data.ts to keep client-side logic isolated
+export async function createStudyRoomSession(
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status'>
+): Promise<string> {
+    const newRoomRef = doc(collection(db, 'studyRooms'));
+    const payload: Omit<StudyRoom, 'id'> = {
+        ...data,
+        createdAt: Timestamp.now(),
+        status: 'active',
+    };
+    await setDoc(newRoomRef, payload);
+    return newRoomRef.id;
+}
+
 
 export function useStudyRoom(roomId: string, user: User | null) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));

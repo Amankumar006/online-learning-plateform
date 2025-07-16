@@ -1236,20 +1236,6 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 }
 
 // Study Room Functions
-export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status'>
-): Promise<string> {
-    const newRoomRef = doc(collection(db, 'studyRooms'));
-    const payload: Omit<StudyRoom, 'id'> = {
-        ...data,
-        createdAt: Timestamp.now(),
-        status: 'active',
-    };
-    await setDoc(newRoomRef, payload);
-    return newRoomRef.id;
-}
-
-
 export async function getPublicStudyRooms(): Promise<StudyRoom[]> {
     const q = query(
         collection(db, 'studyRooms'),
