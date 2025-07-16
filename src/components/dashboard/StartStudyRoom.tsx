@@ -45,8 +45,8 @@ export default function StartStudyRoom({ userId, lessons }: { userId: string; le
             ownerId: userId,
             name: data.name,
             visibility: data.visibility,
-            lessonId: data.lessonId || undefined,
-            lessonTitle: selectedLesson?.title,
+            lessonId: data.lessonId || null,
+            lessonTitle: selectedLesson?.title || null,
         });
         
         toast({
