@@ -98,8 +98,8 @@ export default function DashboardPage() {
   const [publicRooms, setPublicRooms] = useState<StudyRoom[]>([]);
 
   useEffect(() => {
+    setIsLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
         try {
@@ -202,12 +202,12 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  if (!user || !userProfile || !userProgress) {
+  if (!user || !userProfile) {
     // This case can happen briefly or on error, redirecting is handled in useEffect
     return <DashboardSkeleton />;
   }
   
-  const exerciseAccuracy = userProgress.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
+  const exerciseAccuracy = userProgress?.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
     ? Math.round(((userProgress.totalExercisesCorrect || 0) / userProgress.totalExercisesAttempted) * 100)
     : 0;
 
