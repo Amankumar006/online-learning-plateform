@@ -3,17 +3,18 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { Editor, createTLStore, defaultShapeUtils } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener } from '@/lib/data';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus } from '@/lib/data';
 import { throttle } from 'lodash';
 
 const SAVE_STATE_INTERVAL = 500;
 
-export function useStudyRoom(roomId: string, userId?: string) {
+export function useStudyRoom(roomId: string, user: User | null) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
     const [loading, setLoading] = useState(true);
     const [room, setRoom] = useState<StudyRoom | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [participants, setParticipants] = useState<User[]>([]);
     
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
@@ -23,16 +24,20 @@ export function useStudyRoom(roomId: string, userId?: string) {
     );
 
     useEffect(() => {
-        if (!userId) return;
+        if (!user) return;
 
         let stateUnsubscribe: (() => void) | undefined;
         let messagesUnsubscribe: (() => void) | undefined;
         let saveUnsubscribe: (() => void) | undefined;
+        let participantsUnsubscribe: (() => void) | undefined;
 
         let stillMounted = true;
         
         const setup = async () => {
             try {
+                // Set initial presence
+                await setParticipantStatus(roomId, user);
+
                 const initialRoom = await getStudyRoom(roomId);
                 if (!stillMounted) return;
 
@@ -62,6 +67,13 @@ export function useStudyRoom(roomId: string, userId?: string) {
                     }
                 });
                 
+                 // Listener for participants
+                participantsUnsubscribe = getStudyRoomParticipantsListener(roomId, (newParticipants) => {
+                    if (stillMounted) {
+                        setParticipants(newParticipants);
+                    }
+                });
+                
                 // Listener to save local changes to Firestore (for everyone)
                 saveUnsubscribe = store.listen(
                     (event) => {
@@ -88,15 +100,17 @@ export function useStudyRoom(roomId: string, userId?: string) {
 
         return () => {
             stillMounted = false;
+            removeParticipantStatus(roomId, user.uid);
             stateUnsubscribe?.();
             messagesUnsubscribe?.();
             saveUnsubscribe?.();
+            participantsUnsubscribe?.();
         };
-    }, [roomId, userId, store, saveStateToFirestore]);
+    }, [roomId, user, store, saveStateToFirestore]);
     
     const handleSendMessage = (content: string, userName: string) => {
-        if (!userId) return;
-        sendStudyRoomMessage(roomId, userId, userName, content);
+        if (!user) return;
+        sendStudyRoomMessage(roomId, user.uid, userName, content);
     }
 
     return { 
@@ -105,5 +119,6 @@ export function useStudyRoom(roomId: string, userId?: string) {
         isLoading: loading, 
         messages,
         sendMessage: handleSendMessage,
+        participants,
     };
 }

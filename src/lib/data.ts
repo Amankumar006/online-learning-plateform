@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField } from 'firebase/firestore';
 import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -1284,4 +1284,27 @@ export function getStudyRoomMessagesListener(roomId: string, callback: (messages
         } as ChatMessage));
         callback(messages);
     });
+}
+
+export function getStudyRoomParticipantsListener(roomId: string, callback: (participants: User[]) => void): () => void {
+    const participantsCol = collection(db, `studyRooms/${roomId}/participants`);
+    return onSnapshot(participantsCol, (snapshot) => {
+        const participants = snapshot.docs.map(doc => doc.data() as User);
+        callback(participants);
+    });
+}
+
+export async function setParticipantStatus(roomId: string, user: User) {
+    const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
+    // Only store essential, non-sensitive data for presence
+    await setDoc(participantRef, {
+        uid: user.uid,
+        name: user.name,
+        photoURL: user.photoURL,
+    });
+}
+
+export async function removeParticipantStatus(roomId: string, userId: string) {
+    const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
+    await deleteDoc(participantRef);
 }

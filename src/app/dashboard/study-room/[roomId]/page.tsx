@@ -2,14 +2,14 @@
 "use client";
 
 import { Tldraw } from "@tldraw/tldraw";
-import "@tldraw/tldraw.css";
+import "@tldraw/tldraw/tldraw.css";
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useEffect, useState } from "react";
-import { User } from "firebase/auth";
+import { User as FirebaseUser } from "firebase/auth";
 import StudyRoomHeader from "@/components/study-room/StudyRoomHeader";
 import { ChatPanel } from "@/components/study-room/ChatPanel";
 import { User as AppUser } from "@/lib/data";
@@ -18,7 +18,7 @@ import { getUser } from "@/lib/data";
 export default function StudyRoomPage() {
     const params = useParams();
     const roomId = params.roomId as string;
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<FirebaseUser | null>(null);
     const [appUser, setAppUser] = useState<AppUser | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -33,13 +33,13 @@ export default function StudyRoomPage() {
         return () => unsubscribe();
     }, []);
     
-    const { store, error, isLoading, messages, sendMessage } = useStudyRoom(roomId, user?.uid);
+    const { store, error, isLoading, messages, sendMessage, participants } = useStudyRoom(roomId, appUser);
 
 
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-full">
-                <StudyRoomHeader roomId={roomId} onToggleChat={() => {}} />
+                <StudyRoomHeader roomId={roomId} onToggleChat={() => {}} participants={[]} />
                 <div className="flex-grow flex items-center justify-center text-destructive">
                     Error: {error}
                 </div>
@@ -63,7 +63,7 @@ export default function StudyRoomPage() {
 
     return (
         <div className="w-full h-screen flex flex-col">
-            <StudyRoomHeader roomId={roomId} onToggleChat={() => setIsChatOpen(prev => !prev)} />
+            <StudyRoomHeader roomId={roomId} onToggleChat={() => setIsChatOpen(prev => !prev)} participants={participants} />
             <div className="flex-grow flex relative">
                  <div className="flex-grow h-full">
                     <Tldraw
