@@ -4,11 +4,9 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
 import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb } from '@/lib/data';
-import { throttle } from 'lodash';
+import throttle from 'lodash/throttle';
 import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-
-const SAVE_STATE_INTERVAL = 500;
 
 // Moved from data.ts to keep client-side logic isolated
 export async function createStudyRoomSession(
