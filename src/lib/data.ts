@@ -1300,7 +1300,7 @@ export async function setParticipantStatus(roomId: string, user: User) {
     await setDoc(participantRef, {
         uid: user.uid,
         name: user.name,
-        photoURL: user.photoURL,
+        photoURL: user.photoURL || null,
     });
 }
 
