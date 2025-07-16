@@ -1,6 +1,7 @@
+
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch } from 'firebase/firestore';
 import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -199,6 +200,21 @@ export interface Announcement {
     message: string;
     link?: string;
     createdAt: Timestamp;
+}
+
+export interface CanvasSession {
+    id: string;
+    ownerId: string;
+    status: 'active' | 'ended' | 'archived';
+    createdAt: Timestamp;
+    lastModifiedAt: Timestamp;
+}
+
+export interface CanvasShape {
+    id: string;
+    type: string;
+    props: object;
+    // ... other tldraw shape properties
 }
 
 
@@ -496,14 +512,14 @@ export async function generateAndCacheLessonAudioForSection(lessonId: string, se
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, "lessons"), lessonData);
+    // Fire-and-forget audio generation, don't await it
+    generateAndStoreLessonAudio(docRef.id).catch(console.error);
     await createSystemAnnouncement({
         type: 'new_lesson',
         title: `New Lesson Added: ${lessonData.title}`,
         message: `Explore the new lesson on ${lessonData.subject}. Happy learning!`,
         link: `/dashboard/lessons/${docRef.id}`
     });
-    // Fire-and-forget audio generation, don't await it
-    generateAndStoreLessonAudio(docRef.id).catch(console.error);
     return docRef.id;
   } catch (error) {
     console.error("Error creating lesson: ", error);
@@ -1209,4 +1225,45 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
         // Return empty array on error to prevent crashing the UI
         return [];
     }
+}
+
+
+// Canvas Functions
+export async function createCanvasSession(userId: string): Promise<string> {
+  const sessionData: Omit<CanvasSession, 'id'> = {
+    ownerId: userId,
+    status: 'active',
+    createdAt: Timestamp.now(),
+    lastModifiedAt: Timestamp.now(),
+  };
+  const docRef = await addDoc(collection(db, 'canvasSessions'), sessionData);
+  return docRef.id;
+}
+
+export async function getCanvasSession(sessionId: string): Promise<CanvasSession | null> {
+  const docRef = doc(db, 'canvasSessions', sessionId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as CanvasSession;
+  }
+  return null;
+}
+
+export function getShapesCollectionRef(sessionId: string) {
+    return collection(db, 'canvasSessions', sessionId, 'shapes');
+}
+
+export async function addShape(sessionId: string, shape: any) {
+    const shapeRef = doc(getShapesCollectionRef(sessionId), shape.id);
+    await setDoc(shapeRef, shape);
+}
+
+export async function updateShape(sessionId: string, shape: any) {
+    const shapeRef = doc(getShapesCollectionRef(sessionId), shape.id);
+    await updateDoc(shapeRef, shape);
+}
+
+export async function deleteShape(sessionId: string, shapeId: string) {
+    const shapeRef = doc(getShapesCollectionRef(sessionId), shapeId);
+    await deleteDoc(shapeRef);
 }
