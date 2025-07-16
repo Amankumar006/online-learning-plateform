@@ -41,6 +41,13 @@ export function useStudyRoom(roomId: string, user: User | null) {
         }, SAVE_STATE_INTERVAL, { trailing: true }),
         [roomId, room?.status]
     );
+    
+    const endSession = useCallback(async () => {
+        if (room?.ownerId === user?.uid) {
+            await endStudyRoomSession(roomId);
+            store.setReadOnly(true, 'session_ended');
+        }
+    }, [roomId, user?.uid, room?.ownerId, store]);
 
     useEffect(() => {
         if (!user) return;
@@ -49,6 +56,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         let messagesUnsubscribe: (() => void) | undefined;
         let saveUnsubscribe: (() => void) | undefined;
         let participantsUnsubscribe: (() => void) | undefined;
+        let expiryTimeout: NodeJS.Timeout | undefined;
 
         let stillMounted = true;
         
@@ -62,9 +70,21 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                 if (initialRoom) {
                     setRoom(initialRoom);
-                    if (initialRoom.status === 'ended') {
+                    
+                    if (initialRoom.status === 'ended' || initialRoom.expiresAt.toMillis() < Date.now()) {
                         store.setReadOnly(true, 'session_ended');
+                         if (initialRoom.status === 'active') {
+                            await endStudyRoomSession(roomId);
+                        }
+                    } else {
+                        const timeUntilExpiry = initialRoom.expiresAt.toMillis() - Date.now();
+                        expiryTimeout = setTimeout(() => {
+                            if (room?.ownerId === user.uid) {
+                                endSession();
+                            }
+                        }, timeUntilExpiry);
                     }
+
                      if (initialRoom.roomState) {
                         try {
                             store.loadSnapshot(JSON.parse(initialRoom.roomState));
@@ -84,6 +104,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                         setRoom(roomData);
                          if (roomData.status === 'ended') {
                             store.setReadOnly(true, 'session_ended');
+                            if(expiryTimeout) clearTimeout(expiryTimeout);
                         }
                         if (roomData.roomState) {
                             try {
@@ -142,11 +163,13 @@ export function useStudyRoom(roomId: string, user: User | null) {
             stillMounted = false;
             removeParticipantStatus(roomId, user.uid);
             window.removeEventListener('beforeunload', handleBeforeUnload);
+            if(expiryTimeout) clearTimeout(expiryTimeout);
             stateUnsubscribe?.();
             messagesUnsubscribe?.();
             saveUnsubscribe?.();
             participantsUnsubscribe?.();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId, user, store, saveStateToFirestore]);
     
     const handleSendMessage = (content: string, userName: string) => {
@@ -193,11 +216,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
     }, [store, room?.status]);
 
-    const endSession = useCallback(async () => {
-        if (room?.ownerId === user?.uid) {
-            await endStudyRoomSession(roomId);
-        }
-    }, [roomId, user?.uid, room?.ownerId]);
     
     const toggleHandRaise = useCallback(async () => {
         if (user) {

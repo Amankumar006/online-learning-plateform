@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ParticipantList } from "./ParticipantList";
@@ -31,6 +31,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
+import { formatDistanceToNowStrict } from "date-fns";
 
 interface LessonLoaderProps {
   lessons: Lesson[];
@@ -67,6 +68,44 @@ const LessonLoader = ({ lessons, onSelectLesson, closeDialog }: LessonLoaderProp
   </ScrollArea>
 );
 
+const CountdownTimer = ({ expiryTimestamp, status }: { expiryTimestamp: number, status: 'active' | 'ended' }) => {
+    const [timeLeft, setTimeLeft] = useState("");
+
+    useEffect(() => {
+        if (status === 'ended') {
+            setTimeLeft("Session Ended");
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const distance = expiryTimestamp - now;
+
+            if (distance < 0) {
+                setTimeLeft("Session Ended");
+                clearInterval(interval);
+                return;
+            }
+
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [expiryTimestamp, status]);
+
+    return (
+        <Badge variant={status === 'ended' || timeLeft === "Session Ended" ? "destructive" : "outline"} className="flex items-center gap-2 tabular-nums">
+            <Timer className="h-4 w-4" />
+            {timeLeft}
+        </Badge>
+    );
+};
+
 
 interface StudyRoomHeaderProps {
   room: StudyRoom | null;
@@ -99,7 +138,7 @@ export default function StudyRoomHeader({ room, onToggleChat, participants, less
     <header className="sticky top-0 z-50 flex h-20 shrink-0 items-center justify-between border-b bg-background px-4 md:px-6">
       <div className="flex items-center gap-4">
          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard">
+            <Link href="/dashboard/study-room">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Link>
          </Button>
@@ -113,12 +152,13 @@ export default function StudyRoomHeader({ room, onToggleChat, participants, less
             </h1>
             {room?.lessonTitle && <p className="text-xs text-muted-foreground">Topic: {room.lessonTitle}</p>}
          </div>
+         {room && <CountdownTimer expiryTimestamp={room.expiresAt.toMillis()} status={room.status} />}
       </div>
        <ParticipantList participants={participants} />
       <div className="flex items-center gap-2">
          <Dialog open={isLessonLoaderOpen} onOpenChange={setIsLessonLoaderOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" disabled={room?.status === 'ended'}>
               <BookOpen className="mr-2 h-4 w-4" /> Load Lesson
             </Button>
           </DialogTrigger>
@@ -133,7 +173,7 @@ export default function StudyRoomHeader({ room, onToggleChat, participants, less
           </DialogContent>
         </Dialog>
 
-        <Button variant={isHandRaised ? "secondary" : "outline"} onClick={onToggleHandRaise}>
+        <Button variant={isHandRaised ? "secondary" : "outline"} onClick={onToggleHandRaise} disabled={room?.status === 'ended'}>
             <Hand className="mr-2 h-4 w-4" /> {isHandRaised ? "Lower Hand" : "Raise Hand"}
         </Button>
 
@@ -143,7 +183,7 @@ export default function StudyRoomHeader({ room, onToggleChat, participants, less
          <Button variant="secondary" onClick={onToggleChat}>
           <MessageSquare className="mr-2 h-4 w-4" /> Chat
         </Button>
-        {isOwner && (
+        {isOwner && room?.status === 'active' && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive">

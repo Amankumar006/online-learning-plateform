@@ -16,11 +16,13 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createStudyRoomSession } from "@/hooks/use-study-room";
+import { Timestamp } from "firebase/firestore";
 
 const roomSchema = z.object({
   name: z.string().min(3, "Room name must be at least 3 characters."),
   visibility: z.enum(["public", "private"]),
   lessonId: z.string().optional(),
+  duration: z.string(), // Duration in minutes
 });
 
 type RoomFormValues = z.infer<typeof roomSchema>;
@@ -34,6 +36,7 @@ export default function StartStudyRoom({ userId, lessons }: { userId: string; le
     resolver: zodResolver(roomSchema),
     defaultValues: {
       visibility: "private",
+      duration: "60", // Default to 1 hour
     },
   });
 
@@ -41,12 +44,16 @@ export default function StartStudyRoom({ userId, lessons }: { userId: string; le
     if (!userId) return;
     try {
         const selectedLesson = lessons.find(l => l.id === data.lessonId);
+        const durationInMinutes = parseInt(data.duration, 10);
+        const expiresAt = Timestamp.fromMillis(Date.now() + durationInMinutes * 60 * 1000);
+
         const roomId = await createStudyRoomSession({
             ownerId: userId,
             name: data.name,
             visibility: data.visibility,
             lessonId: data.lessonId || null,
             lessonTitle: selectedLesson?.title || null,
+            expiresAt: expiresAt
         });
         
         toast({
@@ -88,30 +95,44 @@ export default function StartStudyRoom({ userId, lessons }: { userId: string; le
                     {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
                 </div>
 
-                <div className="space-y-2">
-                    <Label>Visibility</Label>
-                     <Controller
-                        name="visibility"
-                        control={control}
-                        render={({ field }) => (
-                            <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <RadioGroupItem value="private" id="private" className="peer sr-only" />
-                                    <Label htmlFor="private" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Visibility</Label>
+                         <Controller
+                            name="visibility"
+                            control={control}
+                            render={({ field }) => (
+                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                    <Label htmlFor="private" className="flex items-center gap-2 rounded-md border p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                         <RadioGroupItem value="private" id="private" />
                                         Private
-                                        <span className="text-xs font-normal text-muted-foreground mt-1">Only people with the link can join.</span>
                                     </Label>
-                                </div>
-                                <div>
-                                     <RadioGroupItem value="public" id="public" className="peer sr-only" />
-                                    <Label htmlFor="public" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                    <Label htmlFor="public" className="flex items-center gap-2 rounded-md border p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                        <RadioGroupItem value="public" id="public" />
                                         Public
-                                         <span className="text-xs font-normal text-muted-foreground mt-1">Visible to everyone on the dashboard.</span>
                                     </Label>
-                                </div>
-                            </RadioGroup>
-                        )}
-                    />
+                                </RadioGroup>
+                            )}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="duration">Duration</Label>
+                        <Controller
+                            name="duration"
+                            control={control}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="30">30 minutes</SelectItem>
+                                        <SelectItem value="60">1 hour</SelectItem>
+                                        <SelectItem value="120">2 hours</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                    </div>
                 </div>
 
                 <div className="space-y-2">

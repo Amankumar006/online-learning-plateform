@@ -213,6 +213,7 @@ export interface StudyRoom {
     lessonId?: string | null;
     lessonTitle?: string | null;
     createdAt: Timestamp;
+    expiresAt: Timestamp;
     roomState?: string;
     status: 'active' | 'ended';
 }
@@ -1240,14 +1241,14 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) {
         return [];
     }
-    // Query for public rooms
+    // Query for public rooms that are active
     const publicRoomsQuery = query(
         collection(db, 'studyRooms'),
         where('visibility', '==', 'public'),
         where('status', '==', 'active')
     );
 
-    // Query for private rooms owned by the user
+    // Query for private rooms owned by the user that are active
     const privateRoomsQuery = query(
         collection(db, 'studyRooms'),
         where('visibility', '==', 'private'),
