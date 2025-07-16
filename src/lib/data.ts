@@ -226,6 +226,14 @@ export interface ChatMessage {
     createdAt: Timestamp;
 }
 
+export interface StudyRoomResource {
+    id: string;
+    url: string;
+    addedByUserId: string;
+    addedByUserName: string;
+    createdAt: Timestamp;
+}
+
 
 export async function getUser(userId: string): Promise<User | null> {
     try {
@@ -1361,4 +1369,32 @@ export async function toggleHandRaise(roomId: string, userId: string) {
 export async function removeParticipantStatus(roomId: string, userId: string) {
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
     await deleteDoc(participantRef);
+}
+
+export async function addStudyRoomResource(roomId: string, userId: string, userName: string, url: string): Promise<void> {
+    const resourcesCol = collection(db, `studyRooms/${roomId}/resources`);
+    await addDoc(resourcesCol, {
+        url,
+        addedByUserId: userId,
+        addedByUserName: userName,
+        createdAt: Timestamp.now(),
+    });
+}
+
+export async function deleteStudyRoomResource(roomId: string, resourceId: string): Promise<void> {
+    const resourceRef = doc(db, `studyRooms/${roomId}/resources`, resourceId);
+    await deleteDoc(resourceRef);
+}
+
+export function getStudyRoomResourcesListener(roomId: string, callback: (resources: StudyRoomResource[]) => void): () => void {
+    const resourcesCol = collection(db, `studyRooms/${roomId}/resources`);
+    const q = query(resourcesCol, orderBy('createdAt', 'asc'));
+
+    return onSnapshot(q, (snapshot) => {
+        const resources = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as StudyRoomResource));
+        callback(resources);
+    });
 }
