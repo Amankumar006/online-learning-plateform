@@ -201,11 +201,6 @@ export default function DashboardPage() {
   if (isLoading) {
     return <DashboardSkeleton />;
   }
-
-  if (!user || !userProfile) {
-    // This case can happen briefly or on error, redirecting is handled in useEffect
-    return <DashboardSkeleton />;
-  }
   
   const exerciseAccuracy = userProgress?.totalExercisesAttempted && userProgress.totalExercisesAttempted > 0
     ? Math.round(((userProgress.totalExercisesCorrect || 0) / userProgress.totalExercisesAttempted) * 100)
@@ -253,11 +248,11 @@ export default function DashboardPage() {
         <div className="relative z-10 flex flex-col h-full">
             <div className="flex-grow overflow-y-auto -mr-6 pr-6">
                 <div className="mb-12">
-                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile.name?.split(' ')[0]}!</h1>
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-headline text-foreground">Welcome back, {userProfile?.name?.split(' ')[0]}!</h1>
                     <p className="text-muted-foreground text-lg">Let's continue your learning journey.</p>
                 </div>
                 
-                {userProfile.proactiveSuggestion && (
+                {userProfile?.proactiveSuggestion && (
                     <Alert className="mb-6 bg-accent/20 border-accent/50">
                         <Sparkles className="h-4 w-4 text-accent" />
                         <AlertTitle className="font-semibold text-accent">A Message from Your AI Buddy!</AlertTitle>
