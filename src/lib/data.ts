@@ -956,7 +956,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        participantIds: [data.ownerId], // Ensure owner is a participant
+        participantIds: data.participantIds || [data.ownerId],
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -974,30 +974,31 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
             where('isPublic', '==', true)
         );
         
-        // Query 2: Get all active rooms (public or private) where the user is the owner
-        const ownerRoomsQuery = query(
+        // Query 2: Get all rooms (public or private) where the user is a participant
+        const participantRoomsQuery = query(
             collection(db, 'studyRooms'),
             where('status', '==', 'active'),
-            where('ownerId', '==', userId)
+            where('participantIds', 'array-contains', userId)
         );
 
-        const [publicSnapshot, ownerSnapshot] = await Promise.all([
+        const [publicSnapshot, participantSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
-            getDocs(ownerRoomsQuery)
+            getDocs(participantRoomsQuery)
         ]);
         
         const roomsMap = new Map<string, StudyRoom>();
         
         const processSnapshot = (snapshot: any) => {
             snapshot.docs.forEach((doc: any) => {
-                if (doc.data().expiresAt.toMillis() > Date.now()) {
-                    roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+                const roomData = doc.data();
+                if (roomData.expiresAt.toMillis() > Date.now()) {
+                    roomsMap.set(doc.id, { id: doc.id, ...roomData } as StudyRoom);
                 }
             });
         };
 
         processSnapshot(publicSnapshot);
-        processSnapshot(ownerSnapshot);
+        processSnapshot(participantSnapshot);
         
         return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     } catch (error) {
@@ -1098,5 +1099,3 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
-
-    
