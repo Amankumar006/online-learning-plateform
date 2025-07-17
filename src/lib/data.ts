@@ -1299,7 +1299,10 @@ export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
 
 export async function updateStudyRoomState(roomId: string, roomState: string): Promise<void> {
     const roomRef = doc(db, 'studyRooms', roomId);
-    await updateDoc(roomRef, { roomState });
+    const roomDoc = await getDoc(roomRef);
+    if (roomDoc.exists() && roomDoc.data().status === 'active') {
+        await updateDoc(roomRef, { roomState });
+    }
 }
 
 export function getStudyRoomStateListener(roomId: string, callback: (roomData: StudyRoom | null) => void) {

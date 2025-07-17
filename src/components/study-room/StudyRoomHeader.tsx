@@ -173,7 +173,7 @@ export default function StudyRoomHeader({ room, onToggleChat, onToggleResources,
         </Dialog>
 
         <Button variant={isHandRaised ? "secondary" : "outline"} onClick={onToggleHandRaise} disabled={room?.status === 'ended'}>
-            <Hand className="mr-2 h-4 w-4" /> {isHandRaised ? "Lower Hand" : "Raise Hand"}
+            <Hand className="mr-2 h-4 w-4" /> {isHandRaised ? "Lower Hand" : "Lower Hand"}
         </Button>
 
         <Button variant="outline" onClick={handleShare}>

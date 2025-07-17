@@ -15,6 +15,8 @@ import { ChatPanel } from "@/components/study-room/ChatPanel";
 import { ResourcePanel } from "@/components/study-room/ResourcePanel";
 import { User as AppUser, Lesson, StudyRoomResource } from "@/lib/data";
 import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } from "@/lib/data";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function StudyRoomPage() {
     const params = useParams();
@@ -72,8 +74,12 @@ export default function StudyRoomPage() {
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen">
-                <p className="text-destructive">Error: {error}</p>
+            <div className="flex flex-col items-center justify-center h-screen text-center p-4">
+                <h2 className="text-2xl font-bold text-destructive mb-2">Error Loading Room</h2>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button asChild>
+                    <Link href="/dashboard/study-room">Back to Study Rooms</Link>
+                </Button>
             </div>
         );
     }
