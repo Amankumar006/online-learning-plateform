@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and } from 'firebase/firestore';
 import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -915,7 +915,7 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
     const lessonContent = await generateLessonContent({
         topic: requestData.title, subject: requestData.subject, topicDepth: "Detailed",
     });
-    const { imageUrl } = await generateLessonImage({
+    const { imageUrl } } from await generateLessonImage({
         prompt: `A high-quality, educational illustration for a lesson on "${lessonContent.title}" in ${lessonContent.subject}.`
     });
     const publicImageUrl = await uploadImageFromDataUrl(imageUrl, `lesson_${Date.now()}`);
@@ -956,7 +956,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        participantIds: [data.ownerId], // Ensure the owner is a participant
+        participantIds: [data.ownerId],
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -966,8 +966,14 @@ export async function createStudyRoomSession(
 export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
     if (!userId) return [];
     
-    const publicRoomsQuery = query(collection(db, 'studyRooms'), where('isPublic', '==', true), where('status', '==', 'active'));
-    const participantRoomsQuery = query(collection(db, 'studyRooms'), where('participantIds', 'array-contains', userId), where('status', '==', 'active'));
+    const publicRoomsQuery = query(collection(db, 'studyRooms'), 
+        where('isPublic', '==', true), 
+        where('status', '==', 'active')
+    );
+    const participantRoomsQuery = query(collection(db, 'studyRooms'), 
+        where('participantIds', 'array-contains', userId), 
+        where('status', '==', 'active')
+    );
 
     const [publicSnapshot, participantSnapshot] = await Promise.all([
         getDocs(publicRoomsQuery),
