@@ -956,6 +956,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
+        participantIds: [data.ownerId], // Ensure owner is a participant
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -966,17 +967,18 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) return [];
     
     try {
+        // Query 1: Get all active public rooms
         const publicRoomsQuery = query(
             collection(db, 'studyRooms'), 
-            where('isPublic', '==', true), 
-            where('status', '==', 'active')
+            where('status', '==', 'active'),
+            where('isPublic', '==', true)
         );
         
+        // Query 2: Get all active rooms (public or private) where the user is the owner
         const ownerRoomsQuery = query(
             collection(db, 'studyRooms'),
-            where('ownerId', '==', userId),
-            where('isPublic', '==', false),
-            where('status', '==', 'active')
+            where('status', '==', 'active'),
+            where('ownerId', '==', userId)
         );
 
         const [publicSnapshot, ownerSnapshot] = await Promise.all([
@@ -1096,3 +1098,5 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
+
+    
