@@ -951,12 +951,12 @@ export async function createStudyRoomSession(
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
+        participantIds: Array.from(new Set([data.ownerId, ...(data.participantIds || [])])), // Ensure owner is a participant
         isPublic: data.visibility === 'public',
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        participantIds: data.participantIds || [data.ownerId],
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -967,14 +967,14 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) return [];
     
     try {
-        // Query 1: Get all active public rooms
+        // Query 1: Fetch all active public rooms
         const publicRoomsQuery = query(
             collection(db, 'studyRooms'), 
             where('status', '==', 'active'),
             where('isPublic', '==', true)
         );
         
-        // Query 2: Get all rooms (public or private) where the user is a participant
+        // Query 2: Fetch all rooms (public or private) where the user is a participant
         const participantRoomsQuery = query(
             collection(db, 'studyRooms'),
             where('status', '==', 'active'),
