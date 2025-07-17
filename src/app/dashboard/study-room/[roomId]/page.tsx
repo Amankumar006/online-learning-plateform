@@ -1,6 +1,7 @@
 
 "use client";
 
+import '@tldraw/tldraw/tldraw.css';
 import dynamic from 'next/dynamic';
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
