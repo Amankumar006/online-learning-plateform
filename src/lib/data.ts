@@ -945,7 +945,7 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
@@ -956,6 +956,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
+        participantIds: [data.ownerId], // Initialize with the owner
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -966,13 +967,17 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) return [];
     
     try {
+        // Query for active public rooms
         const publicRoomsQuery = query(collection(db, 'studyRooms'), 
             where('isPublic', '==', true), 
             where('status', '==', 'active')
         );
-        const participantRoomsQuery = query(collection(db, 'studyRooms'), 
-            where('participantIds', 'array-contains', userId), 
-            where('status', '==', 'active')
+        
+        // Query for active private rooms where the user is a participant
+        const participantRoomsQuery = query(collection(db, 'studyRooms'),
+            where('isPublic', '==', false),
+            where('status', '==', 'active'),
+            where('participantIds', 'array-contains', userId)
         );
 
         const [publicSnapshot, participantSnapshot] = await Promise.all([
@@ -982,17 +987,16 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
         
         const roomsMap = new Map<string, StudyRoom>();
         
-        publicSnapshot.docs.forEach(doc => {
-            if (doc.data().expiresAt.toMillis() > Date.now()) {
-                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom)
-            }
-        });
-        
-        participantSnapshot.docs.forEach(doc => {
-            if (doc.data().expiresAt.toMillis() > Date.now()) {
-                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom)
-            }
-        });
+        const processSnapshot = (snapshot: any) => {
+            snapshot.docs.forEach((doc: any) => {
+                if (doc.data().expiresAt.toMillis() > Date.now()) {
+                    roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+                }
+            });
+        };
+
+        processSnapshot(publicSnapshot);
+        processSnapshot(participantSnapshot);
         
         return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     } catch (error) {
@@ -1043,11 +1047,23 @@ export function getStudyRoomParticipantsListener(roomId: string, callback: (part
 }
 
 export async function setParticipantStatus(roomId: string, user: User) {
-    await setDoc(doc(db, `studyRooms/${roomId}/participants`, user.uid), {
-        uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
-    }, { merge: true });
-     await updateDoc(doc(db, 'studyRooms', roomId), {
-        participantIds: arrayUnion(user.uid)
+    const roomRef = doc(db, 'studyRooms', roomId);
+    const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
+    
+    await runTransaction(db, async (transaction) => {
+        const roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists()) return; // Room doesn't exist
+
+        const participantIds = roomDoc.data()?.participantIds || [];
+        if (!participantIds.includes(user.uid)) {
+            transaction.update(roomRef, {
+                participantIds: arrayUnion(user.uid)
+            });
+        }
+        
+        transaction.set(participantRef, {
+            uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
+        }, { merge: true });
     });
 }
 
@@ -1061,8 +1077,8 @@ export async function toggleHandRaise(roomId: string, userId: string) {
 
 export async function removeParticipantStatus(roomId: string, userId: string) {
     await deleteDoc(doc(db, `studyRooms/${roomId}/participants`, userId));
-    // Note: We don't remove from the participantIds array to maintain a record of who joined.
-    // The presence check in the subcollection is the source of truth for who is *currently* there.
+    // We intentionally do not remove from the participantIds array to maintain a historical record of who joined.
+    // The presence check in the 'participants' subcollection is the source of truth for who is *currently* active.
 }
 
 export async function addStudyRoomResource(roomId: string, userId: string, userName: string, url: string): Promise<void> {
