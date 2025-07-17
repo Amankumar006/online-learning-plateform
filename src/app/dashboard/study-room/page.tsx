@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Globe, Lock } from 'lucide-react';
+import { Globe, Lock, Users, Pen } from 'lucide-react';
 
 function StudyRoomSkeleton() {
     return (
@@ -93,10 +93,10 @@ export default function StudyRoomsPage() {
                 {user && <StartStudyRoom userId={user.uid} lessons={lessons} />}
             </div>
 
-            <Card>
+            <Card className="bg-card/50">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Globe className="h-5 w-5" />
+                    <CardTitle className="flex items-center gap-3">
+                        <Users className="h-6 w-6" />
                         Available Study Rooms
                     </CardTitle>
                     <CardDescription>Join an active session below or create your own private or public room.</CardDescription>
@@ -105,8 +105,8 @@ export default function StudyRoomsPage() {
                     {studyRooms.length > 0 ? (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {studyRooms.map(room => (
-                                <Card key={room.id} className="p-4 flex flex-col justify-between">
-                                    <div>
+                                <Card key={room.id} className="p-4 flex flex-col justify-between hover:border-primary/50 transition-all">
+                                    <div className="flex-grow">
                                         <h3 className="font-semibold flex items-center gap-2">
                                           {room.visibility === 'public' ? <Globe className="h-4 w-4 text-muted-foreground" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
                                           {room.name}
@@ -125,7 +125,7 @@ export default function StudyRoomsPage() {
                         </div>
                     ) : (
                         <div className="text-center text-muted-foreground py-16">
-                            <p>No study rooms are active right now.</p>
+                            <p className="font-semibold">No study rooms are active right now.</p>
                             <p className="text-sm mt-1">Why not start one?</p>
                         </div>
                     )}
