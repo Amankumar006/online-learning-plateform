@@ -17,6 +17,7 @@ import { User as AppUser, Lesson, StudyRoomResource } from "@/lib/data";
 import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function StudyRoomPage() {
     const params = useParams();
@@ -108,7 +109,7 @@ export default function StudyRoomPage() {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col">
+        <div className="h-screen w-screen flex flex-col bg-background">
              <StudyRoomHeader
                 room={room}
                 onToggleChat={handleToggleChat}
@@ -121,14 +122,12 @@ export default function StudyRoomPage() {
                 currentUser={appUser}
                 onToggleHandRaise={toggleHandRaise}
              />
-             <div className="flex-grow flex">
-                <div className="flex-grow h-full relative">
-                    <div className="absolute inset-0">
-                         <Tldraw store={store} autoFocus />
-                    </div>
+             <div className="flex-grow flex relative overflow-hidden">
+                <div className={cn("absolute top-0 left-0 w-full h-full transition-[width] duration-300", activeSidePanel ? "w-[calc(100%-22rem)]" : "w-full")}>
+                     <Tldraw store={store} autoFocus />
                 </div>
                  {activeSidePanel && (
-                    <div className="w-full max-w-sm bg-background shadow-lg border-l shrink-0">
+                    <div className="absolute top-0 right-0 h-full w-[22rem] bg-background shadow-lg border-l shrink-0">
                         {activeSidePanel === 'chat' && <ChatPanel messages={messages} currentUser={appUser} onSendMessage={handleSendMessage}/>}
                         {activeSidePanel === 'resources' && <ResourcePanel resources={resources} onAddResource={handleAddResource} onDeleteResource={handleDeleteResource} currentUser={appUser} roomOwnerId={room?.ownerId} />}
                     </div>
