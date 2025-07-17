@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { Lesson } from "@/lib/data";
+import { Lesson, createStudyRoomSession } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Loader2, Pen, PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createStudyRoomSession } from "@/hooks/use-study-room";
 import { Timestamp } from "firebase/firestore";
 
 const roomSchema = z.object({
