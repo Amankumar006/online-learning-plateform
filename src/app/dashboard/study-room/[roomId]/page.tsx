@@ -136,11 +136,11 @@ export default function StudyRoomPage() {
                 onToggleHandRaise={toggleHandRaise}
              />
              <div className="flex-grow flex relative overflow-hidden">
-                <div className="fixed top-20 left-0 w-full h-[calc(100%-5rem)]">
-                     <Tldraw store={store} autoFocus isReadOnly={isReadOnly} />
+                <div className="flex-1 relative">
+                    <Tldraw store={store} autoFocus isReadOnly={isReadOnly} />
                 </div>
                  {activeSidePanel && (
-                    <div className="absolute top-0 right-0 h-full w-[22rem] bg-background shadow-lg border-l shrink-0">
+                    <div className="w-[22rem] bg-background shadow-lg border-l shrink-0 flex flex-col">
                         {activeSidePanel === 'chat' && <ChatPanel messages={messages} currentUser={appUser} onSendMessage={handleSendMessage}/>}
                         {activeSidePanel === 'resources' && <ResourcePanel resources={resources} onAddResource={handleAddResource} onDeleteResource={handleDeleteResource} currentUser={appUser} roomOwnerId={room?.ownerId} />}
                     </div>
