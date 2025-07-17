@@ -1006,18 +1006,38 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
 }
 
 export async function endStudyRoomSession(roomId: string): Promise<void> {
-    await updateDoc(doc(db, 'studyRooms', roomId), { status: 'ended' });
+    try {
+        await updateDoc(doc(db, 'studyRooms', roomId), { status: 'ended' });
+    } catch (error) {
+        console.error("Error ending study room session:", error);
+        throw new Error("Could not end the session.");
+    }
 }
 
 export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
-    const roomSnap = await getDoc(doc(db, 'studyRooms', roomId));
-    return roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as StudyRoom : null;
+    try {
+        const roomSnap = await getDoc(doc(db, 'studyRooms', roomId));
+        if (roomSnap.exists()) {
+            return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
+        }
+        throw new Error("This study room does not exist.");
+    } catch (error: any) {
+        console.error(`Error fetching study room ${roomId}:`, error);
+        if (error.code === 'permission-denied') {
+            throw new Error("You do not have permission to access this room.");
+        }
+        throw new Error(error.message || "Could not retrieve the study room.");
+    }
 }
 
 export async function updateStudyRoomState(roomId: string, roomState: string): Promise<void> {
-    const roomDoc = await getDoc(doc(db, 'studyRooms', roomId));
-    if (roomDoc.exists() && roomDoc.data().status === 'active') {
-        await updateDoc(doc(db, 'studyRooms', roomId), { roomState });
+    try {
+        const roomDoc = await getDoc(doc(db, 'studyRooms', roomId));
+        if (roomDoc.exists() && roomDoc.data().status === 'active') {
+            await updateDoc(doc(db, 'studyRooms', roomId), { roomState });
+        }
+    } catch (error) {
+        console.warn("Could not update room state (it may have ended):", error);
     }
 }
 
@@ -1028,9 +1048,14 @@ export function getStudyRoomStateListener(roomId: string, callback: (roomData: S
 }
 
 export async function sendStudyRoomMessage(roomId: string, userId: string, userName: string, content: string) {
-    await addDoc(collection(db, 'studyRooms', roomId, 'messages'), {
-        userId, userName, content, createdAt: Timestamp.now(),
-    });
+    try {
+        await addDoc(collection(db, 'studyRooms', roomId, 'messages'), {
+            userId, userName, content, createdAt: Timestamp.now(),
+        });
+    } catch (error) {
+        console.error("Error sending study room message:", error);
+        throw new Error("Failed to send message.");
+    }
 }
 
 export function getStudyRoomMessagesListener(roomId: string, callback: (messages: ChatMessage[]) => void): () => void {
@@ -1050,45 +1075,72 @@ export async function setParticipantStatus(roomId: string, user: User) {
     const roomRef = doc(db, 'studyRooms', roomId);
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
     
-    await runTransaction(db, async (transaction) => {
-        const roomDoc = await transaction.get(roomRef);
-        if (!roomDoc.exists()) return; // Room doesn't exist
+    try {
+        await runTransaction(db, async (transaction) => {
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) throw new Error("Room does not exist.");
 
-        const participantIds = roomDoc.data()?.participantIds || [];
-        if (!participantIds.includes(user.uid)) {
-            transaction.update(roomRef, {
-                participantIds: arrayUnion(user.uid)
-            });
-        }
-        
-        transaction.set(participantRef, {
-            uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
-        }, { merge: true });
-    });
+            const roomData = roomDoc.data();
+            if (roomData.status === 'ended') {
+                throw new Error("This study session has already ended.");
+            }
+
+            const participantIds = roomData?.participantIds || [];
+            if (!participantIds.includes(user.uid)) {
+                transaction.update(roomRef, {
+                    participantIds: arrayUnion(user.uid)
+                });
+            }
+            
+            transaction.set(participantRef, {
+                uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
+            }, { merge: true });
+        });
+    } catch (error) {
+        console.error("Error setting participant status:", error);
+        throw error;
+    }
 }
 
 export async function toggleHandRaise(roomId: string, userId: string) {
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
-    await runTransaction(db, async (t) => {
-        const doc = await t.get(participantRef);
-        if (doc.exists()) t.update(participantRef, { handRaised: !doc.data().handRaised });
-    });
+    try {
+        await runTransaction(db, async (t) => {
+            const doc = await t.get(participantRef);
+            if (doc.exists()) t.update(participantRef, { handRaised: !doc.data().handRaised });
+        });
+    } catch (error) {
+        console.error("Error toggling hand raise:", error);
+        throw new Error("Could not update your status.");
+    }
 }
 
 export async function removeParticipantStatus(roomId: string, userId: string) {
-    await deleteDoc(doc(db, `studyRooms/${roomId}/participants`, userId));
-    // We intentionally do not remove from the participantIds array to maintain a historical record of who joined.
-    // The presence check in the 'participants' subcollection is the source of truth for who is *currently* active.
+    try {
+        await deleteDoc(doc(db, `studyRooms/${roomId}/participants`, userId));
+    } catch (error) {
+        console.error("Error removing participant status:", error);
+    }
 }
 
 export async function addStudyRoomResource(roomId: string, userId: string, userName: string, url: string): Promise<void> {
-    await addDoc(collection(db, `studyRooms/${roomId}/resources`), {
-        url, addedByUserId: userId, addedByUserName: userName, createdAt: Timestamp.now(),
-    });
+    try {
+        await addDoc(collection(db, `studyRooms/${roomId}/resources`), {
+            url, addedByUserId: userId, addedByUserName: userName, createdAt: Timestamp.now(),
+        });
+    } catch (error) {
+        console.error("Error adding resource:", error);
+        throw new Error("Could not add the resource link.");
+    }
 }
 
 export async function deleteStudyRoomResource(roomId: string, resourceId: string): Promise<void> {
-    await deleteDoc(doc(db, `studyRooms/${roomId}/resources`, resourceId));
+    try {
+        await deleteDoc(doc(db, `studyRooms/${roomId}/resources`, resourceId));
+    } catch (error) {
+        console.error("Error deleting resource:", error);
+        throw new Error("Could not delete the resource link.");
+    }
 }
 
 export function getStudyRoomResourcesListener(roomId: string, callback: (resources: StudyRoomResource[]) => void): () => void {
@@ -1097,5 +1149,3 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
-
-    

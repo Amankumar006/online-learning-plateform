@@ -52,48 +52,51 @@ export function useStudyRoom(roomId: string, user: User | null) {
         
         const setup = async () => {
             try {
-                // Set initial presence
-                await setParticipantStatus(roomId, user);
-
+                // Fetch the room first to check its status before joining.
                 const initialRoom = await getStudyRoom(roomId);
                 if (!stillMounted) return;
 
-                if (initialRoom) {
-                    setRoom(initialRoom);
-                    
-                    const isExpired = initialRoom.expiresAt.toMillis() < Date.now();
-                    if (initialRoom.status === 'ended' || isExpired) {
-                        setIsReadOnly(true);
-                         if (initialRoom.status === 'active' && isExpired) {
-                            await endStudyRoomSession(roomId);
-                        }
-                    } else {
-                        const timeUntilExpiry = initialRoom.expiresAt.toMillis() - Date.now();
-                        expiryTimeout = setTimeout(() => {
-                            if (room?.ownerId === user.uid) {
-                                endSession();
-                            }
-                        }, timeUntilExpiry);
-                    }
+                if (!initialRoom) {
+                    throw new Error("This study room does not exist.");
+                }
 
-                     if (initialRoom.roomState) {
-                        try {
-                            store.loadSnapshot(JSON.parse(initialRoom.roomState));
-                        } catch (e) {
-                            console.error("Failed to parse or load room state:", e);
-                        }
+                if (initialRoom.status === 'ended') {
+                    throw new Error("This study session has already ended and is now read-only.");
+                }
+
+                // Now that we know the room is active, join it.
+                await setParticipantStatus(roomId, user);
+
+                setRoom(initialRoom);
+                    
+                const isExpired = initialRoom.expiresAt.toMillis() < Date.now();
+                if (isExpired) {
+                    setIsReadOnly(true);
+                        if (initialRoom.status === 'active' && room?.ownerId === user.uid) {
+                        await endStudyRoomSession(roomId);
                     }
                 } else {
-                    setError("Study room not found.");
-                    setLoading(false);
-                    return;
+                    const timeUntilExpiry = initialRoom.expiresAt.toMillis() - Date.now();
+                    expiryTimeout = setTimeout(() => {
+                        if (room?.ownerId === user.uid) {
+                            endSession();
+                        }
+                    }, timeUntilExpiry);
+                }
+
+                    if (initialRoom.roomState) {
+                    try {
+                        store.loadSnapshot(JSON.parse(initialRoom.roomState));
+                    } catch (e) {
+                        console.error("Failed to parse or load room state:", e);
+                    }
                 }
 
                 // Listener for whiteboard state
                 stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
                     if (roomData) {
                         setRoom(roomData);
-                         if (roomData.status === 'ended') {
+                            if (roomData.status === 'ended') {
                             setIsReadOnly(true);
                             if(expiryTimeout) clearTimeout(expiryTimeout);
                         }
@@ -114,7 +117,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     }
                 });
                 
-                 // Listener for participants
+                    // Listener for participants
                 participantsUnsubscribe = getStudyRoomParticipantsListener(roomId, (newParticipants) => {
                     if (stillMounted) {
                         setParticipants(newParticipants);

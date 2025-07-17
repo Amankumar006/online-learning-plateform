@@ -4,7 +4,7 @@
 import dynamic from 'next/dynamic';
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useEffect, useState, useMemo } from "react";
@@ -87,8 +87,9 @@ export default function StudyRoomPage() {
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center h-screen text-center p-4">
+                <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
                 <h2 className="text-2xl font-bold text-destructive mb-2">Error Loading Room</h2>
-                <p className="text-muted-foreground mb-4">{error}</p>
+                <p className="text-muted-foreground mb-4 max-w-md">{error}</p>
                 <Button asChild>
                     <Link href="/dashboard/study-room">Back to Study Rooms</Link>
                 </Button>
