@@ -945,14 +945,14 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds' | 'ownerName' | 'ownerPhotoURL'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'participantIds'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
         isPublic: data.visibility === 'public',
-        participantIds: [data.ownerId],
+        participantIds: [data.ownerId], // CRITICAL FIX: Initialize with owner
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
@@ -1024,7 +1024,7 @@ export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
     } catch (error: any) {
         console.error(`Error fetching study room ${roomId}:`, error);
         if (error.code === 'permission-denied') {
-            throw new Error("You do not have permission to access this room.");
+            throw new Error("Room not found or you do not have permission to access it.");
         }
         throw new Error(error.message || "Could not retrieve the study room.");
     }
