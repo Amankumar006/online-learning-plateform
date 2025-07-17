@@ -945,7 +945,7 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds' | 'ownerName' | 'ownerPhotoURL'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
@@ -967,14 +967,12 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) return [];
     
     try {
-        // Query 1: Fetch all active public rooms
         const publicRoomsQuery = query(
             collection(db, 'studyRooms'), 
             where('status', '==', 'active'),
             where('isPublic', '==', true)
         );
         
-        // Query 2: Fetch all active rooms where the user is a participant
         const participantRoomsQuery = query(
             collection(db, 'studyRooms'),
             where('status', '==', 'active'),
