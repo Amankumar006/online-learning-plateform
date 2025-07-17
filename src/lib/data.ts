@@ -951,8 +951,8 @@ export async function createStudyRoomSession(
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
-        participantIds: [data.ownerId], // Start with the owner as the only participant
         isPublic: data.visibility === 'public',
+        participantIds: [data.ownerId],
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
@@ -1099,3 +1099,5 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
+
+    
