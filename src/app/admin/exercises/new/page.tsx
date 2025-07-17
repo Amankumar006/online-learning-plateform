@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createExercise, getLessons, Lesson, getLesson, Exercise, createSystemAnnouncement, getExercises } from "@/lib/data";
-import { generateExercise, GeneratedExercise } from "@/ai/flows/generate-exercise";
+import { generateExercise } from "@/ai/flows/generate-exercise";
 import { generateCustomExercise } from "@/ai/flows/generate-custom-exercise";
+import type { GeneratedExercise } from "@/ai/schemas/exercise-schemas";
 import { Loader2, Sparkles, Wand2, BrainCircuit, ArrowRight, Frown } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -100,6 +101,7 @@ function NewExerciseContent() {
         const lesson = await getLesson(selectedLessonId);
         if (!lesson) {
             toast({ variant: "destructive", title: "Error", description: "Could not load lesson content." });
+            setGenerationFailed(true);
             return;
         }
 
@@ -319,7 +321,7 @@ function NewExerciseContent() {
                                 <div className="space-y-2"><Label htmlFor="gradeLevel">Grade Level</Label><Input id="gradeLevel" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} placeholder="e.g., 10th" disabled={isGenerating}/></div>
                                 <div className="space-y-2"><Label htmlFor="ageGroup">Age Group</Label><Input id="ageGroup" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} placeholder="e.g., 14-16" disabled={isGenerating}/></div>
                                 <div className="space-y-2"><Label htmlFor="curriculumBoard">Curriculum</Label><Input id="curriculumBoard" value={curriculumBoard} onChange={(e) => setCurriculumBoard(e.target.value)} placeholder="e.g., CBSE" disabled={isGenerating}/></div>
-                                <div className="space-y-2"><Label htmlFor="difficulty">Difficulty</Label><Select onValueChange={(v) => setDifficulty(Number(v))} value={String(difficulty)} disabled={isGenerating}><SelectTrigger><SelectValue placeholder="Select Difficulty" /></SelectTrigger><SelectContent><SelectItem value="1">Easy</SelectItem><SelectItem value="2">Medium</SelectItem><SelectItem value="3">Hard</SelectItem></SelectContent></Select></div>
+                                <div className="space-y-2"><Label htmlFor="difficulty">Difficulty</Label><Select onValueChange={(v) => setDifficulty(Number(v))} value={difficulty ? String(difficulty) : undefined} disabled={isGenerating}><SelectTrigger><SelectValue placeholder="Select Difficulty" /></SelectTrigger><SelectContent><SelectItem value="1">Easy</SelectItem><SelectItem value="2">Medium</SelectItem><SelectItem value="3">Hard</SelectItem></SelectContent></Select></div>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4 pt-2">
                                 <div className="space-y-2 flex-grow"><Label htmlFor="questionType">Question Type</Label><Select onValueChange={setQuestionType} value={questionType} disabled={isGenerating}><SelectTrigger id="questionType"><SelectValue placeholder="Select question type" /></SelectTrigger><SelectContent><SelectItem value="any">Any (AI Decides)</SelectItem><SelectItem value="mcq">Multiple-Choice</SelectItem><SelectItem value="true_false">True/False</SelectItem><SelectItem value="long_form">Long Form</SelectItem><SelectItem value="fill_in_the_blanks">Fill in the Blanks</SelectItem></SelectContent></Select></div>

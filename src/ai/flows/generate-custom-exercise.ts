@@ -24,10 +24,11 @@ export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseI
 export type { GeneratedExercise };
 
 
-export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<GeneratedExercise> {
+export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<GeneratedExercise | null> {
   const result = await generateCustomExerciseFlow(input);
   if (!result) {
-    throw new Error("The AI returned data in an unsupported format. Please try rephrasing your prompt.");
+    // Return null explicitly if the flow fails to produce a valid result.
+    return null;
   }
   return result;
 }
@@ -70,10 +71,11 @@ const generateCustomExerciseFlow = ai.defineFlow(
   async input => {
     const {output} = await prompt(input);
      if (!output) {
+      // Throw an error here so the calling function knows the generation failed.
       throw new Error("The AI failed to generate an exercise. Please try rephrasing your prompt.");
     }
+     // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
      if (output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
-        // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
         output.correctAnswer = output.options[0];
      }
     return output;

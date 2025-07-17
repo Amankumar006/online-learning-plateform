@@ -160,12 +160,17 @@ export default function BuddyAIPage() {
         let parsedConvos: Conversation[] = [];
         if (savedConvos) {
             try {
-                const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-                parsedConvos = JSON.parse(savedConvos)
-                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
-                  .filter((convo: Conversation) => convo.createdAt > thirtyDaysAgo);
+                // Perform a more robust check before parsing
+                if (savedConvos && savedConvos.trim().startsWith('[')) {
+                    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+                    parsedConvos = JSON.parse(savedConvos)
+                      .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
+                      .filter((convo: Conversation) => convo.createdAt && convo.createdAt > thirtyDaysAgo);
+                } else {
+                    throw new Error("Invalid JSON format for conversations.");
+                }
             } catch (e) {
-                console.error("Failed to parse conversations from localStorage", e);
+                console.error("Failed to parse conversations from localStorage, clearing data.", e);
                 localStorage.removeItem(`conversations_${currentUser.uid}`);
             }
         }

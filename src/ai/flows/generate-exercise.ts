@@ -81,17 +81,18 @@ const generateExerciseFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    if (output) {
+    if (output && output.exercises) {
       // Ensure MCQ correct answers are one of the options.
       output.exercises.forEach(ex => {
         if (ex.type === 'mcq' && !ex.options.includes(ex.correctAnswer)) {
+          // If the AI hallucinates an answer, default to the first option as correct.
           ex.correctAnswer = ex.options[0];
         }
       });
       return output;
     }
-    // If the output is null or undefined, return an empty array of exercises.
-    // This prevents a crash and allows the UI to handle the "no results" case gracefully.
+    // If the output is null or doesn't contain exercises, return a valid empty structure.
+    // This prevents crashes and allows the UI to handle the "no results" case gracefully.
     return { exercises: [] };
   }
 );
