@@ -24,6 +24,12 @@ export default function StudyRoomPage() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isResourcesOpen, setIsResourcesOpen] = useState(false);
     const [lessons, setLessons] = useState<Lesson[]>([]);
+    
+    const activeSidePanel = useMemo(() => {
+        if (isChatOpen) return 'chat';
+        if (isResourcesOpen) return 'resources';
+        return null;
+    }, [isChatOpen, isResourcesOpen]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -94,12 +100,6 @@ export default function StudyRoomPage() {
     const handleDeleteResource = async (resourceId: string) => {
         await deleteStudyRoomResource(roomId, resourceId);
     };
-    
-    const activeSidePanel = useMemo(() => {
-        if (isChatOpen) return 'chat';
-        if (isResourcesOpen) return 'resources';
-        return null;
-    }, [isChatOpen, isResourcesOpen]);
 
     return (
         <div className="h-screen w-screen flex flex-col">
