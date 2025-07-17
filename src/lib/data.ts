@@ -920,7 +920,7 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
     });
     const publicImageUrl = await uploadImageFromDataUrl(imageUrl, `lesson_${Date.now()}`);
     
-    const newLessonId = await createLesson({ ...lessonContent, image: publicImageUrl });
+    await createLesson({ ...lessonContent, image: publicImageUrl });
     await updateDoc(requestRef, { status: 'approved' });
 }
 
@@ -945,7 +945,7 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' >
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
@@ -956,7 +956,6 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        participantIds: [data.ownerId], // Initialize with the owner
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -967,22 +966,22 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     if (!userId) return [];
     
     try {
-        // Query for active public rooms
-        const publicRoomsQuery = query(collection(db, 'studyRooms'), 
+        const publicRoomsQuery = query(
+            collection(db, 'studyRooms'), 
             where('isPublic', '==', true), 
             where('status', '==', 'active')
         );
         
-        // Query for active private rooms where the user is a participant
-        const participantRoomsQuery = query(collection(db, 'studyRooms'),
+        const ownerRoomsQuery = query(
+            collection(db, 'studyRooms'),
+            where('ownerId', '==', userId),
             where('isPublic', '==', false),
-            where('status', '==', 'active'),
-            where('participantIds', 'array-contains', userId)
+            where('status', '==', 'active')
         );
 
-        const [publicSnapshot, participantSnapshot] = await Promise.all([
+        const [publicSnapshot, ownerSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
-            getDocs(participantRoomsQuery)
+            getDocs(ownerRoomsQuery)
         ]);
         
         const roomsMap = new Map<string, StudyRoom>();
@@ -996,7 +995,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
         };
 
         processSnapshot(publicSnapshot);
-        processSnapshot(participantSnapshot);
+        processSnapshot(ownerSnapshot);
         
         return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     } catch (error) {
