@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bot, Calculator, CheckSquare, X } from 'lucide-react';
+import { Bot, Calculator, CheckSquare, X, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUtilitySidebar, PanelType } from '@/hooks/use-utility-sidebar';
 import { cn } from '@/lib/utils';
@@ -9,12 +9,13 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import QuickChatPanel from './QuickChatPanel';
 import TasksPanel from './TasksPanel';
 import AdvancedCalculatorPanel from './AdvancedCalculatorPanel';
-import { useState } from 'react';
+import NotesPanel from './NotesPanel';
 import { ScrollArea } from '../ui/scroll-area';
 
 const sidebarTools = [
   { type: 'chat' as PanelType, icon: Bot, label: 'Quick Chat' },
   { type: 'tasks' as PanelType, icon: CheckSquare, label: 'Tasks' },
+  { type: 'notes' as PanelType, icon: Lightbulb, label: 'Notes' },
   { type: 'math' as PanelType, icon: Calculator, label: 'Calculator' },
 ];
 
@@ -38,6 +39,8 @@ export default function UtilitySidebar() {
         return <QuickChatPanel />;
       case 'tasks':
         return <TasksPanel />;
+      case 'notes':
+        return <NotesPanel />;
       case 'math':
         return <MathSolverPanel />;
       default:
