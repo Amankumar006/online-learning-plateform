@@ -945,7 +945,7 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic' | 'participantIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
@@ -956,7 +956,6 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        participantIds: [data.ownerId],
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -966,25 +965,40 @@ export async function createStudyRoomSession(
 export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
     if (!userId) return [];
     
-    const publicRoomsQuery = query(collection(db, 'studyRooms'), 
-        where('isPublic', '==', true), 
-        where('status', '==', 'active')
-    );
-    const participantRoomsQuery = query(collection(db, 'studyRooms'), 
-        where('participantIds', 'array-contains', userId), 
-        where('status', '==', 'active')
-    );
+    try {
+        const publicRoomsQuery = query(collection(db, 'studyRooms'), 
+            where('isPublic', '==', true), 
+            where('status', '==', 'active')
+        );
+        const participantRoomsQuery = query(collection(db, 'studyRooms'), 
+            where('participantIds', 'array-contains', userId), 
+            where('status', '==', 'active')
+        );
 
-    const [publicSnapshot, participantSnapshot] = await Promise.all([
-        getDocs(publicRoomsQuery),
-        getDocs(participantRoomsQuery)
-    ]);
-    
-    const roomsMap = new Map<string, StudyRoom>();
-    publicSnapshot.docs.forEach(doc => roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom));
-    participantSnapshot.docs.forEach(doc => roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom));
-    
-    return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        const [publicSnapshot, participantSnapshot] = await Promise.all([
+            getDocs(publicRoomsQuery),
+            getDocs(participantRoomsQuery)
+        ]);
+        
+        const roomsMap = new Map<string, StudyRoom>();
+        
+        publicSnapshot.docs.forEach(doc => {
+            if (doc.data().expiresAt.toMillis() > Date.now()) {
+                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom)
+            }
+        });
+        
+        participantSnapshot.docs.forEach(doc => {
+            if (doc.data().expiresAt.toMillis() > Date.now()) {
+                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom)
+            }
+        });
+        
+        return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    } catch (error) {
+        console.error("Error fetching study rooms:", error);
+        throw error;
+    }
 }
 
 export async function endStudyRoomSession(roomId: string): Promise<void> {
@@ -1047,9 +1061,8 @@ export async function toggleHandRaise(roomId: string, userId: string) {
 
 export async function removeParticipantStatus(roomId: string, userId: string) {
     await deleteDoc(doc(db, `studyRooms/${roomId}/participants`, userId));
-    await updateDoc(doc(db, 'studyRooms', roomId), {
-        participantIds: arrayUnion(userId) // Note: Firestore `arrayRemove` is what should be here, but using arrayUnion to avoid breaking things if it doesn't exist. This logic is complex.
-    });
+    // Note: We don't remove from the participantIds array to maintain a record of who joined.
+    // The presence check in the subcollection is the source of truth for who is *currently* there.
 }
 
 export async function addStudyRoomResource(roomId: string, userId: string, userName: string, url: string): Promise<void> {
