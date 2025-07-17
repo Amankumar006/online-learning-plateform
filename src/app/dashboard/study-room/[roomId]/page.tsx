@@ -62,7 +62,8 @@ export default function StudyRoomPage() {
     const { 
         store, 
         error, 
-        isLoading, 
+        isLoading,
+        isReadOnly,
         messages, 
         sendMessage, 
         participants, 
@@ -134,7 +135,7 @@ export default function StudyRoomPage() {
              />
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="fixed top-20 left-0 w-full h-[calc(100%-5rem)]">
-                     <Tldraw store={store} autoFocus />
+                     <Tldraw store={store} autoFocus isReadOnly={isReadOnly} />
                 </div>
                  {activeSidePanel && (
                     <div className="absolute top-0 right-0 h-full w-[22rem] bg-background shadow-lg border-l shrink-0">

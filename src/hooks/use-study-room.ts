@@ -11,25 +11,11 @@ import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
-// Moved from data.ts to keep client-side logic isolated
-export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status'>
-): Promise<string> {
-    const newRoomRef = doc(collection(db, 'studyRooms'));
-    const payload: Omit<StudyRoom, 'id'> = {
-        ...data,
-        createdAt: Timestamp.now(),
-        status: 'active',
-    };
-    await setDoc(newRoomRef, payload);
-    return newRoomRef.id;
-}
-
-
 export function useStudyRoom(roomId: string, user: User | null) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
     const [loading, setLoading] = useState(true);
     const [room, setRoom] = useState<StudyRoom | null>(null);
+    const [isReadOnly, setIsReadOnly] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [participants, setParticipants] = useState<User[]>([]);
@@ -48,9 +34,9 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const endSession = useCallback(async () => {
         if (room?.ownerId === user?.uid) {
             await endStudyRoomSession(roomId);
-            store.setReadOnly(true, 'session_ended');
+            setIsReadOnly(true);
         }
-    }, [roomId, user?.uid, room?.ownerId, store]);
+    }, [roomId, user?.uid, room?.ownerId]);
 
     useEffect(() => {
         if (!user) return;
@@ -75,9 +61,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 if (initialRoom) {
                     setRoom(initialRoom);
                     
-                    if (initialRoom.status === 'ended' || initialRoom.expiresAt.toMillis() < Date.now()) {
-                        store.setReadOnly(true, 'session_ended');
-                         if (initialRoom.status === 'active') {
+                    const isExpired = initialRoom.expiresAt.toMillis() < Date.now();
+                    if (initialRoom.status === 'ended' || isExpired) {
+                        setIsReadOnly(true);
+                         if (initialRoom.status === 'active' && isExpired) {
                             await endStudyRoomSession(roomId);
                         }
                     } else {
@@ -107,7 +94,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     if (roomData) {
                         setRoom(roomData);
                          if (roomData.status === 'ended') {
-                            store.setReadOnly(true, 'session_ended');
+                            setIsReadOnly(true);
                             if(expiryTimeout) clearTimeout(expiryTimeout);
                         }
                         if (roomData.roomState) {
@@ -283,6 +270,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         participants,
         addLessonImageToCanvas,
         room,
+        isReadOnly,
         endSession,
         toggleHandRaise,
         resources

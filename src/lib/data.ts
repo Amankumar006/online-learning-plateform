@@ -210,8 +210,11 @@ export interface StudyRoom {
     ownerId: string;
     name: string;
     visibility: 'public' | 'private';
+    isPublic: boolean;
     lessonId?: string | null;
     lessonTitle?: string | null;
+    ownerName?: string;
+    ownerPhotoURL?: string | null;
     createdAt: Timestamp;
     expiresAt: Timestamp;
     roomState?: string;
@@ -234,6 +237,18 @@ export interface StudyRoomResource {
     createdAt: Timestamp;
 }
 
+// Generic helper for fetching collections
+async function fetchCollection<T>(collectionName: string, q?: any): Promise<T[]> {
+    try {
+        const queryToExecute = q || collection(db, collectionName);
+        const snapshot = await getDocs(queryToExecute);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as T));
+    } catch (error) {
+        console.error(`Error fetching ${collectionName}: `, error);
+        throw new Error(`Failed to fetch ${collectionName}.`);
+    }
+}
+
 
 export async function getUser(userId: string): Promise<User | null> {
     try {
@@ -247,20 +262,12 @@ export async function getUser(userId: string): Promise<User | null> {
         }
     } catch (error) {
         console.error("Error fetching user: ", error);
-        return null;
+        throw new Error(`Failed to fetch user ${userId}.`);
     }
 }
 
 export async function getUsers(): Promise<User[]> {
-    try {
-        const usersCol = collection(db, 'users');
-        const userSnapshot = await getDocs(usersCol);
-        const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        return userList;
-    } catch (error) {
-        console.error("Error fetching users: ", error);
-        return [];
-    }
+    return fetchCollection<User>('users');
 }
 
 export async function updateUserRole(userId: string, role: 'student' | 'admin'): Promise<void> {
@@ -393,28 +400,7 @@ export async function createSystemAnnouncement(announcementData: Omit<Announceme
         });
     } catch (error) {
         console.error("Error creating system announcement: ", error);
-    }
-}
-
-export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>, sendToGmail?: boolean): Promise<void> {
-    try {
-        const payload: { [key: string]: any } = { ...announcementData };
-        // Firestore rejects `undefined` values. If the link is falsy (empty or undefined), remove it.
-        if (!payload.link) {
-            delete payload.link;
-        }
-        await addDoc(collection(db, "announcements"), {
-            ...payload,
-            createdAt: Timestamp.now()
-        });
-
-        if (sendToGmail) {
-            await queueEmailsForAnnouncement(payload.title, payload.message, payload.link);
-        }
-
-    } catch (error) {
-        console.error("Error creating custom announcement: ", error);
-        throw new Error("Failed to send the announcement.");
+        throw new Error("Failed to create system announcement.");
     }
 }
 
@@ -451,12 +437,32 @@ async function queueEmailsForAnnouncement(subject: string, message: string, link
     }
 }
 
+export async function createCustomAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt'>, sendToGmail?: boolean): Promise<void> {
+    try {
+        const payload: { [key: string]: any } = { ...announcementData };
+        if (!payload.link) {
+            delete payload.link;
+        }
+        await addDoc(collection(db, "announcements"), {
+            ...payload,
+            createdAt: Timestamp.now()
+        });
+
+        if (sendToGmail) {
+            await queueEmailsForAnnouncement(payload.title, payload.message, payload.link);
+        }
+
+    } catch (error) {
+        console.error("Error creating custom announcement: ", error);
+        throw new Error("Failed to send the announcement.");
+    }
+}
+
 export async function generateAndStoreLessonAudio(lessonId: string): Promise<void> {
   const lessonRef = doc(db, 'lessons', lessonId);
   const lessonDoc = await getDoc(lessonRef);
   if (!lessonDoc.exists()) {
-    console.error("Lesson not found to generate audio for.");
-    return;
+    throw new Error("Lesson not found to generate audio for.");
   }
 
   const lesson = lessonDoc.data() as Lesson;
@@ -464,14 +470,13 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
 
   const updatedSections = await Promise.all(
     lesson.sections.map(async (section, index) => {
-      // Skip if audio already exists or no text content
       if (section.audioUrl || !section.blocks.some(b => b.type === 'text')) {
         return section;
       }
       
       const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
       if (!textContent.trim()) {
-        return section; // Skip if no text content
+        return section;
       }
 
       try {
@@ -481,7 +486,7 @@ export async function generateAndStoreLessonAudio(lessonId: string): Promise<voi
         return { ...section, audioUrl };
       } catch (error) {
         console.error(`Failed to generate audio for section ${index} of lesson ${lessonId}:`, error);
-        return section; // Return original section on failure, allowing for retries
+        return section; 
       }
     })
   );
@@ -493,30 +498,19 @@ export async function generateAndCacheLessonAudioForSection(lessonId: string, se
   const lessonRef = doc(db, 'lessons', lessonId);
   const lessonDoc = await getDoc(lessonRef);
 
-  if (!lessonDoc.exists()) {
-    throw new Error("Lesson not found");
-  }
+  if (!lessonDoc.exists()) throw new Error("Lesson not found");
 
   const lesson = lessonDoc.data() as Lesson;
   const section = lesson.sections?.[sectionIndex];
 
-  if (!section) {
-    throw new Error("Section not found");
-  }
-
-  // If URL already exists, just return it
-  if (section.audioUrl) {
-    return section.audioUrl;
-  }
+  if (!section) throw new Error("Section not found");
+  if (section.audioUrl) return section.audioUrl;
 
   const textContent = section.blocks.filter(b => b.type === 'text').map(b => (b as any).content).join('\n\n');
-  if (!textContent.trim()) {
-    throw new Error("Section has no text content to generate audio from.");
-  }
+  if (!textContent.trim()) throw new Error("Section has no text content to generate audio from.");
 
-  // Generate, Upload, and Update
   const { audioDataUri } = await generateAudioFromText({ sectionTitle: section.title, sectionContent: textContent });
-  const fileName = `${lessonId}_section_${sectionIndex}_${Date.now()}`; // Add timestamp to avoid overwrites
+  const fileName = `${lessonId}_section_${sectionIndex}_${Date.now()}`;
   const audioUrl = await uploadAudioFromDataUrl(audioDataUri, fileName);
 
   const updatedSections = [...(lesson.sections || [])];
@@ -529,7 +523,6 @@ export async function generateAndCacheLessonAudioForSection(lessonId: string, se
 export async function createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, "lessons"), lessonData);
-    // Fire-and-forget audio generation, don't await it
     generateAndStoreLessonAudio(docRef.id).catch(console.error);
     await createSystemAnnouncement({
         type: 'new_lesson',
@@ -548,7 +541,6 @@ export async function updateLesson(lessonId: string, lessonData: Partial<Omit<Le
   try {
     const lessonRef = doc(db, 'lessons', lessonId);
     await updateDoc(lessonRef, lessonData);
-    // Fire-and-forget audio generation for any new sections
     generateAndStoreLessonAudio(lessonId).catch(console.error);
   } catch (error) {
     console.error("Error updating lesson: ", error);
@@ -566,75 +558,39 @@ export async function deleteLesson(lessonId: string): Promise<void> {
 }
 
 export async function getLessons(): Promise<Lesson[]> {
-  try {
-    const lessonsCol = collection(db, 'lessons');
-    const lessonSnapshot = await getDocs(lessonsCol);
-    const lessonList = lessonSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
-    return lessonList;
-  } catch (error) {
-    console.error("Error fetching lessons: ", error);
-    return [];
-  }
+    return fetchCollection<Lesson>('lessons');
 }
 
 export async function getLesson(id: string): Promise<Lesson | null> {
     try {
         const lessonRef = doc(db, 'lessons', id);
         const lessonSnap = await getDoc(lessonRef);
-        if (lessonSnap.exists()) {
-            return { id: lessonSnap.id, ...lessonSnap.data() } as Lesson;
-        } else {
-            return null;
-        }
+        return lessonSnap.exists() ? { id: lessonSnap.id, ...lessonSnap.data() } as Lesson : null;
     } catch (error) {
         console.error("Error fetching lesson: ", error);
-        return null;
+        throw new Error(`Failed to fetch lesson ${id}`);
     }
 }
 
 export async function getUserProgress(userId: string): Promise<UserProgress> {
     const user = await getUser(userId);
-    if (user && user.progress) {
+    if (user?.progress) {
         return user.progress;
     }
-
-    // Return a default structure if user not found or on error
     return {
-        completedLessons: 0,
-        averageScore: 0,
-        mastery: 0,
-        subjectsMastery: [],
-        completedLessonIds: [],
-        timeSpent: 0,
-        exerciseProgress: {},
-        xp: 0,
-        achievements: [],
+        completedLessons: 0, averageScore: 0, mastery: 0, subjectsMastery: [],
+        completedLessonIds: [], timeSpent: 0, exerciseProgress: {}, xp: 0, achievements: [],
     };
 }
 
 export async function updateUserExerciseIndex(userId: string, lessonId: string, index: number) {
     const userRef = doc(db, 'users', userId);
     try {
-        await runTransaction(db, async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) {
-                throw "User document does not exist!";
-            }
-            const progress = userDoc.data().progress || {};
-            
-            const newExerciseProgress = {
-                ...(progress.exerciseProgress || {}),
-                [lessonId]: {
-                    currentExerciseIndex: index
-                }
-            };
-            
-            transaction.update(userRef, { 
-                'progress.exerciseProgress': newExerciseProgress
-            });
+        await updateDoc(userRef, { 
+            [`progress.exerciseProgress.${lessonId}`]: { currentExerciseIndex: index }
         });
     } catch (e) {
-        console.error("Transaction failed: ", e);
+        console.error("Update exercise index failed: ", e);
         throw new Error("Failed to save exercise progress.");
     }
 }
@@ -645,7 +601,6 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         const exerciseSnap = await getDoc(exerciseRef);
         if (exerciseSnap.exists()) {
             const data = exerciseSnap.data();
-            // Handle boolean conversion for true/false from string stored in firestore
             if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
                 data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
             }
@@ -655,40 +610,20 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         }
     } catch (error) {
         console.error("Error fetching exercise: ", error);
-        return null;
+        throw new Error(`Failed to fetch exercise ${id}.`);
     }
 }
 
-
 export async function getExercises(lessonId: string): Promise<Exercise[]> {
-    try {
-        const q = query(collection(db, "exercises"), where("lessonId", "==", lessonId), where("isCustom", "==", false));
-        const querySnapshot = await getDocs(q);
-        const exercisesList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-        return exercisesList;
-    } catch (error) {
-      console.error("Error fetching exercises: ", error);
-      return [];
-    }
+    const q = query(collection(db, "exercises"), where("lessonId", "==", lessonId), where("isCustom", "==", false));
+    return fetchCollection<Exercise>('exercises', q);
 }
 
 export async function getCustomExercisesForUser(userId: string): Promise<Exercise[]> {
-    if (!userId) {
-        return [];
-    }
-    const userExercisesQuery = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
-
-    const snapshot = await getDocs(userExercisesQuery);
-
-    const exercisesList = snapshot.docs.map(doc => {
-        const data = doc.data();
-        if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
-            data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
-        }
-        return { id: doc.id, ...data } as Exercise;
-    });
-
-    return exercisesList;
+    if (!userId) return [];
+    const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
+    const exercises = await fetchCollection<Exercise>('exercises', q);
+    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
 export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
@@ -697,34 +632,23 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
             getDocs(collection(db, 'exercises')),
             getDocs(collection(db, 'lessons'))
         ]);
-
-        const lessonsMap = new Map<string, string>();
-        lessonsSnapshot.docs.forEach(doc => {
-            lessonsMap.set(doc.id, doc.data().title);
-        });
-
-        const exerciseList = exercisesSnapshot.docs.map(doc => {
+        const lessonsMap = new Map(lessonsSnapshot.docs.map(doc => [doc.id, doc.data().title]));
+        return exercisesSnapshot.docs.map(doc => {
             const data = doc.data() as Omit<Exercise, 'id'>;
-            
             const questionText = data.type === 'fill_in_the_blanks' 
                 ? (data as FillInTheBlanksExercise).questionParts.join('___') 
                 : (data as BaseExercise).question;
 
             return {
-                id: doc.id,
-                ...data,
-                question: questionText,
+                id: doc.id, ...data, question: questionText,
                 lessonTitle: lessonsMap.get(data.lessonId) || (data.isCustom ? 'Custom Practice' : 'Unknown Lesson'),
             } as ExerciseWithLessonTitle;
         });
-
-        return exerciseList;
     } catch (error) {
         console.error("Error fetching all exercises with lesson titles: ", error);
-        return [];
+        throw new Error("Failed to fetch all exercises.");
     }
 }
-
 
 export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promise<string> {
     try {
@@ -751,86 +675,47 @@ export async function deleteExercise(exerciseId: string): Promise<void> {
         await deleteDoc(doc(db, 'exercises', exerciseId));
     } catch (error) {
         console.error("Error deleting exercise: ", error);
-        throw new Error("Failed to delete lesson");
+        throw new Error("Failed to delete exercise");
     }
 }
 
 export async function completeLesson(userId: string, lessonId: string): Promise<void> {
     const userRef = doc(db, 'users', userId);
-    const lessonRef = doc(db, 'lessons', lessonId);
-    let newAchievements: Achievement[] = [];
-
     try {
-        // Fetch lesson details to get the subject
-        const lessonSnap = await getDoc(lessonRef);
-        if (!lessonSnap.exists()) {
-            throw new Error("Lesson not found");
-        }
-        const lessonData = lessonSnap.data() as Omit<Lesson, 'id'>;
-        const subject = lessonData.subject;
-
-        // Fetch all lessons for that subject to calculate total
-        const subjectQuery = query(collection(db, 'lessons'), where('subject', '==', subject));
-        const subjectLessonsSnapshot = await getDocs(subjectQuery);
-        const totalLessonsInSubject = subjectLessonsSnapshot.size;
-
         await runTransaction(db, async (transaction) => {
             const userSnap = await transaction.get(userRef);
-            if (!userSnap.exists()) {
-                throw new Error("User not found");
-            }
+            if (!userSnap.exists()) throw new Error("User not found");
             const userData = userSnap.data() as User;
             const progress = userData.progress || {};
+            if (progress.completedLessonIds?.includes(lessonId)) return;
 
-            // If already completed, do nothing.
-            if (progress.completedLessonIds?.includes(lessonId)) {
-                return;
-            }
+            const lessonSnap = await getDoc(doc(db, 'lessons', lessonId));
+            if (!lessonSnap.exists()) throw new Error("Lesson not found");
+            const subject = lessonSnap.data().subject;
 
-            // Achievement check for first lesson
-            if ((progress.completedLessonIds?.length || 0) === 0) {
-                newAchievements.push('FIRST_LESSON_COMPLETE');
-            }
+            const subjectQuery = query(collection(db, 'lessons'), where('subject', '==', subject));
+            const subjectLessonsSnapshot = await getDocs(subjectQuery);
+            const totalLessonsInSubject = subjectLessonsSnapshot.size;
 
-            // Get user's completed lessons in this subject
             const completedLessonIds = [...(progress.completedLessonIds || []), lessonId];
-            const subjectLessonIds = subjectLessonsSnapshot.docs.map(doc => doc.id);
-
-            let completedInSubjectCount = 0;
-            completedLessonIds.forEach(id => {
-                if (subjectLessonIds.includes(id)) {
-                    completedInSubjectCount++;
-                }
-            });
-
-            // Calculate new mastery percentage
+            const completedInSubjectCount = completedLessonIds.filter(id => subjectLessonsSnapshot.docs.some(d => d.id === id)).length;
             const newMastery = totalLessonsInSubject > 0 ? Math.round((completedInSubjectCount / totalLessonsInSubject) * 100) : 0;
-
-            // Update or add the subject in the mastery array
-            const subjectsMastery = progress.subjectsMastery || [];
+            const subjectsMastery = [...(progress.subjectsMastery || [])];
             const subjectIndex = subjectsMastery.findIndex(sm => sm.subject === subject);
+            if (subjectIndex > -1) subjectsMastery[subjectIndex].mastery = newMastery;
+            else subjectsMastery.push({ subject: subject, mastery: newMastery });
 
-            if (subjectIndex > -1) {
-                subjectsMastery[subjectIndex].mastery = newMastery;
-            } else {
-                subjectsMastery.push({ subject: subject, mastery: newMastery });
-            }
+            const overallMastery = subjectsMastery.length > 0 ? Math.round(subjectsMastery.reduce((acc, subj) => acc + subj.mastery, 0) / subjectsMastery.length) : 0;
+            const newAchievements = (progress.completedLessonIds?.length || 0) === 0 ? ['FIRST_LESSON_COMPLETE'] : [];
 
-            // Calculate overall mastery
-            const totalMastery = subjectsMastery.reduce((acc, subj) => acc + subj.mastery, 0);
-            const overallMastery = subjectsMastery.length > 0 ? Math.round(totalMastery / subjectsMastery.length) : 0;
-
-            // Update user document with XP and achievements
-            const updates = {
+            transaction.update(userRef, {
                 'progress.completedLessons': increment(1),
                 'progress.completedLessonIds': completedLessonIds,
                 'progress.subjectsMastery': subjectsMastery,
                 'progress.mastery': overallMastery,
-                'progress.xp': increment(50), // Award 50 XP for completing a lesson
+                'progress.xp': increment(50),
                 'progress.achievements': arrayUnion(...newAchievements),
-            };
-
-            transaction.update(userRef, updates);
+            });
         });
     } catch (error) {
         console.error("Error completing lesson: ", error);
@@ -838,71 +723,36 @@ export async function completeLesson(userId: string, lessonId: string): Promise<
     }
 }
 
-/**
- * Checks if a user is struggling with a topic and triggers an AI suggestion.
- */
 async function checkForStrugglesAndSuggestHelp(userId: string, failedExercise: Exercise) {
-    if (!failedExercise.tags || failedExercise.tags.length === 0) return; // Cannot check without tags
-
+    if (!failedExercise.tags?.length) return;
     const user = await getUser(userId);
     if (!user) return;
+    if (user.proactiveSuggestion?.timestamp && user.proactiveSuggestion.timestamp > Date.now() - 24 * 60 * 60 * 1000) return;
 
-    // Cooldown: Don't suggest if one was made in the last 24 hours.
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    if (user.proactiveSuggestion?.timestamp && user.proactiveSuggestion.timestamp > oneDayAgo) {
-        return;
-    }
-
-    const responsesQuery = query(
-        collection(db, "exerciseResponses"),
-        where("userId", "==", userId),
-        orderBy("submittedAt", "desc"),
-        limit(10)
-    );
-    const snapshot = await getDocs(responsesQuery);
-    const recentResponses = snapshot.docs.map(doc => doc.data() as UserExerciseResponse);
-
+    const responsesQuery = query(collection(db, "exerciseResponses"), where("userId", "==", userId), orderBy("submittedAt", "desc"), limit(10));
+    const recentResponses = await fetchCollection<UserExerciseResponse>('exerciseResponses', responsesQuery);
+    
     const incorrectResponses = recentResponses.filter(r => !r.isCorrect);
-
-    // Find tags that are common between the failed exercise and other recent failures.
     const struggleTags: { [key: string]: number } = {};
     incorrectResponses.forEach(response => {
-        if (!response.tags) return;
-        const commonTags = failedExercise.tags!.filter(t => response.tags!.includes(t));
-        commonTags.forEach(tag => {
-            struggleTags[tag] = (struggleTags[tag] || 0) + 1;
-        });
+        const commonTags = failedExercise.tags!.filter(t => response.tags?.includes(t));
+        commonTags.forEach(tag => struggleTags[tag] = (struggleTags[tag] || 0) + 1);
     });
 
-    // Find the most struggled tag with at least 2 other recent failures (3 total).
     const mostStruggled = Object.entries(struggleTags).find(([_, count]) => count >= 2);
-    
     if (mostStruggled) {
         const [topic] = mostStruggled;
-        console.log(`User ${userId} is struggling with topic: ${topic}`);
-
-        // Generate suggestion with AI
         const { suggestion } = await generateProactiveSuggestion({ strugglingTopic: topic });
-
-        // Update user profile with the suggestion
-        const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
-            proactiveSuggestion: {
-                message: suggestion,
-                topic: topic,
-                timestamp: Date.now()
-            }
+        await updateDoc(doc(db, 'users', userId), {
+            proactiveSuggestion: { message: suggestion, topic, timestamp: Date.now() }
         });
     }
 }
 
-// Helper functions for saveExerciseAttempt
 async function updateUserAggregates(transaction: any, userRef: any, progress: UserProgress, isCorrect: boolean, score: number) {
     const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
     const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-    const totalScore = (progress.averageScore || 0) * (totalAttempted - 1) + score;
-    const newAverageScore = totalAttempted > 0 ? Math.round(totalScore / totalAttempted) : 0;
-
+    const newAverageScore = totalAttempted > 0 ? Math.round(((progress.averageScore || 0) * (totalAttempted - 1) + score) / totalAttempted) : 0;
     transaction.update(userRef, { 
         'progress.totalExercisesAttempted': totalAttempted,
         'progress.totalExercisesCorrect': totalCorrect,
@@ -914,28 +764,23 @@ async function updateWeeklyActivity(transaction: any, userRef: any, progress: Us
     const weeklyActivity = progress.weeklyActivity || [];
     const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
-
     if (currentWeek) {
         if(isCorrect) currentWeek.skillsMastered += 1;
     } else {
-        currentWeek = { week: weekStartDateStr, skillsMastered: isCorrect ? 1 : 0, timeSpent: 0 };
-        weeklyActivity.push(currentWeek);
+        weeklyActivity.push({ week: weekStartDateStr, skillsMastered: isCorrect ? 1 : 0, timeSpent: 0 });
     }
-    const sortedWeeklyActivity = weeklyActivity.sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime()).slice(-5);
-    transaction.update(userRef, { 'progress.weeklyActivity': sortedWeeklyActivity });
+    transaction.update(userRef, { 'progress.weeklyActivity': weeklyActivity.slice(-5) });
 }
 
 async function updateAchievements(transaction: any, userRef: any, progress: UserProgress, exercise: Exercise, isCorrect: boolean) {
-    const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-    const xpGained = isCorrect ? (10 + (exercise.difficulty * 5)) : 0;
-    let newAchievements: Achievement[] = [];
-    
-    if (isCorrect) {
-        if (totalCorrect === 1) newAchievements.push('FIRST_CORRECT_ANSWER');
-        if (totalCorrect >= 10 && exercise.category === 'math') newAchievements.push('MATH_WHIZ_10');
-        if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) newAchievements.push('PYTHON_NOVICE');
-        if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) newAchievements.push('JS_NOVICE');
-    }
+    if (!isCorrect) return;
+    const totalCorrect = (progress.totalExercisesCorrect || 0) + 1;
+    const xpGained = 10 + (exercise.difficulty * 5);
+    const newAchievements: Achievement[] = [];
+    if (totalCorrect === 1) newAchievements.push('FIRST_CORRECT_ANSWER');
+    if (exercise.category === 'math' && totalCorrect >= 10 && !progress.achievements.includes('MATH_WHIZ_10')) newAchievements.push('MATH_WHIZ_10');
+    if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) newAchievements.push('PYTHON_NOVICE');
+    if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) newAchievements.push('JS_NOVICE');
     
     transaction.update(userRef, {
         'progress.xp': increment(xpGained),
@@ -944,14 +789,8 @@ async function updateAchievements(transaction: any, userRef: any, progress: User
 }
 
 export async function saveExerciseAttempt(
-    userId: string,
-    lessonTitle: string,
-    exercise: Exercise,
-    submittedAnswer: string | boolean | string[],
-    isCorrect: boolean,
-    score: number,
-    feedback?: string | GradeMathSolutionOutput,
-    imageDataUri?: string | null
+    userId: string, lessonTitle: string, exercise: Exercise, submittedAnswer: string | boolean | string[],
+    isCorrect: boolean, score: number, feedback?: string | GradeMathSolutionOutput, imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
@@ -959,56 +798,35 @@ export async function saveExerciseAttempt(
     try {
         const responseSnap = await getDoc(responseRef);
         const isFirstAttempt = !responseSnap.exists();
-
         const dataToSave: Partial<UserExerciseResponse> = {
-            userId,
-            lessonId: exercise.lessonId,
-            exerciseId: exercise.id,
+            userId, lessonId: exercise.lessonId, exerciseId: exercise.id,
             question: exercise.type === 'fill_in_the_blanks' ? exercise.questionParts.join('___') : exercise.question,
-            lessonTitle: lessonTitle,
-            submittedAnswer,
-            isCorrect,
-            score,
-            feedback: feedback || "",
-            tags: exercise.tags || [],
+            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedback || "", tags: exercise.tags || [],
             submittedAt: Date.now(),
         };
-
         if (imageDataUri) dataToSave.imageDataUri = imageDataUri;
 
         if (isFirstAttempt) {
-            dataToSave.attempts = 1;
-            await setDoc(responseRef, dataToSave);
-        } else {
-            dataToSave.attempts = increment(1);
-            await updateDoc(responseRef, dataToSave);
-        }
-        
-        if (isFirstAttempt) {
-            await runTransaction(db, async (transaction) => {
-                const userDoc = await transaction.get(userRef);
-                if (!userDoc.exists()) throw "User document does not exist!";
+            await setDoc(responseRef, { ...dataToSave, attempts: 1 });
+            await runTransaction(db, async (t) => {
+                const userDoc = await t.get(userRef);
+                if (!userDoc.exists()) throw "User not found";
                 const progress = userDoc.data().progress as UserProgress;
-                
-                await updateUserAggregates(transaction, userRef, progress, isCorrect, score);
-                await updateWeeklyActivity(transaction, userRef, progress, isCorrect);
-                await updateAchievements(transaction, userRef, progress, exercise, isCorrect);
+                await updateUserAggregates(t, userRef, progress, isCorrect, score);
+                await updateWeeklyActivity(t, userRef, progress, isCorrect);
+                await updateAchievements(t, userRef, progress, exercise, isCorrect);
             });
-        } else if (isCorrect) {
-             await runTransaction(db, async (transaction) => {
-                 const userDoc = await transaction.get(userRef);
-                 if (!userDoc.exists()) throw "User document does not exist!";
-                 const xpGained = 10 + (exercise.difficulty * 5);
-                 transaction.update(userRef, {
+        } else {
+            await updateDoc(responseRef, { ...dataToSave, attempts: increment(1) });
+            if (isCorrect) {
+                await updateDoc(userRef, {
                     'progress.totalExercisesCorrect': increment(1),
-                    'progress.xp': increment(xpGained),
-                 });
-             });
+                    'progress.xp': increment(10 + (exercise.difficulty * 5)),
+                });
+            }
         }
         
-        if (!isCorrect) {
-            checkForStrugglesAndSuggestHelp(userId, exercise).catch(console.error);
-        }
+        if (!isCorrect) await checkForStrugglesAndSuggestHelp(userId, exercise).catch(console.error);
 
     } catch (e) {
         console.error("Save exercise attempt failed: ", e);
@@ -1016,388 +834,216 @@ export async function saveExerciseAttempt(
     }
 }
 
-
 export async function updateUserTimeSpent(userId: string, seconds: number) {
     if (!userId || seconds <= 0) return;
-
     const userRef = doc(db, 'users', userId);
-    
     try {
-        await runTransaction(db, async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) {
-                console.error("User not found for time tracking.");
-                return;
-            }
-            
-            const progress = userDoc.data().progress as UserProgress;
-            
-            const newTimeSpent = (progress.timeSpent || 0) + seconds;
+        const userDoc = await getDoc(userRef);
+        if (!userDoc.exists()) throw new Error("User not found.");
 
-            const weeklyActivity = progress.weeklyActivity || [];
-            const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-            let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
-
-            if (currentWeek) {
-                currentWeek.timeSpent += seconds;
-            } else {
-                currentWeek = {
-                    week: weekStartDateStr,
-                    skillsMastered: 0,
-                    timeSpent: seconds
-                };
-                weeklyActivity.push(currentWeek);
-            }
-
-            const sortedWeeklyActivity = weeklyActivity
-                .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
-                .slice(-5);
-
-            transaction.update(userRef, {
-                'progress.timeSpent': newTimeSpent,
-                'progress.weeklyActivity': sortedWeeklyActivity
-            });
+        const progress = userDoc.data().progress as UserProgress;
+        const weeklyActivity = progress.weeklyActivity || [];
+        const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+        if (currentWeek) {
+            currentWeek.timeSpent += seconds;
+        } else {
+            weeklyActivity.push({ week: weekStartDateStr, skillsMastered: 0, timeSpent: seconds });
+        }
+        
+        await updateDoc(userRef, {
+            'progress.timeSpent': increment(seconds),
+            'progress.weeklyActivity': weeklyActivity.slice(-5)
         });
     } catch (error) {
         console.error("Error updating time spent:", error);
     }
 }
 
-
 export async function getUserResponsesForLesson(userId: string, lessonId: string): Promise<UserExerciseResponse[]> {
-    try {
-        const q = query(
-            collection(db, "exerciseResponses"),
-            where("userId", "==", userId),
-            where("lessonId", "==", lessonId)
-        );
-        const querySnapshot = await getDocs(q);
-        const responses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserExerciseResponse));
-        return responses;
-    } catch (error) {
-        console.error("Error fetching user responses for lesson: ", error);
-        return [];
-    }
+    const q = query(collection(db, "exerciseResponses"), where("userId", "==", userId), where("lessonId", "==", lessonId));
+    return fetchCollection<UserExerciseResponse>('exerciseResponses', q);
 }
 
 export async function getAllUserResponses(userId: string): Promise<Map<string, UserExerciseResponse>> {
     const q = query(collection(db, "exerciseResponses"), where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
+    const snapshot = await getDocs(q);
     const responsesMap = new Map<string, UserExerciseResponse>();
-    querySnapshot.docs.forEach(doc => {
-        const data = doc.data() as Omit<UserExerciseResponse, 'id'>;
-        responsesMap.set(data.exerciseId, { id: doc.id, ...data });
-    });
+    snapshot.docs.forEach(doc => responsesMap.set(data.exerciseId, { id: doc.id, ...doc.data() as Omit<UserExerciseResponse, 'id'> }));
     return responsesMap;
 }
 
 export async function clearProactiveSuggestion(userId: string): Promise<void> {
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { proactiveSuggestion: null });
+    await updateDoc(userRef, { proactiveSuggestion: deleteField() });
 }
 
 // Lesson Request Functions
 export async function createLessonRequest(userId: string, userName: string, requestData: Omit<LessonRequest, 'id' | 'userId' | 'userName' | 'status' | 'createdAt'>): Promise<void> {
     const userRef = doc(db, 'users', userId);
-    const requestRef = collection(db, 'lessonRequests');
-
     await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) {
-            throw new Error("User not found.");
-        }
-
+        if (!userDoc.exists()) throw new Error("User not found.");
         const userData = userDoc.data() as User;
-        const lastRequestTimestamp = userData.lastLessonRequestAt || 0;
-        const oneWeekAgo = subDays(new Date(), 7).getTime();
-
-        if (lastRequestTimestamp > oneWeekAgo) {
+        if (userData.lastLessonRequestAt && userData.lastLessonRequestAt > subDays(new Date(), 7).getTime()) {
             throw new Error("You can only submit one lesson request per week.");
         }
-
-        // Add the new lesson request
-        transaction.set(doc(requestRef), {
-            ...requestData,
-            userId,
-            userName,
-            status: 'pending',
-            createdAt: Timestamp.now(),
+        transaction.set(doc(collection(db, 'lessonRequests')), {
+            ...requestData, userId, userName, status: 'pending', createdAt: Timestamp.now(),
         });
-
-        // Update the user's last request timestamp
         transaction.update(userRef, { lastLessonRequestAt: Date.now() });
     });
 }
 
 export async function getPendingLessonRequests(): Promise<LessonRequest[]> {
-    try {
-        const q = query(collection(db, "lessonRequests"), where("status", "==", "pending"));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LessonRequest));
-    } catch (error) {
-        console.error("Error fetching pending lesson requests:", error);
-        return [];
-    }
+    const q = query(collection(db, "lessonRequests"), where("status", "==", "pending"));
+    return fetchCollection<LessonRequest>('lessonRequests', q);
 }
 
 export async function approveLessonRequest(requestId: string): Promise<void> {
     const requestRef = doc(db, 'lessonRequests', requestId);
-    
-    await runTransaction(db, async (transaction) => {
-        const requestDoc = await transaction.get(requestRef);
-        if (!requestDoc.exists() || requestDoc.data().status !== 'pending') {
-            throw new Error("Request not found or already processed.");
-        }
-        
-        const requestData = requestDoc.data() as Omit<LessonRequest, 'id'>;
+    const requestDoc = await getDoc(requestRef);
+    if (!requestDoc.exists() || requestDoc.data().status !== 'pending') {
+        throw new Error("Request not found or already processed.");
+    }
+    const requestData = requestDoc.data() as Omit<LessonRequest, 'id'>;
 
-        // 1. Generate Lesson Content with AI
-        const lessonContent = await generateLessonContent({
-            topic: requestData.title,
-            subject: requestData.subject,
-            topicDepth: "Detailed", // Can be customized further
-        });
-
-        // 2. Generate Lesson Image with AI
-        const imagePrompt = `A high-quality, educational illustration for a lesson on "${lessonContent.title}" in the subject of ${lessonContent.subject}.`;
-        const generatedImage = await generateLessonImage({ prompt: imagePrompt });
-
-        // 3. Upload Image to Storage
-        const fileName = `lesson_${Date.now()}`;
-        const imageUrl = await uploadImageFromDataUrl(generatedImage.imageUrl, fileName);
-
-        // 4. Create Lesson in Firestore
-        const lessonData: Omit<Lesson, 'id'> = {
-            ...lessonContent,
-            image: imageUrl,
-        };
-        const lessonRef = doc(collection(db, 'lessons'));
-        transaction.set(lessonRef, lessonData);
-        
-        // 5. Generate Audio in background (don't wait for it)
-        generateAndStoreLessonAudio(lessonRef.id).catch(console.error);
-
-        // 6. Update Request Status
-        transaction.update(requestRef, { status: 'approved' });
-
-        // 7. Create Announcement
-        const announcementData = {
-            type: 'new_lesson' as AnnouncementType,
-            title: `New Lesson Added: ${lessonData.title}`,
-            message: `A new lesson requested by the community is now available.`,
-            link: `/dashboard/lessons/${lessonRef.id}`,
-            createdAt: Timestamp.now(),
-        };
-        const announcementRef = doc(collection(db, 'announcements'));
-        transaction.set(announcementRef, announcementData);
-
+    const lessonContent = await generateLessonContent({
+        topic: requestData.title, subject: requestData.subject, topicDepth: "Detailed",
     });
+    const { imageUrl } = await generateLessonImage({
+        prompt: `A high-quality, educational illustration for a lesson on "${lessonContent.title}" in ${lessonContent.subject}.`
+    });
+    const publicImageUrl = await uploadImageFromDataUrl(imageUrl, `lesson_${Date.now()}`);
+    
+    const newLessonId = await createLesson({ ...lessonContent, image: publicImageUrl });
+    await updateDoc(requestRef, { status: 'approved' });
 }
 
 export async function getRecentAnnouncements(count = 10): Promise<Announcement[]> {
-    try {
-        const q = query(
-            collection(db, "announcements"),
-            orderBy("createdAt", "desc"),
-            limit(count)
-        );
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
-    } catch (error) {
-        console.error("Error fetching recent announcements:", error);
-        return [];
-    }
+    const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"), limit(count));
+    return fetchCollection<Announcement>('announcements', q);
 }
 
 export async function markAnnouncementsAsRead(userId: string): Promise<void> {
     try {
-        const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, { lastCheckedAnnouncementsAt: Timestamp.now() });
+        await updateDoc(doc(db, 'users', userId), { lastCheckedAnnouncementsAt: Timestamp.now() });
     } catch (error) {
         console.error("Error marking announcements as read:", error);
         throw new Error("Failed to update user's notification status.");
     }
 }
-export async function getSolutionHistory(userId: string): Promise<UserExerciseResponse[]> {
-    try {
-        const responsesQuery = query(
-            collection(db, "exerciseResponses"), 
-            where("userId", "==", userId), 
-            orderBy("submittedAt", "desc")
-        );
-        
-        const responsesSnapshot = await getDocs(responsesQuery);
-        if (responsesSnapshot.empty) {
-            return [];
-        }
-        
-        const history = responsesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as UserExerciseResponse));
 
-        return history;
-    } catch (error) {
-        console.error("Error fetching solution history:", error);
-        // Return empty array on error to prevent crashing the UI
-        return [];
-    }
+export async function getSolutionHistory(userId: string): Promise<UserExerciseResponse[]> {
+    const q = query(collection(db, "exerciseResponses"), where("userId", "==", userId), orderBy("submittedAt", "desc"));
+    return fetchCollection<UserExerciseResponse>('exerciseResponses', q);
 }
 
 // Study Room Functions
-export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
-    if (!userId) {
-        return [];
-    }
-    // Query for public rooms that are active
-    const publicRoomsQuery = query(
-        collection(db, 'studyRooms'),
-        where('visibility', '==', 'public'),
-        where('status', '==', 'active')
-    );
+export async function createStudyRoomSession(
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'isPublic'>
+): Promise<string> {
+    const newRoomRef = doc(collection(db, 'studyRooms'));
+    const owner = await getUser(data.ownerId);
+    const payload: Omit<StudyRoom, 'id'> = {
+        ...data,
+        isPublic: data.visibility === 'public',
+        ownerName: owner?.name || 'Anonymous',
+        ownerPhotoURL: owner?.photoURL || null,
+        createdAt: Timestamp.now(),
+        status: 'active',
+    };
+    await setDoc(newRoomRef, payload);
+    return newRoomRef.id;
+}
 
-    // Query for private rooms owned by the user that are active
-    const privateRoomsQuery = query(
-        collection(db, 'studyRooms'),
-        where('visibility', '==', 'private'),
-        where('ownerId', '==', userId),
-        where('status', '==', 'active')
-    );
+
+export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
+    if (!userId) return [];
+    const publicRoomsQuery = query(collection(db, 'studyRooms'), where('isPublic', '==', true), where('status', '==', 'active'));
+    const privateRoomsQuery = query(collection(db, 'studyRooms'), where('ownerId', '==', userId), where('status', '==', 'active'));
 
     const [publicSnapshot, privateSnapshot] = await Promise.all([
         getDocs(publicRoomsQuery),
         getDocs(privateRoomsQuery)
     ]);
-
     const roomsMap = new Map<string, StudyRoom>();
-
-    publicSnapshot.docs.forEach(doc => {
-        roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
-    });
-
-    privateSnapshot.docs.forEach(doc => {
-        roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
-    });
-
-    // Convert map values to array and sort by creation date
+    publicSnapshot.docs.forEach(doc => roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom));
+    privateSnapshot.docs.forEach(doc => roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom));
     return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
 export async function endStudyRoomSession(roomId: string): Promise<void> {
-    const roomRef = doc(db, 'studyRooms', roomId);
-    await updateDoc(roomRef, { status: 'ended' });
+    await updateDoc(doc(db, 'studyRooms', roomId), { status: 'ended' });
 }
 
 export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
-    const roomRef = doc(db, 'studyRooms', roomId);
-    const roomSnap = await getDoc(roomRef);
-    if (roomSnap.exists()) {
-        return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
-    }
-    return null;
+    return (await getDoc(doc(db, 'studyRooms', roomId))).data() as StudyRoom | null;
 }
 
 export async function updateStudyRoomState(roomId: string, roomState: string): Promise<void> {
-    const roomRef = doc(db, 'studyRooms', roomId);
-    const roomDoc = await getDoc(roomRef);
+    const roomDoc = await getDoc(doc(db, 'studyRooms', roomId));
     if (roomDoc.exists() && roomDoc.data().status === 'active') {
-        await updateDoc(roomRef, { roomState });
+        await updateDoc(doc(db, 'studyRooms', roomId), { roomState });
     }
 }
 
 export function getStudyRoomStateListener(roomId: string, callback: (roomData: StudyRoom | null) => void) {
-    const roomRef = doc(db, 'studyRooms', roomId);
-    return onSnapshot(roomRef, (doc) => {
-        if (doc.exists()) {
-            callback({ id: doc.id, ...doc.data() } as StudyRoom);
-        } else {
-            callback(null);
-        }
+    return onSnapshot(doc(db, 'studyRooms', roomId), (doc) => {
+        callback(doc.exists() ? { id: doc.id, ...doc.data() } as StudyRoom : null);
     });
 }
 
 export async function sendStudyRoomMessage(roomId: string, userId: string, userName: string, content: string) {
-    const messagesCollection = collection(db, 'studyRooms', roomId, 'messages');
-    await addDoc(messagesCollection, {
-        userId,
-        userName,
-        content,
-        createdAt: Timestamp.now(),
+    await addDoc(collection(db, 'studyRooms', roomId, 'messages'), {
+        userId, userName, content, createdAt: Timestamp.now(),
     });
 }
 
 export function getStudyRoomMessagesListener(roomId: string, callback: (messages: ChatMessage[]) => void): () => void {
-    const messagesCollection = collection(db, 'studyRooms', roomId, 'messages');
-    const q = query(messagesCollection, orderBy('createdAt', 'asc'));
-
+    const q = query(collection(db, 'studyRooms', roomId, 'messages'), orderBy('createdAt', 'asc'));
     return onSnapshot(q, (snapshot) => {
-        const messages = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as ChatMessage));
-        callback(messages);
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
     });
 }
 
 export function getStudyRoomParticipantsListener(roomId: string, callback: (participants: User[]) => void): () => void {
-    const participantsCol = collection(db, `studyRooms/${roomId}/participants`);
-    return onSnapshot(participantsCol, (snapshot) => {
-        const participants = snapshot.docs.map(doc => doc.data() as User);
-        callback(participants);
+    return onSnapshot(collection(db, `studyRooms/${roomId}/participants`), (snapshot) => {
+        callback(snapshot.docs.map(doc => doc.data() as User));
     });
 }
 
 export async function setParticipantStatus(roomId: string, user: User) {
-    const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
-    // Only store essential, non-sensitive data for presence
-    await setDoc(participantRef, {
-        uid: user.uid,
-        name: user.name,
-        photoURL: user.photoURL || null,
-        handRaised: false, // Default to hand down
+    await setDoc(doc(db, `studyRooms/${roomId}/participants`, user.uid), {
+        uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
     }, { merge: true });
 }
 
 export async function toggleHandRaise(roomId: string, userId: string) {
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
-    await runTransaction(db, async (transaction) => {
-        const participantDoc = await transaction.get(participantRef);
-        if (participantDoc.exists()) {
-            const currentStatus = participantDoc.data().handRaised || false;
-            transaction.update(participantRef, { handRaised: !currentStatus });
-        }
+    await runTransaction(db, async (t) => {
+        const doc = await t.get(participantRef);
+        if (doc.exists()) t.update(participantRef, { handRaised: !doc.data().handRaised });
     });
 }
 
 export async function removeParticipantStatus(roomId: string, userId: string) {
-    const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
-    await deleteDoc(participantRef);
+    await deleteDoc(doc(db, `studyRooms/${roomId}/participants`, userId));
 }
 
 export async function addStudyRoomResource(roomId: string, userId: string, userName: string, url: string): Promise<void> {
-    const resourcesCol = collection(db, `studyRooms/${roomId}/resources`);
-    await addDoc(resourcesCol, {
-        url,
-        addedByUserId: userId,
-        addedByUserName: userName,
-        createdAt: Timestamp.now(),
+    await addDoc(collection(db, `studyRooms/${roomId}/resources`), {
+        url, addedByUserId: userId, addedByUserName: userName, createdAt: Timestamp.now(),
     });
 }
 
 export async function deleteStudyRoomResource(roomId: string, resourceId: string): Promise<void> {
-    const resourceRef = doc(db, `studyRooms/${roomId}/resources`, resourceId);
-    await deleteDoc(resourceRef);
+    await deleteDoc(doc(db, `studyRooms/${roomId}/resources`, resourceId));
 }
 
 export function getStudyRoomResourcesListener(roomId: string, callback: (resources: StudyRoomResource[]) => void): () => void {
-    const resourcesCol = collection(db, `studyRooms/${roomId}/resources`);
-    const q = query(resourcesCol, orderBy('createdAt', 'asc'));
-
+    const q = query(collection(db, `studyRooms/${roomId}/resources`), orderBy('createdAt', 'asc'));
     return onSnapshot(q, (snapshot) => {
-        const resources = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as StudyRoomResource));
-        callback(resources);
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }

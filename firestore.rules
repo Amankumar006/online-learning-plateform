@@ -100,12 +100,8 @@ service cloud.firestore {
     
     // Rules for Study Rooms
     match /studyRooms/{roomId} {
-        function isPublic() {
-          return resource.data.visibility == 'public';
-        }
-        
         // Read: Allow if public, or if the user is the owner (for private rooms)
-        allow read: if request.auth != null && (isPublic() || isRoomOwner(roomId));
+        allow read: if request.auth != null && (resource.data.visibility == 'public' || resource.data.ownerId == request.auth.uid);
         
         // Create: Any authenticated user can create a room for themselves.
         allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
@@ -120,20 +116,20 @@ service cloud.firestore {
 
         // Participants
         match /participants/{userId} {
-            // Read: Allow if the room is public, or if the user is a participant (to see others).
-            allow read: if request.auth != null && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.visibility == 'public' || isParticipant(roomId));
+            // Read: Anyone who is a participant can see the list of other participants.
+            allow read: if isParticipant(roomId);
 
             // Create/Update: A user can only add/update their own status.
-            allow write: if request.auth != null && request.auth.uid == userId;
+            allow write: if request.auth.uid == userId;
             
             // Delete: A user can only remove themselves (on disconnect).
-            allow delete: if request.auth != null && request.auth.uid == userId;
+            allow delete: if request.auth.uid == userId;
         }
 
         // Messages
         match /messages/{messageId} {
-            // Read: Allow if the room is public, or if the user is a participant.
-            allow read: if request.auth != null && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.visibility == 'public' || isParticipant(roomId));
+            // Read: Any participant can read messages.
+            allow read: if isParticipant(roomId);
             
             // Create: Any participant can send a message.
             allow create: if isParticipant(roomId) && request.resource.data.userId == request.auth.uid;
@@ -144,8 +140,8 @@ service cloud.firestore {
 
         // Resources
         match /resources/{resourceId} {
-            // Read: Allow if the room is public, or if the user is a participant.
-            allow read: if request.auth != null && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.visibility == 'public' || isParticipant(roomId));
+            // Read: Any participant can read the resource list.
+            allow read: if isParticipant(roomId);
             
             // Create: Any participant can add a resource.
             allow create: if isParticipant(roomId) && request.resource.data.addedByUserId == request.auth.uid;
