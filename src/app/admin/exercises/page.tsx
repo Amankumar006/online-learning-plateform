@@ -50,7 +50,7 @@ function ExercisesPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [allExercises, setAllExercises] = useState<ExerciseWithLessonTitle[]>([]);
   
-  const lessonFilter = searchParams.get('lesson') || '';
+  const lessonFilter = searchParams.get('lesson') || 'all';
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -68,7 +68,7 @@ function ExercisesPageContent() {
 
   const handleFilterChange = (lessonId: string) => {
     const params = new URLSearchParams(searchParams);
-    if (lessonId) {
+    if (lessonId && lessonId !== 'all') {
         params.set('lesson', lessonId);
     } else {
         params.delete('lesson');
@@ -77,11 +77,11 @@ function ExercisesPageContent() {
   };
 
   const clearFilter = () => {
-    handleFilterChange('');
+    handleFilterChange('all');
   };
 
   const filteredAndGroupedExercises = useMemo((): GroupedExercises => {
-    const exercisesToGroup = lessonFilter ? allExercises.filter(ex => ex.lessonId === lessonFilter) : allExercises;
+    const exercisesToGroup = lessonFilter !== 'all' ? allExercises.filter(ex => ex.lessonId === lessonFilter) : allExercises;
     
     return exercisesToGroup.reduce((acc: GroupedExercises, exercise) => {
         const { lessonId, lessonTitle } = exercise;
@@ -136,13 +136,13 @@ function ExercisesPageContent() {
                             <SelectValue placeholder="Filter by lesson..." />
                         </SelectTrigger>
                         <SelectContent>
-                             <SelectItem value="">All Lessons</SelectItem>
+                             <SelectItem value="all">All Lessons</SelectItem>
                             {lessons.map(lesson => (
                                 <SelectItem key={lesson.id} value={lesson.id}>{lesson.title}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    {lessonFilter && (
+                    {lessonFilter !== 'all' && (
                         <Button variant="ghost" onClick={clearFilter} className="flex-shrink-0">
                             <FilterX className="mr-2 h-4 w-4" /> Clear Filter
                         </Button>
@@ -157,7 +157,7 @@ function ExercisesPageContent() {
         </CardHeader>
         <CardContent>
             {Object.keys(filteredAndGroupedExercises).length > 0 ? (
-                <Accordion type="single" collapsible defaultValue={lessonFilter || Object.keys(filteredAndGroupedExercises)[0]}>
+                <Accordion type="single" collapsible defaultValue={lessonFilter !== 'all' ? lessonFilter : Object.keys(filteredAndGroupedExercises)[0]}>
                     {Object.entries(filteredAndGroupedExercises).map(([lessonId, group]) => (
                         <AccordionItem value={lessonId} key={lessonId}>
                             <AccordionTrigger className="hover:no-underline p-4 rounded-lg hover:bg-muted/50 text-lg">
