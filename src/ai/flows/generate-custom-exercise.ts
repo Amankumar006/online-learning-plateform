@@ -66,13 +66,13 @@ const generateCustomExerciseFlow = ai.defineFlow(
   {
     name: 'generateCustomExerciseFlow',
     inputSchema: GenerateCustomExerciseInputSchema,
-    outputSchema: GeneratedExerciseSchema,
+    outputSchema: GeneratedExerciseSchema.nullable(),
   },
   async input => {
     const {output} = await prompt(input);
      if (!output) {
-      // Throw an error here so the calling function knows the generation failed.
-      throw new Error("The AI failed to generate an exercise. Please try rephrasing your prompt.");
+      // Return null instead of throwing an error to allow the UI to handle it gracefully.
+      return null;
     }
      // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
      if (output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
