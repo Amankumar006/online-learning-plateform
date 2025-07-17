@@ -17,7 +17,6 @@ import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play, R
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "../ui/input";
-import { GradeMathSolutionOutput } from "@/ai/flows/grade-math-solution";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,11 +24,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
     loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
-});
-
-const MathSolutionGrader = dynamic(() => import("./math-solution-grader"), {
-    ssr: false,
-    loading: () => <Skeleton className="w-full h-[550px] rounded-md" />,
 });
 
 const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
@@ -142,7 +136,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [fibCorrectness, setFibCorrectness] = useState<boolean[]>([]);
   const [isGrading, setIsGrading] = useState(false);
-  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | GradeMathSolutionOutput | null>(null);
+  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
   const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
@@ -210,12 +204,8 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
 
         if (currentExercise.type === 'long_form') {
             setLongFormAnswer(previousResponse.submittedAnswer as string);
-            if (previousResponse.feedback) {
-              if (typeof previousResponse.feedback === 'object' && previousResponse.feedback !== null && 'overallScore' in previousResponse.feedback) {
-                  setFeedback(previousResponse.feedback as GradeMathSolutionOutput);
-              } else if (typeof previousResponse.feedback === 'string') {
-                  setFeedback({ isCorrect: previousResponse.isCorrect, score: previousResponse.score, feedback: previousResponse.feedback } as GradeLongFormAnswerOutput);
-              }
+            if (typeof previousResponse.feedback === 'string') {
+                setFeedback({ isCorrect: previousResponse.isCorrect, score: previousResponse.score, feedback: previousResponse.feedback } as GradeLongFormAnswerOutput);
             }
         } else if (currentExercise.type === 'true_false') {
             setSelectedAnswer(previousResponse.submittedAnswer ? 'True' : 'False');
@@ -235,28 +225,6 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     const newAnswers = [...fibAnswers];
     newAnswers[index] = value;
     setFibAnswers(newAnswers);
-  };
-
-  const handleMathGraded = async (result: GradeMathSolutionOutput, studentSolution: string) => {
-    setFeedback(result);
-    setIsAnswered(true);
-    setIsCorrect(result.isSolutionCorrect);
-
-    try {
-        await saveExerciseAttempt(
-            userId,
-            lessonTitle,
-            currentExercise,
-            studentSolution,
-            result.isSolutionCorrect,
-            result.overallScore,
-            result,
-            null
-        );
-    } catch (error) {
-        console.error("Failed to save math exercise result:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not save your progress." });
-    }
   };
 
    const handleRunCode = async () => {
@@ -500,17 +468,6 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                     </div>
                 );
             }
-             if (lfExercise.category === 'math') {
-                 return (
-                    <MathSolutionGrader 
-                        exercise={lfExercise} 
-                        onGraded={handleMathGraded} 
-                        isAnswered={isAnswered}
-                        initialFeedback={feedback as GradeMathSolutionOutput | undefined}
-                        initialSolution={longFormAnswer}
-                    />
-                );
-            }
             return (
                 <div>
                     <Textarea
@@ -655,41 +612,12 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                             </CardContent>
                         </Card>
                     )}
-                     {feedback && 'overallFeedback' in feedback && (
-                        <Card className={cn(feedback.isSolutionCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
-                            <CardHeader>
-                                 <CardTitle className="text-base flex items-center justify-between gap-2">
-                                    <span className="flex items-center gap-2">
-                                        {feedback.isSolutionCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />}
-                                        AI Feedback
-                                    </span>
-                                    <Badge variant={feedback.isSolutionCorrect ? "default" : "destructive"}>Overall Score: {feedback.overallScore}/100</Badge>
-                                </CardTitle>
-                            </CardHeader>
-                          <CardContent className="space-y-4">
-                             <p className="text-sm font-semibold">Overall Summary:</p>
-                             <p className="text-sm">{feedback.overallFeedback}</p>
-                             <p className="text-sm font-semibold pt-4 border-t">Step-by-Step Analysis:</p>
-                             <div className="space-y-2">
-                                {feedback.stepEvaluations.map((step, index) => (
-                                    <div key={index} className="flex items-start gap-3 text-sm p-2 rounded-md bg-background/50">
-                                        {step.isCorrect ? <CheckCircle className="h-4 w-4 text-primary mt-1 shrink-0" /> : <XCircle className="h-4 w-4 text-destructive mt-1 shrink-0" />}
-                                        <div>
-                                            <p className="font-mono text-xs">{`Step ${index + 1}: ${step.step}`}</p>
-                                            <p className="text-muted-foreground">{step.feedback}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                             </div>
-                          </CardContent>
-                        </Card>
-                     )}
                  </div>
             )}
 
             <div className="mt-6 flex justify-end gap-2">
               {!isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type !== 'long_form' && !selectedAnswer) || (currentExercise.type === 'long_form' && currentExercise.category !== 'math' && !longFormAnswer)}>
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type !== 'long_form' && !selectedAnswer) || (currentExercise.type === 'long_form' && !longFormAnswer)}>
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit'}
                 </Button>
               ) : isCorrect ? (

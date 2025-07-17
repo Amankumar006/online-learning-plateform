@@ -1,514 +1,633 @@
-
 "use client";
 
-import React, { useRef, useState, useEffect } from 'react';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BlockMath, InlineMath } from 'react-katex';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download } from 'lucide-react';
-import { convertLatexToSpeech } from '@/ai/flows/convert-latex-to-speech';
-import katex from 'katex';
-import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse, FillInTheBlanksExercise } from "@/lib/data";
+import { saveExerciseAttempt, getUserProgress, updateUserExerciseIndex, getUserResponsesForLesson } from "@/lib/data";
+import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
+import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Code, FunctionSquare, Play, RefreshCw } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "../ui/input";
+import { Skeleton } from "../ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+});
 
-interface FormattedMathProps {
-    text: string;
-    fullTextValue: string;
-    onTextChange: (newText: string) => void;
-}
+const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
+  const hasOutput = result?.stdout && result.stdout.length > 0;
+  const hasError = result?.stderr && result.stderr.length > 0;
 
-const FormattedMath: React.FC<FormattedMathProps> = ({ text, fullTextValue, onTextChange }) => {
-    // This regex splits the text by block and inline LaTeX, preserving them
-    const parts = text.split(/(\$\$[\s\S]*?\$\$|\$.*?\$)/g);
-    
-    return (
-        <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
-            {parts.map((part, index) => {
-                if (!part) return null;
-                try {
-                    if (part.startsWith('$$') && part.endsWith('$$')) {
-                        return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>;
-                    }
-                    if (part.startsWith('$') && part.endsWith('$')) {
-                        return <InlineMath key={index} math={part.slice(1, -1)} />;
-                    }
-                } catch (error: any) {
-                    const handleFix = (fixFunction: (p: string) => string) => {
-                        const fixedPart = fixFunction(part);
-                        // Use a function with replace to only replace the first instance
-                        // This is a safeguard in case the same malformed string appears multiple times.
-                        let replaced = false;
-                        const newFullText = fullTextValue.replace(part, (match) => {
-                            if (!replaced) {
-                                replaced = true;
-                                return fixedPart;
-                            }
-                            return match;
-                        });
-                        onTextChange(newFullText);
-                    };
-
-                    const isMissingBraceError = typeof error.message === 'string' && error.message.includes("Expected '}'");
-                    const isUnexpectedBraceError = typeof error.message === 'string' && error.message.includes("Unexpected '}'");
-                    
-                    const renderFixButton = () => {
-                        if (isMissingBraceError) {
-                            return (
-                                <Button size="sm" variant="secondary" className="h-auto py-1 mt-2" onClick={() => handleFix(p => p + '}')}>
-                                    Add missing '}' and fix
-                                </Button>
-                            );
-                        }
-                        if (isUnexpectedBraceError) {
-                            return (
-                                <Button size="sm" variant="secondary" className="h-auto py-1 mt-2" onClick={() => handleFix(p => {
-                                    const lastBraceIndex = p.lastIndexOf('}');
-                                    return lastBraceIndex !== -1 ? p.substring(0, lastBraceIndex) + p.substring(lastBraceIndex + 1) : p;
-                                })}>
-                                    Remove extra '}'
-                                </Button>
-                            );
-                        }
-                        return null;
-                    }
-
-
-                    return (
-                        <TooltipProvider key={index}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="text-destructive font-mono bg-destructive/10 p-1 rounded-sm mx-1 cursor-help">{part}</span>
-                                </TooltipTrigger>
-                                <TooltipContent className="flex flex-col gap-2 p-2">
-                                    <p className="text-xs max-w-xs">{error.message}</p>
-                                    {renderFixButton()}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    );
-                }
-
-                // Render plain text segments by splitting them into lines and rejoining with <br /> to preserve line breaks
-                return part.split('\n').map((line, lineIndex, arr) => (
-                    <React.Fragment key={`${index}-${lineIndex}`}>
-                        {line}
-                        {lineIndex < arr.length - 1 && <br />}
-                    </React.Fragment>
-                ));
-            })}
+  return (
+    <div className="p-4 bg-muted/50 font-mono text-sm min-h-[200px] whitespace-pre-wrap text-foreground">
+      {isLoading ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
         </div>
-    );
+      ) : result ? (
+        <>
+          {hasOutput && <pre>{result.stdout}</pre>}
+          {hasError && <pre className="text-red-500">{result.stderr}</pre>}
+          {!hasOutput && !hasError && (
+            <p className="text-muted-foreground">Execution finished with no output.</p>
+          )}
+        </>
+      ) : (
+        <div className="text-muted-foreground">Click "Run & Analyze" to see the output here.</div>
+      )}
+    </div>
+  );
 };
 
-const symbolGroups = [
-    {
-        name: "Operators",
-        symbols: [
-            { display: '+', latex: '+', ariaLabel: "plus sign" },
-            { display: '-', latex: '-', ariaLabel: "minus sign" },
-            { display: '×', latex: '\\times ', ariaLabel: "multiplication sign" },
-            { display: '÷', latex: '\\div ', ariaLabel: "division sign" },
-            { display: '±', latex: '\\pm ', ariaLabel: "plus-minus sign" },
-        ]
-    },
-    {
-        name: "Relations",
-        symbols: [
-             { display: '=', latex: '=', ariaLabel: "equals sign" },
-            { display: '≠', latex: '\\neq ', ariaLabel: "not equal to" },
-            { display: '≈', latex: '\\approx ', ariaLabel: "approximately equal to" },
-            { display: '≤', latex: '\\le ', ariaLabel: "less than or equal to" },
-            { display: '≥', latex: '\\ge ', ariaLabel: "greater than or equal to" },
-        ]
-    },
-     {
-        name: "Greek",
-        symbols: [
-            { display: 'α', latex: '\\alpha ', ariaLabel: "alpha" },
-            { display: 'β', latex: '\\beta ', ariaLabel: "beta" },
-            { display: 'π', latex: '\\pi ', ariaLabel: "pi" },
-            { display: 'θ', latex: '\\theta ', ariaLabel: "theta" },
-            { display: 'Δ', latex: '\\Delta ', ariaLabel: "delta" },
-        ]
-    },
-    {
-        name: "Calculus",
-        symbols: [
-            { display: '∫', latex: '\\int ', ariaLabel: "integral" },
-            { display: '∑', latex: '\\sum ', ariaLabel: "summation" },
-            { display: '∂', latex: '\\partial ', ariaLabel: "partial derivative" },
-            { display: '∞', latex: '\\infty ', ariaLabel: "infinity" },
-        ]
-    },
-    {
-        name: "Functions",
-        symbols: [
-            { display: 'sin', latex: '\\sin()', offset: -1, ariaLabel: "sine function" },
-            { display: 'cos', latex: '\\cos()', offset: -1, ariaLabel: "cosine function" },
-            { display: 'tan', latex: '\\tan()', offset: -1, ariaLabel: "tangent function" },
-            { display: 'log', latex: '\\log()', offset: -1, ariaLabel: "logarithm" },
-            { display: 'ln', latex: '\\ln()', offset: -1, ariaLabel: "natural logarithm" },
-        ]
-    },
-    {
-        name: "Structures",
-        symbols: [
-            { display: '√x', latex: '\\sqrt{}', offset: -1, ariaLabel: "square root" },
-            { display: 'x²', latex: '^{}', offset: -1, ariaLabel: "superscript or exponent" },
-            { display: 'xₙ', latex: '_{}', offset: -1, ariaLabel: "subscript" },
-            { display: 'a/b', latex: '\\frac{}{}', offset: -3, ariaLabel: "fraction" },
-            { display: '()', latex: '()', offset: -1, ariaLabel: "parentheses" },
-        ]
+const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean, onApplySuggestion: (code: string) => void }) => {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <p>Analyzing your code...</p>
+            </div>
+        )
     }
-];
-
-const LATEX_COMMAND_MAP = new Map<string, { snippet: string, offset: number }>([
-  ['sqrt', { snippet: '\\sqrt{}', offset: -1 }],
-  ['frac', { snippet: '\\frac{}{}', offset: -3 }],
-  ['sum', { snippet: '\\sum_{i=1}^{n}', offset: 0 }],
-  ['int', { snippet: '\\int_{a}^{b}', offset: 0 }],
-  ['alpha', { snippet: '\\alpha ', offset: 0 }],
-  ['beta', { snippet: '\\beta ', offset: 0 }],
-  ['gamma', { snippet: '\\gamma ', offset: 0 }],
-  ['delta', { snippet: '\\Delta ', offset: 0 }],
-  ['pi', { snippet: '\\pi ', offset: 0 }],
-  ['theta', { snippet: '\\theta ', offset: 0 }],
-  ['sin', { snippet: '\\sin()', offset: -1 }],
-  ['cos', { snippet: '\\cos()', offset: -1 }],
-  ['tan', { snippet: '\\tan()', offset: -1 }],
-  ['log', { snippet: '\\log()', offset: -1 }],
-  ['ln', { snippet: '\\ln()', offset: -1 }],
-  ['infty', { snippet: '\\infty ', offset: 0 }],
-  ['partial', { snippet: '\\partial ', offset: 0 }],
-  ['neq', { snippet: '\\neq ', offset: 0 }],
-  ['approx', { snippet: '\\approx ', offset: 0 }],
-  ['le', { snippet: '\\le ', offset: 0 }],
-  ['ge', { snippet: '\\ge ', offset: 0 }],
-  ['pm', { snippet: '\\pm ', offset: 0 }],
-  ['times', { snippet: '\\times ', offset: 0 }],
-  ['div', { snippet: '\\div ', offset: 0 }],
-]);
-const LATEX_COMMANDS = Array.from(LATEX_COMMAND_MAP.keys());
-
-
-interface MathEditorProps {
-    value: string;
-    onValueChange: (value: string) => void;
-    disabled?: boolean;
-    placeholder?: string;
-}
-
-
-const MathEditor: React.FC<MathEditorProps> = ({ value, onValueChange, disabled, placeholder }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [suggestions, setSuggestions] = useState<string[]>([]);
-    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
-    const [currentCommand, setCurrentCommand] = useState<{word: string, start: number} | null>(null);
-    const { toast } = useToast();
-
-    const [exportFormat, setExportFormat] = useState('mathml');
-    const [exportContent, setExportContent] = useState('');
-    const [isExporting, setIsExporting] = useState(false);
-
-    useEffect(() => {
-        if (suggestions.length > 0) {
-            setActiveSuggestionIndex(0);
-        }
-    }, [suggestions]);
-
-    const insertSymbol = (latex: string, offset = 0) => {
-        if (!textareaRef.current) return;
-        const start = textareaRef.current.selectionStart;
-        const end = textareaRef.current.selectionEnd;
-        const text = textareaRef.current.value;
-        const newValue = text.substring(0, start) + latex + text.substring(end);
-        onValueChange(newValue);
-        setTimeout(() => {
-            if (textareaRef.current) {
-                const newCursorPos = start + latex.length + offset;
-                textareaRef.current.focus();
-                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-            }
-        }, 0);
-    };
-
-    const handleValueChange = (newValue: string, cursorPosition: number) => {
-        onValueChange(newValue);
-        const textBeforeCursor = newValue.slice(0, cursorPosition);
-        const commandMatch = textBeforeCursor.match(/\\([a-zA-Z]*)$/);
-
-        if (commandMatch) {
-            const command = commandMatch[1] || '';
-            const filtered = LATEX_COMMANDS.filter(c => c.startsWith(command)).slice(0, 5);
-            setSuggestions(filtered);
-            setCurrentCommand({ word: `\\${command}`, start: commandMatch.index! });
-        } else {
-            setSuggestions([]);
-            setCurrentCommand(null);
-        }
-    };
-
-    const handleSuggestionClick = (commandName: string) => {
-        if (!currentCommand || !textareaRef.current) return;
-        const commandInfo = LATEX_COMMAND_MAP.get(commandName);
-        if (!commandInfo) return;
-
-        const { snippet, offset } = commandInfo;
-        const { start } = currentCommand;
-        const end = start + currentCommand.word.length;
-        const newValue = value.slice(0, start) + snippet + value.slice(end);
-        onValueChange(newValue);
-
-        setSuggestions([]);
-        setCurrentCommand(null);
-
-        setTimeout(() => {
-            if (textareaRef.current) {
-                const newCursorPos = start + snippet.length + offset;
-                textareaRef.current.focus();
-                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-            }
-        }, 0);
-    };
     
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (suggestions.length > 0) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setActiveSuggestionIndex(prev => (prev + 1) % suggestions.length);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setActiveSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-            } else if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault();
-                handleSuggestionClick(suggestions[activeSuggestionIndex]);
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setSuggestions([]);
-                setCurrentCommand(null);
-            }
-        }
-    };
-
-    const handleGenerateExport = async () => {
-        if (!value.trim()) {
-            toast({ variant: 'destructive', title: 'Input Required', description: 'Please enter a LaTeX expression to export.' });
-            return;
-        }
-        setIsExporting(true);
-        setExportContent('');
-        try {
-            if (exportFormat === 'mathml') {
-                const mathml = katex.renderToString(value, {
-                    output: 'mathml',
-                    throwOnError: false,
-                });
-                setExportContent(mathml);
-            } else if (exportFormat === 'spoken') {
-                const result = await convertLatexToSpeech({ latex: value });
-                setExportContent(result.speech);
-            }
-        } catch (e: any) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'Conversion Error', description: e.message || 'Failed to convert expression.' });
-        } finally {
-            setIsExporting(false);
-        }
-    };
-
-    const handleDownloadSvg = () => {
-        if (!value.trim()) {
-            toast({ variant: 'destructive', title: 'Input Required', description: 'Please enter a LaTeX expression to download.' });
-            return;
-        }
-        const hiddenDiv = document.createElement('div');
-        hiddenDiv.style.visibility = 'hidden';
-        hiddenDiv.style.position = 'absolute';
-        document.body.appendChild(hiddenDiv);
-    
-        try {
-            katex.render(value, hiddenDiv, {
-                throwOnError: true,
-                displayMode: true,
-            });
-    
-            const svg = hiddenDiv.querySelector('svg');
-            if (!svg) {
-                throw new Error("Could not find an SVG element. This expression may not have been rendered as SVG.");
-            }
-    
-            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-            // Ensure styles are self-contained for standalone viewing
-            const style = document.createElement('style');
-            style.textContent = `svg { background-color: white; color: black; } path { stroke: black; }`;
-            svg.prepend(style);
-
-            const svgData = new XMLSerializer().serializeToString(svg);
-            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'equation.svg';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-    
-        } catch (e: any) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'SVG Error', description: e.message || 'Failed to generate SVG.' });
-        } finally {
-            document.body.removeChild(hiddenDiv);
-        }
-    };
-
-
-    return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="flex flex-col">
-                     <CardHeader className="p-3 border-b flex flex-row items-center justify-between">
-                        <CardTitle className="text-base font-medium">Equation Editor</CardTitle>
+    if (result) {
+         return (
+            <div className="space-y-4 p-4 bg-muted/50 min-h-[200px]">
+                <Card className="bg-background/50 border-border/50">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Complexity Analysis</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-0 flex flex-col flex-grow">
-                        <div className="p-2 border-b">
-                            {symbolGroups.map(group => (
-                                <div key={group.name} className="mb-1 last:mb-0">
-                                    <span className="text-xs font-semibold text-muted-foreground mr-2 w-16 inline-block">{group.name}:</span>
-                                    {group.symbols.map((symbol) => (
-                                        <Button
-                                            key={symbol.display}
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="font-mono h-7 px-2 text-base"
-                                            onClick={() => insertSymbol(symbol.latex, symbol.offset || 0)}
-                                            disabled={disabled}
-                                            aria-label={`Insert ${symbol.ariaLabel}`}
-                                        >
-                                            {symbol.display}
-                                        </Button>
-                                    ))}
+                    <CardContent className="flex gap-8">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Time</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.time}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Space</p>
+                            <p className="font-mono text-lg font-bold">{result.complexity.space}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-background/50 border-border/50">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Code Analysis Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm whitespace-pre-wrap">{result.analysis.summary}</p>
+                    </CardContent>
+                </Card>
+
+                {result.analysis.suggestions && result.analysis.suggestions.length > 0 && (
+                     <Card className="bg-background/50 border-border/50">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Suggestions</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {result.analysis.suggestions.map((suggestion, index) => (
+                                <div key={index} className="border-t pt-4 first:border-t-0 first:pt-0">
+                                    <p className="text-sm font-semibold">{suggestion.suggestion} (Line {suggestion.lineNumber})</p>
+                                    <div className="my-2 not-prose">
+                                        <div className="flex justify-between items-center bg-muted rounded-t-lg px-4 py-1">
+                                            <span className="text-xs font-semibold">Suggested Code</span>
+                                            <Button variant="ghost" size="sm" className="h-7" onClick={() => onApplySuggestion(suggestion.code)}>
+                                                Apply
+                                            </Button>
+                                        </div>
+                                        <div className="bg-background border rounded-b-lg p-2 overflow-x-auto font-mono text-xs">
+                                            <pre><code>{suggestion.code}</code></pre>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
-                        </div>
-                        <div className="relative flex-grow">
-                            <Textarea
-                                ref={textareaRef}
-                                value={value}
-                                onKeyDown={handleKeyDown}
-                                onChange={(e) => handleValueChange(e.target.value, e.target.selectionStart)}
-                                placeholder={placeholder}
-                                disabled={disabled}
-                                className="font-mono text-sm min-h-[200px] flex-grow resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-2 bg-transparent w-full h-full"
-                            />
-                            {suggestions.length > 0 && (
-                                <div className="absolute z-10 w-56 mt-1 rounded-md border bg-popover shadow-lg ring-1 ring-black ring-opacity-5">
-                                    <p className="text-xs px-3 py-2 text-muted-foreground font-semibold">LaTeX Suggestions</p>
-                                    <ul className="max-h-40 overflow-y-auto p-1" role="listbox">
-                                        {suggestions.map((suggestion, index) => (
-                                            <li
-                                                key={suggestion}
-                                                role="option"
-                                                aria-selected={index === activeSuggestionIndex}
-                                                className={cn(
-                                                    "w-full text-left font-mono text-sm px-2 py-1.5 rounded-sm cursor-pointer",
-                                                    index === activeSuggestionIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-                                                )}
-                                                onMouseDown={(e) => {
-                                                    e.preventDefault();
-                                                    handleSuggestionClick(suggestion);
-                                                }}
-                                            >
-                                                {suggestion}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="h-full">
-                     <CardHeader className="py-3 px-4 border-b">
-                        <CardTitle className="text-base font-medium">Live Preview</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                        <ScrollArea className="h-[320px]">
-                           {value ? (
-                               <FormattedMath text={value} fullTextValue={value} onTextChange={onValueChange} />
-                           ) : (
-                               <div className="text-muted-foreground text-center flex items-center justify-center h-full">
-                                   <p>Your rendered equations will appear here.</p>
-                               </div>
-                           )}
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="text-base font-medium">Export Formats</CardTitle>
-                        <p className="text-sm text-muted-foreground">Convert your equation to other formats.</p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={handleDownloadSvg}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download SVG
-                    </Button>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <Select value={exportFormat} onValueChange={setExportFormat}>
-                            <SelectTrigger className="flex-1">
-                                <SelectValue placeholder="Select format" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="mathml">MathML</SelectItem>
-                                <SelectItem value="spoken">Spoken Text (AI)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button type="button" onClick={handleGenerateExport} disabled={isExporting} className="w-full sm:w-auto">
-                            {isExporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Generate
-                        </Button>
-                    </div>
-                    {exportContent && (
-                        <div className="space-y-2">
-                            <Label htmlFor="export-output">Result</Label>
-                            <div className="relative">
-                                <Textarea
-                                    id="export-output"
-                                    readOnly
-                                    value={exportContent}
-                                    className="font-mono text-xs min-h-[100px] pr-12"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute top-2 right-2"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(exportContent);
-                                        toast({ title: 'Copied to clipboard!' });
-                                    }}
-                                >
-                                    Copy
-                                </Button>
-                            </div>
+        )
+    }
+
+    return (
+        <div className="text-center text-muted-foreground p-8 min-h-[200px] flex items-center justify-center">
+            <p>Click "Run & Analyze" to get AI feedback on your code.</p>
+        </div>
+    )
+}
+
+export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { exercises: Exercise[], userId:string, lessonTitle: string }) {
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [longFormAnswer, setLongFormAnswer] = useState("");
+  const [fibAnswers, setFibAnswers] = useState<string[]>([]);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [fibCorrectness, setFibCorrectness] = useState<boolean[]>([]);
+  const [isGrading, setIsGrading] = useState(false);
+  const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
+  const [userResponses, setUserResponses] = useState<Map<string, UserExerciseResponse>>(new Map());
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
+  const [activeOutputTab, setActiveOutputTab] = useState("console");
+  const [isHintVisible, setIsHintVisible] = useState(false);
+  const { toast } = useToast();
+
+  const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
+  const totalExercises = exercises.length;
+  const currentExercise = exercises[currentExerciseIndex];
+
+  const resetForNewQuestion = () => {
+    setSelectedAnswer(null);
+    setLongFormAnswer("");
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setFeedback(null);
+    setSimulationResult(null);
+    setIsHintVisible(false);
+    
+    if (currentExercise?.type === 'fill_in_the_blanks') {
+        const blankCount = currentExercise.correctAnswers.length;
+        setFibAnswers(Array(blankCount).fill(""));
+        setFibCorrectness(Array(blankCount).fill(false));
+    }
+  };
+
+  useEffect(() => {
+    if (!userId || !lessonId) {
+      setIsLoading(false);
+      return;
+    };
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [progress, responses] = await Promise.all([
+            getUserProgress(userId),
+            getUserResponsesForLesson(userId, lessonId)
+        ]);
+
+        if (progress.exerciseProgress && progress.exerciseProgress[lessonId]) {
+          const savedIndex = progress.exerciseProgress[lessonId].currentExerciseIndex;
+          setCurrentExerciseIndex(savedIndex < totalExercises ? savedIndex : 0);
+        }
+        setUserResponses(new Map(responses.map(r => [r.exerciseId, r])));
+
+      } catch (error) {
+        console.error("Failed to load user progress:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [userId, lessonId, totalExercises]);
+
+  useEffect(() => {
+    if (isLoading || !currentExercise) return;
+
+    resetForNewQuestion();
+    
+    const previousResponse = userResponses.get(currentExercise.id);
+    if (previousResponse) {
+        setIsAnswered(true);
+        setIsCorrect(previousResponse.isCorrect);
+
+        if (currentExercise.type === 'long_form') {
+            setLongFormAnswer(previousResponse.submittedAnswer as string);
+            if (typeof previousResponse.feedback === 'string') {
+                setFeedback({ isCorrect: previousResponse.isCorrect, score: previousResponse.score, feedback: previousResponse.feedback } as GradeLongFormAnswerOutput);
+            }
+        } else if (currentExercise.type === 'true_false') {
+            setSelectedAnswer(previousResponse.submittedAnswer ? 'True' : 'False');
+        } else if (currentExercise.type === 'fill_in_the_blanks') {
+            const submitted = previousResponse.submittedAnswer as string[];
+            setFibAnswers(submitted);
+            const correctness = submitted.map((ans, i) => ans.trim().toLowerCase() === currentExercise.correctAnswers[i].trim().toLowerCase());
+            setFibCorrectness(correctness);
+        } else { // MCQ
+            setSelectedAnswer(previousResponse.submittedAnswer as string);
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentExerciseIndex, isLoading, userResponses, currentExercise]);
+
+  const handleFibAnswerChange = (index: number, value: string) => {
+    const newAnswers = [...fibAnswers];
+    newAnswers[index] = value;
+    setFibAnswers(newAnswers);
+  };
+
+   const handleRunCode = async () => {
+    const codeExercise = currentExercise as LongFormExercise;
+    if (currentExercise.type !== 'long_form' || !codeExercise.language) return;
+
+    setIsSimulating(true);
+    setSimulationResult(null);
+    try {
+      const result = await simulateCodeExecution({
+        code: longFormAnswer,
+        language: codeExercise.language,
+      });
+      setSimulationResult(result);
+      toast({ title: "Analysis Complete", description: "The AI has simulated and analyzed your code." });
+      setActiveOutputTab("analysis"); // Switch to analysis tab after running
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Simulation Failed', description: 'The AI could not simulate the code execution.' });
+      setActiveOutputTab("console");
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleApplySuggestion = (code: string) => {
+      setLongFormAnswer(code);
+      toast({
+          title: "Suggestion Applied!",
+          description: "The code in the editor has been updated.",
+      });
+  };
+
+  const handleAnswerSubmit = async () => {
+    if (!currentExercise) return;
+    
+    let correct = false;
+    let score = 0;
+    let submittedAnswer: string | boolean | string[] = selectedAnswer!;
+    let aiFeedback: GradeLongFormAnswerOutput | null = null;
+
+    switch (currentExercise.type) {
+        case 'mcq':
+            if (!selectedAnswer) return;
+            correct = selectedAnswer === currentExercise.correctAnswer;
+            score = correct ? 100 : 0;
+            break;
+        case 'true_false':
+            if (!selectedAnswer) return;
+            submittedAnswer = selectedAnswer === 'True';
+            correct = (currentExercise.correctAnswer === submittedAnswer);
+            score = correct ? 100 : 0;
+            break;
+        case 'long_form':
+            submittedAnswer = longFormAnswer;
+            setIsGrading(true);
+            try {
+                const result = await gradeLongFormAnswer({
+                    question: currentExercise.question,
+                    evaluationCriteria: currentExercise.evaluationCriteria,
+                    studentAnswer: longFormAnswer,
+                });
+                aiFeedback = result;
+                setFeedback(result);
+                correct = result.isCorrect;
+                score = result.score;
+                toast({
+                    title: "Answer Graded!",
+                    description: "Your detailed feedback is available below.",
+                });
+            } catch (error) {
+                console.error("Failed to grade answer:", error);
+                toast({ variant: "destructive", title: "AI Error", description: "Could not get feedback from the AI." });
+                setIsGrading(false);
+                return;
+            } finally {
+                setIsGrading(false);
+            }
+            break;
+        case 'fill_in_the_blanks':
+            submittedAnswer = fibAnswers;
+            const correctnessArray = fibAnswers.map((ans, i) => ans.trim().toLowerCase() === currentExercise.correctAnswers[i].trim().toLowerCase());
+            setFibCorrectness(correctnessArray);
+            correct = correctnessArray.every(c => c);
+            score = correct ? 100 : 0;
+            break;
+    }
+    
+    setIsAnswered(true);
+    setIsCorrect(correct);
+    
+    try {
+        await saveExerciseAttempt(
+            userId,
+            lessonTitle, 
+            currentExercise,
+            submittedAnswer,
+            correct,
+            score,
+            aiFeedback?.feedback
+        );
+
+        // Optimistically update local state
+        const prevResponse = userResponses.get(currentExercise.id);
+        const newResponse: UserExerciseResponse = {
+            id: `${userId}_${currentExercise.id}`,
+            userId,
+            lessonId: lessonId!,
+            exerciseId: currentExercise.id,
+            question: currentExercise.type === 'fill_in_the_blanks' ? currentExercise.questionParts.join('___') : currentExercise.question,
+            lessonTitle: lessonTitle,
+            submittedAnswer,
+            isCorrect: correct,
+            score,
+            feedback: aiFeedback?.feedback,
+            submittedAt: Date.now(),
+            attempts: (prevResponse?.attempts || 0) + 1,
+        };
+        setUserResponses(prev => new Map(prev).set(currentExercise.id, newResponse));
+        
+        if (currentExercise.type !== 'long_form') {
+            toast({
+                title: correct ? "Correct!" : "Not quite",
+                description: correct ? "Great job! Your progress has been updated." : "Don't worry, keep practicing!",
+            });
+        }
+    } catch (error) {
+        console.error("Failed to save exercise result:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not save your progress. Please try again.",
+        });
+    }
+  };
+
+  const handleNext = async () => {
+    if (!lessonId) return;
+    
+    const nextIndex = currentExerciseIndex + 1;
+    
+    try {
+      await updateUserExerciseIndex(userId, lessonId, nextIndex);
+    } catch (error) {
+       console.error("Failed to save progress:", error);
+       toast({ variant: "destructive", title: "Save Error", description: "Your progress could not be saved." });
+       return;
+    }
+        
+    setCurrentExerciseIndex(nextIndex);
+    
+    if (nextIndex >= totalExercises) {
+      toast({ title: "Lesson Practice Complete!", description: "You've finished all the exercises for this lesson. Great job!" });
+    }
+  };
+  
+  const handleTryAgain = () => {
+    resetForNewQuestion();
+  };
+
+
+  const handlePracticeAgain = async () => {
+      if (!lessonId) return;
+      try {
+          await updateUserExerciseIndex(userId, lessonId, 0);
+          setCurrentExerciseIndex(0);
+          // Reset responses for a fresh start
+          setUserResponses(new Map());
+      } catch (error) {
+          console.error("Failed to reset progress:", error);
+          toast({ variant: "destructive", title: "Error", description: "Could not reset progress." });
+      }
+  };
+  
+  const showHint = () => {
+    setIsHintVisible(prev => !prev);
+  }
+  
+  const renderExercise = () => {
+    if (!currentExercise) return null;
+
+    switch (currentExercise.type) {
+        case 'mcq':
+            const mcq = currentExercise as McqExercise;
+            return (
+                <RadioGroup value={selectedAnswer ?? ''} onValueChange={setSelectedAnswer} disabled={isAnswered}>
+                    {mcq.options.map((option, index) => (
+                        <div key={index} className={cn("flex items-center space-x-2 p-3 rounded-md border transition-colors", isAnswered && option === mcq.correctAnswer && "border-primary bg-primary/20", isAnswered && selectedAnswer === option && option !== mcq.correctAnswer && "border-destructive bg-destructive/20", !isAnswered && "hover:bg-accent/20")}>
+                            <RadioGroupItem value={option} id={`option-${index}`} />
+                            <Label htmlFor={`option-${index}`} className="w-full cursor-pointer">{option}</Label>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                    ))}
+                </RadioGroup>
+            );
+        case 'true_false':
+            const tf = currentExercise as TrueFalseExercise;
+             return (
+                <RadioGroup value={selectedAnswer ?? ''} onValueChange={setSelectedAnswer} disabled={isAnswered}>
+                    {['True', 'False'].map((option, index) => (
+                        <div key={index} className={cn("flex items-center space-x-2 p-3 rounded-md border transition-colors", isAnswered && String(tf.correctAnswer).toLowerCase() === option.toLowerCase() && "border-primary bg-primary/20", isAnswered && selectedAnswer === option && String(tf.correctAnswer).toLowerCase() !== option.toLowerCase() && "border-destructive bg-destructive/20", !isAnswered && "hover:bg-accent/20")}>
+                            <RadioGroupItem value={option} id={`option-${index}`} />
+                            <Label htmlFor={`option-${index}`} className="w-full cursor-pointer">{option}</Label>
+                        </div>
+                    ))}
+                </RadioGroup>
+            );
+        case 'long_form':
+            const lfExercise = currentExercise as LongFormExercise;
+            if (lfExercise.category === 'code') {
+                 return (
+                    <div className="space-y-4">
+                        <CodeEditor
+                            value={longFormAnswer}
+                            onValueChange={setLongFormAnswer}
+                            disabled={isAnswered || isGrading}
+                            placeholder="Write your code here..."
+                            language={lfExercise.language}
+                        />
+                        <div className="rounded-lg border bg-background overflow-hidden">
+                            <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
+                                <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
+                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
+                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
+                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
+                                    </TabsList>
+                                    {!isAnswered && (
+                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()}>
+                                            {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                                            Run & Analyze
+                                        </Button>
+                                    )}
+                                </div>
+                                <TabsContent value="console" className="mt-0">
+                                    <ConsoleOutput result={simulationResult} isLoading={isSimulating} />
+                                </TabsContent>
+                                <TabsContent value="analysis" className="mt-0">
+                                    <AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} />
+                                </TabsContent>
+                            </Tabs>
+                        </div>
+                    </div>
+                );
+            }
+            return (
+                <div>
+                    <Textarea
+                        value={longFormAnswer}
+                        onChange={(e) => setLongFormAnswer(e.target.value)}
+                        placeholder="Write your detailed solution here..."
+                        rows={8}
+                        disabled={isAnswered || isGrading}
+                    />
+                     <p className="text-xs text-muted-foreground mt-2">{currentExercise.evaluationCriteria}</p>
+                </div>
+            );
+        case 'fill_in_the_blanks':
+            const fib = currentExercise as FillInTheBlanksExercise;
+            return (
+                <div className="flex flex-wrap items-center gap-2 text-lg">
+                    {fib.questionParts.map((part, index) => (
+                        <React.Fragment key={index}>
+                            <span>{part}</span>
+                            {index < fib.correctAnswers.length && (
+                                <Input
+                                    type="text"
+                                    value={fibAnswers[index] || ''}
+                                    onChange={(e) => handleFibAnswerChange(index, e.target.value)}
+                                    disabled={isAnswered}
+                                    className={cn("w-32 inline-block", isAnswered && (fibCorrectness[index] ? "border-primary ring-2 ring-primary" : "border-destructive ring-2 ring-destructive"))}
+                                />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+            );
+        default:
+            return <p>Unsupported exercise type.</p>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+        <div className="p-6 flex justify-center items-center min-h-[300px]">
+            <Loader2 className="h-8 w-8 animate-spin" />
         </div>
     );
-};
+  }
 
-export default MathEditor;
+  if (!exercises || totalExercises === 0) {
+    return (
+      <div className="p-6 text-center">
+        <p>No exercises available for this lesson yet.</p>
+      </div>
+    );
+  }
+
+  if (currentExerciseIndex >= totalExercises) {
+    return (
+        <div className="p-6 text-center min-h-[300px] flex flex-col justify-center items-center">
+            <CheckCircle className="h-12 w-12 text-primary mb-4" />
+            <h3 className="text-xl font-semibold">Practice Complete!</h3>
+            <p className="text-muted-foreground mt-2 mb-4">You've answered all the questions for this lesson. Great job!</p>
+            <Button onClick={handlePracticeAgain}>
+                Practice Again
+            </Button>
+        </div>
+    )
+  }
+
+  return (
+    <div className="animate-in fade-in-0 zoom-in-95 h-full flex flex-col">
+      <div className="mb-4">
+        <div className="flex items-center justify-between">
+            <h3 className="font-headline text-xl font-semibold">Practice Question {currentExerciseIndex + 1} / {totalExercises}</h3>
+            {currentExercise.category && (
+                <Badge variant="secondary" className="capitalize">
+                    {currentExercise.category === 'code' && <Code className="mr-1.5 h-3 w-3" />}
+                    {currentExercise.category === 'math' && <FunctionSquare className="mr-1.5 h-3 w-3" />}
+                    {currentExercise.category}
+                </Badge>
+            )}
+        </div>
+        <p className="text-sm text-muted-foreground flex items-center gap-1">
+          Difficulty: {Array.from({ length: 3 }).map((_, i) => (
+            <span key={i} className={cn(i < currentExercise.difficulty ? 'text-accent' : 'text-muted-foreground/50')}>⭐</span>
+          ))}
+        </p>
+      </div>
+        <>
+            <p className="text-lg mb-6">{currentExercise.type !== 'fill_in_the_blanks' && currentExercise.question}</p>
+            {renderExercise()}
+            
+            <div className="mt-4 space-y-2">
+                {currentExercise.hint && !isAnswered && (
+                    <Button variant="outline" size="sm" onClick={showHint}>
+                        <Lightbulb className="mr-2 h-4 w-4" />
+                        Show Hint
+                    </Button>
+                )}
+                 {isHintVisible && currentExercise.hint && (
+                    <Alert className="animate-in fade-in-50">
+                        <Lightbulb className="h-4 w-4" />
+                        <AlertTitle>Hint</AlertTitle>
+                        <AlertDescription>{currentExercise.hint}</AlertDescription>
+                    </Alert>
+                )}
+                {isGrading && (
+                    <div className="flex items-center text-secondary-foreground text-sm">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Grading your answer...
+                    </div>
+                )}
+            </div>
+
+
+            {isAnswered && (
+                 <div className="mt-4 space-y-4">
+                    {currentExercise.type !== 'long_form' && currentExercise.explanation && (
+                        <Card className={cn(isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    {isCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />}
+                                    Explanation
+                                </CardTitle>
+                            </CardHeader>
+                             <CardContent>
+                                <p className="text-sm text-secondary-foreground">{currentExercise.explanation}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {feedback && 'feedback' in feedback && (
+                         <Card className={cn(feedback.isCorrect ? "bg-primary/10 border-primary/50" : "bg-destructive/10 border-destructive/50")}>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {feedback.isCorrect ? <CheckCircle className="text-primary"/> : <XCircle className="text-destructive" />}
+                                        AI Feedback
+                                    </div>
+                                    <Badge variant={feedback.isCorrect ? "default" : "destructive"}>Score: {feedback.score}/100</Badge>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{feedback.feedback}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                 </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              {!isAnswered ? (
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || (currentExercise.type !== 'long_form' && !selectedAnswer) || (currentExercise.type === 'long_form' && !longFormAnswer)}>
+                    {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit'}
+                </Button>
+              ) : isCorrect ? (
+                <Button onClick={handleNext}>Next Question</Button>
+              ) : (
+                <Button onClick={handleTryAgain} variant="secondary">
+                    <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+                </Button>
+              )}
+            </div>
+        </>
+    </div>
+  );
+}

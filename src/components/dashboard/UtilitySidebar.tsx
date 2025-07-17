@@ -8,22 +8,21 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import QuickChatPanel from './QuickChatPanel';
 import TasksPanel from './TasksPanel';
-import MathEditor from '@/components/lessons/math-editor';
+import AdvancedCalculatorPanel from './AdvancedCalculatorPanel';
 import { useState } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 
 const sidebarTools = [
   { type: 'chat' as PanelType, icon: Bot, label: 'Quick Chat' },
   { type: 'tasks' as PanelType, icon: CheckSquare, label: 'Tasks' },
-  { type: 'math' as PanelType, icon: Calculator, label: 'Math Solver' },
+  { type: 'math' as PanelType, icon: Calculator, label: 'Calculator' },
 ];
 
 const MathSolverPanel = () => {
-    const [value, setValue] = useState('');
     return (
         <ScrollArea className="h-full">
             <div className="p-4">
-                <MathEditor value={value} onValueChange={setValue} />
+                <AdvancedCalculatorPanel />
             </div>
         </ScrollArea>
     );
@@ -75,7 +74,7 @@ export default function UtilitySidebar() {
         <div
           className={cn(
             "transition-all duration-300 ease-in-out bg-background border-l shadow-lg overflow-hidden",
-            openPanel ? 'w-[350px] lg:w-[450px] xl:w-[550px]' : 'w-0'
+            openPanel ? 'w-[350px]' : 'w-0'
           )}
         >
           {openPanel && (
