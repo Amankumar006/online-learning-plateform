@@ -915,7 +915,7 @@ export async function approveLessonRequest(requestId: string): Promise<void> {
     const lessonContent = await generateLessonContent({
         topic: requestData.title, subject: requestData.subject, topicDepth: "Detailed",
     });
-    const { imageUrl } } from await generateLessonImage({
+    const { imageUrl } = await generateLessonImage({
         prompt: `A high-quality, educational illustration for a lesson on "${lessonContent.title}" in ${lessonContent.subject}.`
     });
     const publicImageUrl = await uploadImageFromDataUrl(imageUrl, `lesson_${Date.now()}`);
