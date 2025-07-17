@@ -1,8 +1,7 @@
 
 "use client";
 
-import { Tldraw } from "@tldraw/tldraw";
-import "@tldraw/tldraw/tldraw.css";
+import dynamic from 'next/dynamic';
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -18,6 +17,17 @@ import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } fr
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+// Dynamically import Tldraw with SSR disabled
+const Tldraw = dynamic(() => import('@tldraw/tldraw').then(mod => mod.Tldraw), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full w-full">
+      <Loader2 className="h-8 w-8 animate-spin" />
+    </div>
+  ),
+});
+
 
 export default function StudyRoomPage() {
     const params = useParams();
@@ -123,7 +133,7 @@ export default function StudyRoomPage() {
                 onToggleHandRaise={toggleHandRaise}
              />
              <div className="flex-grow flex relative overflow-hidden">
-                <div className={cn("absolute top-0 left-0 w-full h-full transition-[width] duration-300", activeSidePanel ? "w-[calc(100%-22rem)]" : "w-full")}>
+                <div className="fixed top-20 left-0 w-full h-[calc(100%-5rem)]">
                      <Tldraw store={store} autoFocus />
                 </div>
                  {activeSidePanel && (
