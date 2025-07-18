@@ -57,90 +57,59 @@ export function useStudyRoom(roomId: string, user: User | null) {
         
         const setup = async () => {
             try {
-                // Fetch the room first to check its status before joining.
-                const initialRoom = await getStudyRoom(roomId);
-                if (!stillMounted) return;
-
-                if (!initialRoom) {
-                    throw new Error("This study room does not exist.");
-                }
-
-                if (initialRoom.status === 'ended') {
-                     // Set read-only but still allow joining to view content
-                    setIsReadOnly(true);
-                }
-
-                // Now that we know the room exists, join it.
+                // First, join the room by setting participant status. This will fail if the room doesn't exist or is ended.
                 await setParticipantStatus(roomId, user);
 
-                setRoom(initialRoom);
-
-                // Set initial read-only status based on editorIds
-                setIsReadOnly(!initialRoom.editorIds.includes(user.uid));
-                    
-                const isExpired = initialRoom.expiresAt.toMillis() < Date.now();
-                if (isExpired && initialRoom.status === 'active') {
-                    if (initialRoom.ownerId === user.uid) {
-                        await endStudyRoomSession(roomId);
-                    }
-                } else if (initialRoom.status === 'active') {
-                    const timeUntilExpiry = initialRoom.expiresAt.toMillis() - Date.now();
-                    expiryTimeout = setTimeout(() => {
-                        if (initialRoom.ownerId === user.uid) {
-                            endSession();
-                        }
-                    }, timeUntilExpiry);
-                }
-
-                if (initialRoom.roomState) {
-                    try {
-                        store.loadSnapshot(JSON.parse(initialRoom.roomState));
-                    } catch (e) {
-                        console.error("Failed to parse or load room state:", e);
-                    }
-                }
-
-                // Listener for whiteboard state
+                // Now that we have joined, set up the listeners.
+                
+                // Listener for whiteboard state and room metadata
                 stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
+                    if (!stillMounted) return;
+
                     if (roomData) {
                         setRoom(roomData);
                         setIsReadOnly(!roomData.editorIds.includes(user.uid));
+
                         if (roomData.status === 'ended') {
                             setIsReadOnly(true);
                             if(expiryTimeout) clearTimeout(expiryTimeout);
+                        } else {
+                            const timeUntilExpiry = roomData.expiresAt.toMillis() - Date.now();
+                            if (timeUntilExpiry > 0) {
+                                expiryTimeout = setTimeout(() => {
+                                    if (roomData.ownerId === user.uid) endSession();
+                                }, timeUntilExpiry);
+                            }
                         }
+
                         if (roomData.roomState) {
                             try {
                                 store.loadSnapshot(JSON.parse(roomData.roomState));
-                            } catch (e) {
-                                console.error("Failed to parse or load room state:", e);
-                            }
+                            } catch (e) { console.error("Failed to parse or load room state:", e); }
                         }
+                    } else {
+                        // Room was deleted or no longer exists
+                        setError("This study room does not exist or has been deleted.");
                     }
+                    setLoading(false);
                 });
 
                 // Listener for chat messages
                 messagesUnsubscribe = getStudyRoomMessagesListener(roomId, (newMessages) => {
-                    if (stillMounted) {
-                        setMessages(newMessages);
-                    }
+                    if (stillMounted) setMessages(newMessages);
                 });
                 
                 // Listener for participants
                 participantsUnsubscribe = getStudyRoomParticipantsListener(roomId, (newParticipants) => {
-                    if (stillMounted) {
-                        setParticipants(newParticipants);
-                    }
+                    if (stillMounted) setParticipants(newParticipants);
                 });
 
                 // Listener for resources
                 resourcesUnsubscribe = getStudyRoomResourcesListener(roomId, (newResources) => {
-                    if(stillMounted) {
-                        setResources(newResources);
-                    }
+                    if(stillMounted) setResources(newResources);
                 });
                 
-                // Listener to save local changes to Firestore (for everyone)
+                // Listener to save local changes to Firestore
                 saveUnsubscribe = store.listen(
                     (event) => {
                         if (event.source !== 'user' || isReadOnly) return;
@@ -154,9 +123,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
                     setError(e.message || "An unexpected error occurred.");
-                }
-            } finally {
-                if (stillMounted) {
                     setLoading(false);
                 }
             }
