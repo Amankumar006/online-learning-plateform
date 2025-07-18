@@ -6,25 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Trash2, Folder, Pin, PinOff } from 'lucide-react';
+import { Plus, Trash2, Folder, Pin, PinOff, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useUtilitySidebar } from '@/hooks/use-utility-sidebar';
 import { Card, CardContent } from '../ui/card';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: number;
-  isPinned: boolean;
-}
-
-const NOTES_STORAGE_KEY = 'adapt-ed-notes';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { Note, getNotesListener, addNote, deleteNote, updateNote } from '@/lib/data';
 
 export default function NotesPanel() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
@@ -32,50 +26,55 @@ export default function NotesPanel() {
   const { openPanel } = useUtilitySidebar();
 
   useEffect(() => {
-    try {
-      const savedNotes = localStorage.getItem(NOTES_STORAGE_KEY);
-      if (savedNotes) {
-        setNotes(JSON.parse(savedNotes));
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+        setNotes([]);
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load notes from local storage", error);
-      localStorage.removeItem(NOTES_STORAGE_KEY);
-    }
+    });
+    return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    if (openPanel === 'notes') {
-      localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+    if (userId && openPanel === 'notes') {
+      setIsLoading(true);
+      const unsubscribeNotes = getNotesListener(userId, (newNotes) => {
+        setNotes(newNotes);
+        setIsLoading(false);
+      });
+      return () => unsubscribeNotes();
     }
-  }, [notes, openPanel]);
+  }, [userId, openPanel]);
 
-  const handleSaveNote = () => {
-    if (!newNoteContent.trim() && !newNoteTitle.trim()) {
+  const handleSaveNote = async () => {
+    if (!userId || (!newNoteContent.trim() && !newNoteTitle.trim())) {
       setIsCreating(false);
       return;
     }
-    const newNote: Note = {
-      id: `note_${Date.now()}`,
+    const newNoteData = {
       title: newNoteTitle.trim(),
       content: newNoteContent.trim(),
-      createdAt: Date.now(),
       isPinned: false,
     };
-    setNotes(prev => [newNote, ...prev]);
+    await addNote(userId, newNoteData);
     setNewNoteTitle('');
     setNewNoteContent('');
     setIsCreating(false);
   };
   
   const handleDeleteNote = (noteId: string) => {
-    setNotes(prev => prev.filter(note => note.id !== noteId));
+    if (!userId) return;
+    deleteNote(userId, noteId);
   };
   
-  const togglePinNote = (noteId: string) => {
-    setNotes(prev => prev.map(note => note.id === noteId ? { ...note, isPinned: !note.isPinned } : note));
+  const togglePinNote = (noteId: string, currentPinStatus: boolean) => {
+    if (!userId) return;
+    updateNote(userId, noteId, { isPinned: !currentPinStatus });
   };
   
-  // Close the create note box when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (createNoteRef.current && !createNoteRef.current.contains(event.target as Node)) {
@@ -85,11 +84,10 @@ export default function NotesPanel() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCreating, newNoteTitle, newNoteContent]);
+  }, [isCreating, newNoteTitle, newNoteContent, userId]);
 
-
-  const pinnedNotes = notes.filter(n => n.isPinned).sort((a,b) => b.createdAt - a.createdAt);
-  const otherNotes = notes.filter(n => !n.isPinned).sort((a,b) => b.createdAt - a.createdAt);
+  const pinnedNotes = notes.filter(n => n.isPinned);
+  const otherNotes = notes.filter(n => !n.isPinned);
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
@@ -118,8 +116,9 @@ export default function NotesPanel() {
             </Card>
           ) : (
             <button
-              className="w-full flex items-center gap-4 p-3 rounded-lg border shadow-sm hover:bg-muted"
+              className="w-full flex items-center gap-4 p-3 rounded-lg border shadow-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setIsCreating(true)}
+              disabled={!userId || isLoading}
             >
               <Plus className="h-5 w-5" />
               <span className="text-muted-foreground">Take a note...</span>
@@ -130,7 +129,25 @@ export default function NotesPanel() {
       
       <ScrollArea className="flex-1">
         <AnimatePresence>
-          {notes.length === 0 ? (
+          {isLoading ? (
+             <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center text-center h-full p-4 text-muted-foreground"
+            >
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </motion.div>
+          ) : !userId ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center text-center h-full p-4 text-muted-foreground"
+            >
+              <Folder className="h-24 w-24 text-primary/20 mb-4" />
+              <h3 className="font-semibold text-lg text-foreground">Please log in</h3>
+              <p className="text-sm">Log in to create and view your notes.</p>
+            </motion.div>
+          ) : notes.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -166,7 +183,7 @@ export default function NotesPanel() {
   );
 }
 
-const NoteCard = ({note, onDelete, onPin}: {note: Note, onDelete: (id: string) => void, onPin: (id: string) => void}) => {
+const NoteCard = ({note, onDelete, onPin}: {note: Note, onDelete: (id: string) => void, onPin: (id: string, currentPinStatus: boolean) => void}) => {
     return (
         <motion.div
             layout
@@ -180,11 +197,11 @@ const NoteCard = ({note, onDelete, onPin}: {note: Note, onDelete: (id: string) =
                 <CardContent className="p-4 space-y-2">
                     {note.title && <h4 className="font-semibold">{note.title}</h4>}
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">{note.content}</p>
-                    <p className="text-xs text-muted-foreground pt-2">{format(note.createdAt, 'MMM d, yyyy')}</p>
+                    <p className="text-xs text-muted-foreground pt-2">{format(note.createdAt.toDate(), 'MMM d, yyyy')}</p>
                 </CardContent>
             </Card>
             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(note.id)}>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(note.id, note.isPinned)}>
                     {note.isPinned ? <PinOff className="h-4 w-4 text-primary"/> : <Pin className="h-4 w-4" />}
                  </Button>
                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(note.id)}>

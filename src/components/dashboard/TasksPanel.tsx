@@ -8,69 +8,62 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Trash2, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, CheckSquare, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
 import { useUtilitySidebar } from '@/hooks/use-utility-sidebar';
-
-interface Task {
-  id: string;
-  text: string;
-  completed: boolean;
-}
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { getTasksListener, addTask, updateTask, deleteTask, Task } from '@/lib/data';
 
 type FormValues = {
   taskText: string;
 };
 
-const TASKS_STORAGE_KEY = 'adapt-ed-tasks';
-
 export default function TasksPanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { openPanel } = useUtilitySidebar();
+  const { register, handleSubmit, reset } = useForm<FormValues>();
 
   useEffect(() => {
-    try {
-      const savedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-      if (savedTasks) {
-        setTasks(JSON.parse(savedTasks));
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+        setTasks([]);
+        setIsLoading(false);
       }
-    } catch (error) {
-        console.error("Failed to load tasks from local storage", error);
-        localStorage.removeItem(TASKS_STORAGE_KEY);
-    }
+    });
+    return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    // Only save when the panel is visible to avoid unnecessary writes
-    if(openPanel === 'tasks') {
-        localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+    if (userId && openPanel === 'tasks') {
+      setIsLoading(true);
+      const unsubscribeTasks = getTasksListener(userId, (newTasks) => {
+        setTasks(newTasks);
+        setIsLoading(false);
+      });
+      return () => unsubscribeTasks();
     }
-  }, [tasks, openPanel]);
+  }, [userId, openPanel]);
 
-  const { register, handleSubmit, reset } = useForm<FormValues>();
-
-  const onSubmit: SubmitHandler<FormValues> = (data) => {
-    if (!data.taskText.trim()) return;
-    const newTask: Task = {
-      id: `task_${Date.now()}`,
-      text: data.taskText,
-      completed: false,
-    };
-    setTasks((prev) => [newTask, ...prev]);
+  const onSubmit: SubmitHandler<FormValues> = async (data) => {
+    if (!data.taskText.trim() || !userId) return;
+    await addTask(userId, data.taskText);
     reset();
   };
 
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const toggleTaskCompletion = (taskId: string, currentStatus: boolean) => {
+    if (!userId) return;
+    updateTask(userId, taskId, { completed: !currentStatus });
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+  const handleDeleteTask = (taskId: string) => {
+    if (!userId) return;
+    deleteTask(userId, taskId);
   };
   
   const activeTasks = tasks.filter((task) => !task.completed);
@@ -86,8 +79,9 @@ export default function TasksPanel() {
                     placeholder="Add a task"
                     className="pl-10 h-12 rounded-full"
                     autoComplete="off"
+                    disabled={!userId}
                 />
-                 <Button type="submit" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full">
+                 <Button type="submit" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full" disabled={!userId}>
                     <Plus className="h-4 w-4"/>
                     <span className="sr-only">Add Task</span>
                 </Button>
@@ -95,7 +89,15 @@ export default function TasksPanel() {
         </form>
 
         <ScrollArea className="flex-1">
-            {tasks.length === 0 ? (
+            {isLoading ? (
+                <div className="flex justify-center items-center h-full">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+            ) : !userId ? (
+                <div className="text-center text-muted-foreground p-8">
+                    <p>Please log in to use tasks.</p>
+                </div>
+            ) : tasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center h-full p-4">
                     <Image
                         src="https://www.gstatic.com/tasks/v2/static/illo_tasks_complete_2x.png"
@@ -115,10 +117,10 @@ export default function TasksPanel() {
                             <Checkbox
                                 id={task.id}
                                 checked={task.completed}
-                                onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                onCheckedChange={() => toggleTaskCompletion(task.id, task.completed)}
                             />
                             <label htmlFor={task.id} className="flex-1 text-sm cursor-pointer">{task.text}</label>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => deleteTask(task.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteTask(task.id)}>
                                 <Trash2 className="h-4 w-4 text-destructive"/>
                             </Button>
                         </div>
@@ -141,10 +143,10 @@ export default function TasksPanel() {
                                         <Checkbox
                                             id={task.id}
                                             checked={task.completed}
-                                            onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                            onCheckedChange={() => toggleTaskCompletion(task.id, task.completed)}
                                         />
                                         <label htmlFor={task.id} className="flex-1 text-sm text-muted-foreground line-through cursor-pointer">{task.text}</label>
-                                         <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => deleteTask(task.id)}>
+                                         <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteTask(task.id)}>
                                             <Trash2 className="h-4 w-4 text-destructive"/>
                                         </Button>
                                     </div>

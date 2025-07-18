@@ -238,6 +238,22 @@ export interface StudyRoomResource {
     createdAt: Timestamp;
 }
 
+// --- Utility Panel Types ---
+export interface Task {
+    id: string;
+    text: string;
+    completed: boolean;
+    createdAt: Timestamp;
+}
+
+export interface Note {
+    id: string;
+    title: string;
+    content: string;
+    isPinned: boolean;
+    createdAt: Timestamp;
+}
+
 // Generic helper for fetching collections
 async function fetchCollection<T>(collectionName: string, q?: any): Promise<T[]> {
     try {
@@ -969,33 +985,31 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     try {
         const publicRoomsQuery = query(
             collection(db, 'studyRooms'),
-            where('status', '==', 'active')
+            where('status', '==', 'active'),
+            where('isPublic', '==', true)
         );
         
-        const participantRoomsQuery = query(
+        const privateRoomsQuery = query(
             collection(db, 'studyRooms'),
             where('status', '==', 'active'),
             where('editorIds', 'array-contains', userId)
         );
 
-        const [publicSnapshot, participantSnapshot] = await Promise.all([
+        const [publicSnapshot, privateSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
-            getDocs(participantRoomsQuery)
+            getDocs(privateRoomsQuery)
         ]);
         
         const roomsMap = new Map<string, StudyRoom>();
         
         const processSnapshot = (snapshot: any) => {
             snapshot.docs.forEach((doc: any) => {
-                const roomData = doc.data();
-                if (roomData.isPublic || roomData.editorIds.includes(userId)) {
-                    roomsMap.set(doc.id, { id: doc.id, ...roomData } as StudyRoom);
-                }
+                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
             });
         };
 
         processSnapshot(publicSnapshot);
-        processSnapshot(participantSnapshot);
+        processSnapshot(privateSnapshot);
         
         return Array.from(roomsMap.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     } catch (error) {
@@ -1014,19 +1028,9 @@ export async function endStudyRoomSession(roomId: string): Promise<void> {
 }
 
 export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
-    try {
-        const roomSnap = await getDoc(doc(db, 'studyRooms', roomId));
-        if (roomSnap.exists()) {
-            return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
-        }
-        return null;
-    } catch (error: any) {
-        console.error(`Error fetching study room ${roomId}:`, error);
-        if (error.code === 'permission-denied') {
-            throw new Error("Room not found or you do not have permission to access it.");
-        }
-        throw new Error(error.message || "Could not retrieve the study room.");
-    }
+    const roomRef = doc(db, 'studyRooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    return roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as StudyRoom : null;
 }
 
 export async function updateStudyRoomState(roomId: string, roomState: string): Promise<void> {
@@ -1079,7 +1083,9 @@ export async function setParticipantStatus(roomId: string, user: User) {
             if (!roomDoc.exists()) throw new Error("Room does not exist.");
 
             const roomData = roomDoc.data() as StudyRoom;
-            if (roomData.status === 'ended') throw new Error("This study session has already ended.");
+            if (roomData.status === 'ended') {
+                throw new Error("This study session has already ended.");
+            }
            
             transaction.set(participantRef, {
                 uid: user.uid,
@@ -1156,4 +1162,53 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
+}
+
+// --- Utility Panel Data Functions ---
+
+// Tasks
+export function getTasksListener(userId: string, callback: (tasks: Task[]) => void): () => void {
+    const q = query(collection(db, `users/${userId}/tasks`), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
+    });
+}
+
+export async function addTask(userId: string, text: string): Promise<void> {
+    await addDoc(collection(db, `users/${userId}/tasks`), {
+        text,
+        completed: false,
+        createdAt: Timestamp.now(),
+    });
+}
+
+export async function updateTask(userId: string, taskId: string, updates: Partial<Pick<Task, 'text' | 'completed'>>): Promise<void> {
+    await updateDoc(doc(db, `users/${userId}/tasks`, taskId), updates);
+}
+
+export async function deleteTask(userId: string, taskId: string): Promise<void> {
+    await deleteDoc(doc(db, `users/${userId}/tasks`, taskId));
+}
+
+// Notes
+export function getNotesListener(userId: string, callback: (notes: Note[]) => void): () => void {
+    const q = query(collection(db, `users/${userId}/notes`), orderBy('isPinned', 'desc'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note)));
+    });
+}
+
+export async function addNote(userId: string, noteData: Omit<Note, 'id' | 'createdAt'>): Promise<void> {
+    await addDoc(collection(db, `users/${userId}/notes`), {
+        ...noteData,
+        createdAt: Timestamp.now(),
+    });
+}
+
+export async function updateNote(userId: string, noteId: string, updates: Partial<Omit<Note, 'id'>>): Promise<void> {
+    await updateDoc(doc(db, `users/${userId}/notes`, noteId), updates);
+}
+
+export async function deleteNote(userId: string, noteId: string): Promise<void> {
+    await deleteDoc(doc(db, `users/${userId}/notes`, noteId));
 }
