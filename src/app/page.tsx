@@ -4,7 +4,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import Image from "next/image";
 import { BookOpenCheck, ArrowRight, Lightbulb, Bot, BrainCircuit, Wand2, Volume2, VolumeX, Target, Pencil, LineChart, User, GraduationCap } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
