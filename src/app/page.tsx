@@ -40,7 +40,7 @@ const HeroSection = () => (
           </div>
         </div>
         <Image
-          src="/images/adapted.png"
+          src="/adapted.png"
           width="600"
           height="400"
           alt="A student using a futuristic learning interface"
