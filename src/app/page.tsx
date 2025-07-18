@@ -39,13 +39,16 @@ const HeroSection = () => (
             </Button>
           </div>
         </div>
-        <Image
-          src="/adapted.png"
-          width="600"
-          height="400"
-          alt="A student using a futuristic learning interface"
-          className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last"
-        />
+        <div className="mx-auto aspect-video overflow-hidden rounded-xl sm:w-full lg:order-last">
+          <video
+            className="w-full h-full object-cover"
+            src="https://videos.pexels.com/video-files/8757091/8757091-hd_1920_1080_30fps.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        </div>
       </div>
     </div>
   </section>
