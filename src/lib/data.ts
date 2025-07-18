@@ -1170,4 +1170,3 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
-
