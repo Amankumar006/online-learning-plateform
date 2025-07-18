@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and, arrayRemove } from 'firebase/firestore';
@@ -944,14 +945,13 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'editorIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
         isPublic: data.visibility === 'public',
-        editorIds: [data.ownerId], // Owner is an editor by default
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
@@ -967,7 +967,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     
     try {
         const publicRoomsQuery = query(
-            collection(db, 'studyRooms'), 
+            collection(db, 'studyRooms'),
             where('status', '==', 'active'),
             where('isPublic', '==', true)
         );
@@ -1083,7 +1083,7 @@ export async function setParticipantStatus(roomId: string, user: User) {
        
         transaction.set(participantRef, {
             uid: user.uid,
-            name: user.name || 'Anonymous',
+            name: user.name || "Anonymous",
             photoURL: user.photoURL || null,
             handRaised: false,
         }, { merge: true });
@@ -1152,20 +1152,4 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
-}
-
-export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
-    try {
-        const roomSnap = await getDoc(doc(db, 'studyRooms', roomId));
-        if (roomSnap.exists()) {
-            return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
-        }
-        return null;
-    } catch (error: any) {
-        console.error(`Error fetching study room ${roomId}:`, error);
-        if (error.code === 'permission-denied') {
-            throw new Error("Room not found or you do not have permission to access it.");
-        }
-        throw new Error(error.message || "Could not retrieve the study room.");
-    }
 }
