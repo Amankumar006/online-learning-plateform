@@ -25,6 +25,12 @@ export default function CanvasToolbar({ editor }: CanvasToolbarProps) {
     [editor]
   );
   
+  const geoShape = useValue(
+    "geo shape",
+    () => editor?.getInstanceState().geoShape,
+    [editor]
+  );
+  
   if (!editor) {
     return null;
   }
@@ -44,7 +50,7 @@ export default function CanvasToolbar({ editor }: CanvasToolbarProps) {
         {tools.map((tool) => (
           <Button
             key={tool.id}
-            variant={activeToolId === tool.id || (activeToolId === 'geo' && editor.instanceState.geoShape === tool.id) ? "secondary" : "ghost"}
+            variant={activeToolId === tool.id || (activeToolId === 'geo' && geoShape === tool.id) ? "secondary" : "ghost"}
             size="icon"
             onClick={() => handleToolClick(tool.id)}
             title={tool.label}
