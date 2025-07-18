@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -8,16 +7,6 @@ service cloud.firestore {
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
-    // Helper function to check if the user is the owner of a study room
-    function isRoomOwner(roomId) {
-      return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
-    }
-    
-    function isParticipant(roomId) {
-      return exists(/databases/$(database)/documents/studyRooms/$(roomId)/participants/$(request.auth.uid));
-    }
-
 
     // Rules for the 'users' collection
     match /users/{userId} {
@@ -34,12 +23,9 @@ service cloud.firestore {
       // No one can delete user documents.
       allow delete: if false;
 
-      // Rules for user subcollections (Tasks and Notes)
-      match /tasks/{taskId} {
-        allow read, write: if request.auth.uid == userId;
-      }
-      match /notes/{noteId} {
-        allow read, write: if request.auth.uid == userId;
+      // Rules for user's tasks and notes subcollections
+      match /{collection}/{docId} {
+        allow read, write, delete: if request.auth.uid == userId;
       }
     }
 
@@ -106,66 +92,70 @@ service cloud.firestore {
     
     // Rules for Study Rooms
     match /studyRooms/{roomId} {
-      function isEditor() {
-        return request.auth.uid in resource.data.editorIds;
+      // Helper function to check if the user is the owner of a study room
+      function isRoomOwner() {
+        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
       }
-      
-      // GET: Allow reading a single room if it's public or the user is an editor.
-      allow get: if request.auth != null && (resource.data.isPublic == true || isEditor());
+      function isUserAnEditor() {
+        return request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds;
+      }
+      function isRoomPublic() {
+        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true;
+      }
 
-      // LIST: Allow any authenticated user to query the list.
-      // Client-side queries must be secured to only show relevant rooms.
+      // GET: Allow reading a single room if it's public or the user is an editor.
+      allow get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+
+      // LIST: Allow any authenticated user to query the list of active rooms.
       allow list: if request.auth != null;
       
       // CREATE: Any authenticated user can create a room for themselves.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
-      // UPDATE: Only the owner can update the room details (e.g., status, state).
-      allow update: if request.auth != null && isRoomOwner(roomId);
+      // UPDATE: Only the owner can update the room details (like name, visibility, or adding editors).
+      allow update: if request.auth != null && isRoomOwner();
 
       // DELETE: Only the owner can delete a room.
-      allow delete: if request.auth != null && isRoomOwner(roomId);
+      allow delete: if request.auth != null && isRoomOwner();
       
       // --- Subcollection Rules ---
 
-      // Participants
+      // Participants subcollection
       match /participants/{userId} {
-        // Read: Anyone can see the list of participants in a public room, or participants of a private room can see each other.
-        allow read: if request.auth != null && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId));
+        // Read: Any authenticated user can see who is in a public room or a private room they are an editor of.
+        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
         
-        // Create/Update: A user can only add/update their own status. Public rooms are open to join.
-        allow write: if request.auth != null && request.auth.uid == userId && 
-                       (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId));
+        // Write (Create/Update): A user can only write their own participant document.
+        allow write: if request.auth != null && request.auth.uid == userId;
         
-        // Delete: A user can only remove themselves (on disconnect) or the owner can remove others.
-        allow delete: if request.auth != null && (request.auth.uid == userId || isRoomOwner(roomId));
+        // Delete: A user can remove themselves (on disconnect) or the owner can remove others.
+        allow delete: if request.auth != null && (request.auth.uid == userId || isRoomOwner());
       }
 
-      // Messages
+      // Messages subcollection
       match /messages/{messageId} {
-        // Read: Any participant can read messages.
-        allow read: if request.auth != null && isParticipant(roomId);
+        // Read: Anyone in a public room or an editor in a private room can read messages.
+        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
         
-        // Create: Any participant can send a message. The 'buddy-ai' is also allowed to send messages.
-        allow create: if request.auth != null && 
-                        ((isParticipant(roomId) && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'buddy-ai');
+        // Create: The user must be a participant and the message must be from them, or from the AI.
+        allow create: if request.auth != null && (((isRoomPublic() || isUserAnEditor())) && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'buddy-ai';
 
-        // No one can update or delete messages.
+        // Messages are immutable.
         allow update, delete: if false;
       }
 
-      // Resources
+      // Resources subcollection
       match /resources/{resourceId} {
-        // Read: Any participant can read the resource list.
-        allow read: if request.auth != null && isParticipant(roomId);
+        // Read: Anyone in a public room or an editor in a private room can see resources.
+        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
         
-        // Create: Any participant can add a resource.
-        allow create: if request.auth != null && isParticipant(roomId) && request.resource.data.addedByUserId == request.auth.uid;
+        // Create: A participant can add a resource.
+        allow create: if request.auth != null && (isRoomPublic() || isUserAnEditor()) && request.resource.data.addedByUserId == request.auth.uid;
 
-        // Delete: Only the room owner or the user who added the link can delete it.
-        allow delete: if request.auth != null && (isRoomOwner(roomId) || get(/databases/$(database)/documents/studyRooms/$(roomId)/resources/$(resourceId)).data.addedByUserId == request.auth.uid);
+        // Delete: The room owner or the user who added the link can delete it.
+        allow delete: if request.auth != null && (isRoomOwner() || resource.data.addedByUserId == request.auth.uid);
 
-        // No one can update a resource link. They must delete and re-add.
+        // Resources are immutable.
         allow update: if false;
       }
     }
