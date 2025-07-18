@@ -14,7 +14,7 @@ const tools = [
   { id: "select", icon: <Hand />, label: "Select" },
   { id: "draw", icon: <Pencil />, label: "Pencil" },
   { id: "eraser", icon: <Eraser />, label: "Eraser" },
-  { id: "rectangle", icon: <RectangleHorizontal />, label: "Rectangle" },
+  { id: "geo-rectangle", icon: <RectangleHorizontal />, label: "Rectangle" },
   { id: "arrow", icon: <ArrowRight />, label: "Arrow" },
 ];
 
