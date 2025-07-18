@@ -1,4 +1,5 @@
 
+
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and, arrayRemove } from 'firebase/firestore';
@@ -1077,31 +1078,30 @@ export async function setParticipantStatus(roomId: string, user: User) {
     const roomRef = doc(db, 'studyRooms', roomId);
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
     
-    try {
-        await runTransaction(db, async (transaction) => {
-            const roomDoc = await transaction.get(roomRef);
-            if (!roomDoc.exists()) throw new Error("Room does not exist.");
+    await runTransaction(db, async (transaction) => {
+        const roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists()) {
+            throw new Error("Room does not exist.");
+        }
 
-            const roomData = roomDoc.data();
-            if (roomData.status === 'ended') {
-                throw new Error("This study session has already ended.");
-            }
-
-            const participantIds = roomData?.participantIds || [];
-            if (!participantIds.includes(user.uid)) {
-                transaction.update(roomRef, {
-                    participantIds: arrayUnion(user.uid)
-                });
-            }
-            
-            transaction.set(participantRef, {
-                uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
-            }, { merge: true });
+        const roomData = roomDoc.data();
+        if (roomData.status === 'ended') {
+            throw new Error("This study session has already ended.");
+        }
+        
+        // Add user to the participants array on the main room document
+        transaction.update(roomRef, {
+            participantIds: arrayUnion(user.uid)
         });
-    } catch (error) {
-        console.error("Error setting participant status:", error);
-        throw error;
-    }
+        
+        // Set their status in the subcollection
+        transaction.set(participantRef, {
+            uid: user.uid,
+            name: user.name,
+            photoURL: user.photoURL || null,
+            handRaised: false,
+        }, { merge: true });
+    });
 }
 
 export async function toggleHandRaise(roomId: string, userId: string) {
