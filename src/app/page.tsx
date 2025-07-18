@@ -1,14 +1,27 @@
 
 "use client";
 
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpenCheck, ArrowRight, Lightbulb, Bot, BrainCircuit, Wand2 } from "lucide-react";
+import { BookOpenCheck, ArrowRight, Lightbulb, Bot, BrainCircuit, Wand2, Volume2, VolumeX } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 // Main Hero Section Component
-const HeroSection = () => (
+const HeroSection = () => {
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      const newMutedState = !isMuted;
+      videoRef.current.muted = newMutedState;
+      setIsMuted(newMutedState);
+    }
+  };
+  
+  return (
   <section className="w-full py-20 md:py-24 lg:py-32 xl:py-40">
     <div className="container px-4 md:px-6">
       <div className="grid gap-6 lg:grid-cols-[1fr_500px] lg:gap-12 xl:grid-cols-[1fr_600px]">
@@ -39,20 +52,30 @@ const HeroSection = () => (
             </Button>
           </div>
         </div>
-        <div className="mx-auto aspect-video overflow-hidden rounded-xl sm:w-full lg:order-last">
+        <div className="relative mx-auto aspect-video overflow-hidden rounded-xl sm:w-full lg:order-last">
           <video
+            ref={videoRef}
             className="w-full h-full object-cover"
-            src="https://videos.pexels.com/video-files/8757091/8757091-hd_1920_1080_30fps.mp4"
+            src="../video/adapted.mp4"
             autoPlay
             loop
             muted
             playsInline
           />
+          <Button
+              size="icon"
+              variant="outline"
+              onClick={toggleMute}
+              className="absolute bottom-4 right-4 rounded-full bg-black/30 text-white backdrop-blur-sm hover:bg-black/50 hover:text-white"
+              aria-label={isMuted ? "Unmute video" : "Mute video"}
+            >
+              {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </Button>
         </div>
       </div>
     </div>
   </section>
-);
+)};
 
 // Feature Card Component
 const FeatureCard = ({ icon, title, children }: { icon: React.ReactNode, title: string, children: React.ReactNode }) => (
