@@ -1085,13 +1085,24 @@ export async function setParticipantStatus(roomId: string, user: User) {
         const roomData = roomDoc.data() as StudyRoom;
         if (roomData.status === 'ended') throw new Error("This study session has already ended.");
 
-        if (!roomData.isPublic && !roomData.participantIds.includes(user.uid)) {
+        const isAlreadyParticipant = roomData.participantIds.includes(user.uid);
+        
+        // A user can join a private room only if they are already on the participant list (i.e., invited).
+        // Anyone can join a public room.
+        if (!roomData.isPublic && !isAlreadyParticipant) {
             throw new Error("You do not have permission to join this private room.");
         }
         
-        transaction.update(roomRef, { participantIds: arrayUnion(user.uid) });
+        // Add user to participant list if they are not already there
+        if (!isAlreadyParticipant) {
+             transaction.update(roomRef, { participantIds: arrayUnion(user.uid) });
+        }
+       
         transaction.set(participantRef, {
-            uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
+            uid: user.uid,
+            name: user.name || 'Anonymous', // Default to 'Anonymous' if name is undefined
+            photoURL: user.photoURL || null,
+            handRaised: false,
         }, { merge: true });
     });
 }
