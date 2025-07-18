@@ -64,7 +64,7 @@ export function ParticipantList({ participants, room, currentUserId, onToggleEdi
               <div className="flex flex-col">
                 <span className="text-sm font-medium flex items-center gap-1.5">
                   {participant.name}
-                  {isParticipantOwner && <Crown className="h-4 w-4 text-yellow-500" titleAccess="Owner" />}
+                  {isParticipantOwner && <Crown className="h-4 w-4 text-yellow-500" title="Owner" />}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {isEditor ? 'Editor' : 'Viewer'}
