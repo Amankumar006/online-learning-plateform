@@ -72,7 +72,8 @@ export default function StudyRoomPage() {
         room,
         endSession,
         toggleHandRaise,
-        resources
+        resources,
+        toggleParticipantEditorRole,
     } = useStudyRoom(roomId, appUser);
 
     const handleToggleChat = () => {
@@ -134,6 +135,7 @@ export default function StudyRoomPage() {
                 onEndSession={endSession}
                 currentUser={appUser}
                 onToggleHandRaise={toggleHandRaise}
+                onToggleEditorRole={toggleParticipantEditorRole}
              />
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="flex-1 relative">

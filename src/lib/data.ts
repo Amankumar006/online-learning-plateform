@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and, arrayRemove } from 'firebase/firestore';
 import { format, startOfWeek, subDays, isYesterday } from 'date-fns';
 import { generateLessonContent } from '@/ai/flows/generate-lesson-content';
 import { generateLessonImage } from '@/ai/flows/generate-lesson-image';
@@ -220,6 +220,7 @@ export interface StudyRoom {
     roomState?: string;
     status: 'active' | 'ended';
     participantIds: string[];
+    editorIds: string[]; // New: list of UIDs with write access
 }
 
 export interface ChatMessage {
@@ -945,14 +946,15 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'participantIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'participantIds' | 'editorIds'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
         isPublic: data.visibility === 'public',
-        participantIds: [data.ownerId], // CRITICAL FIX: Initialize with owner
+        participantIds: [data.ownerId],
+        editorIds: [data.ownerId], // Owner is an editor by default
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
@@ -1114,6 +1116,22 @@ export async function toggleHandRaise(roomId: string, userId: string) {
         throw new Error("Could not update your status.");
     }
 }
+
+export async function toggleParticipantEditorRole(roomId: string, ownerId: string, targetUserId: string, grant: boolean) {
+    const roomRef = doc(db, 'studyRooms', roomId);
+    await runTransaction(db, async (transaction) => {
+        const roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists() || roomDoc.data()?.ownerId !== ownerId) {
+            throw new Error("You do not have permission to perform this action.");
+        }
+        if (grant) {
+            transaction.update(roomRef, { editorIds: arrayUnion(targetUserId) });
+        } else {
+            transaction.update(roomRef, { editorIds: arrayRemove(targetUserId) });
+        }
+    });
+}
+
 
 export async function removeParticipantStatus(roomId: string, userId: string) {
     try {

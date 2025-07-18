@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource } from '@/lib/data';
+import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole } from '@/lib/data';
 import throttle from 'lodash/throttle';
 import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -15,7 +15,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
     const [loading, setLoading] = useState(true);
     const [room, setRoom] = useState<StudyRoom | null>(null);
-    const [isReadOnly, setIsReadOnly] = useState(false);
+    const [isReadOnly, setIsReadOnly] = useState(true); // Default to read-only until permissions are checked
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [participants, setParticipants] = useState<User[]>([]);
@@ -34,7 +34,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const endSession = useCallback(async () => {
         if (room?.ownerId === user?.uid) {
             await endStudyRoomSession(roomId);
-            setIsReadOnly(true);
+        }
+    }, [roomId, user?.uid, room?.ownerId]);
+    
+    const handleToggleEditorRole = useCallback(async (targetUserId: string, grant: boolean) => {
+        if (room?.ownerId === user?.uid) {
+            await toggleParticipantEditorRole(roomId, user.uid, targetUserId, grant);
         }
     }, [roomId, user?.uid, room?.ownerId]);
 
@@ -61,30 +66,33 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 }
 
                 if (initialRoom.status === 'ended') {
-                    throw new Error("This study session has already ended and is now read-only.");
+                     // Set read-only but still allow joining to view content
+                    setIsReadOnly(true);
                 }
 
-                // Now that we know the room is active, join it.
+                // Now that we know the room exists, join it.
                 await setParticipantStatus(roomId, user);
 
                 setRoom(initialRoom);
+
+                // Set initial read-only status based on editorIds
+                setIsReadOnly(!initialRoom.editorIds.includes(user.uid));
                     
                 const isExpired = initialRoom.expiresAt.toMillis() < Date.now();
-                if (isExpired) {
-                    setIsReadOnly(true);
-                        if (initialRoom.status === 'active' && room?.ownerId === user.uid) {
+                if (isExpired && initialRoom.status === 'active') {
+                    if (initialRoom.ownerId === user.uid) {
                         await endStudyRoomSession(roomId);
                     }
-                } else {
+                } else if (initialRoom.status === 'active') {
                     const timeUntilExpiry = initialRoom.expiresAt.toMillis() - Date.now();
                     expiryTimeout = setTimeout(() => {
-                        if (room?.ownerId === user.uid) {
+                        if (initialRoom.ownerId === user.uid) {
                             endSession();
                         }
                     }, timeUntilExpiry);
                 }
 
-                    if (initialRoom.roomState) {
+                if (initialRoom.roomState) {
                     try {
                         store.loadSnapshot(JSON.parse(initialRoom.roomState));
                     } catch (e) {
@@ -96,7 +104,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
                     if (roomData) {
                         setRoom(roomData);
-                            if (roomData.status === 'ended') {
+                        setIsReadOnly(!roomData.editorIds.includes(user.uid));
+                        if (roomData.status === 'ended') {
                             setIsReadOnly(true);
                             if(expiryTimeout) clearTimeout(expiryTimeout);
                         }
@@ -117,7 +126,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     }
                 });
                 
-                    // Listener for participants
+                // Listener for participants
                 participantsUnsubscribe = getStudyRoomParticipantsListener(roomId, (newParticipants) => {
                     if (stillMounted) {
                         setParticipants(newParticipants);
@@ -134,7 +143,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                 // Listener to save local changes to Firestore (for everyone)
                 saveUnsubscribe = store.listen(
                     (event) => {
-                        if (event.source !== 'user') return;
+                        if (event.source !== 'user' || isReadOnly) return;
                         const snapshot = JSON.stringify(store.getSnapshot());
                         saveStateToFirestore(snapshot);
                     },
@@ -219,7 +228,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
     };
 
     const addLessonImageToCanvas = useCallback((lesson: Lesson) => {
-        if (!store || room?.status === 'ended') return;
+        if (!store || isReadOnly) return;
 
         // Create a deterministic asset ID from the image URL
         const assetId = getHashForString(lesson.image);
@@ -255,7 +264,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             },
         });
 
-    }, [store, room?.status]);
+    }, [store, isReadOnly]);
 
     
     const toggleHandRaise = useCallback(async () => {
@@ -276,6 +285,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         isReadOnly,
         endSession,
         toggleHandRaise,
-        resources
+        resources,
+        toggleParticipantEditorRole: handleToggleEditorRole,
     };
 }

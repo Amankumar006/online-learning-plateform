@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ParticipantList } from "./ParticipantList";
@@ -17,6 +17,11 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,9 +122,10 @@ interface StudyRoomHeaderProps {
   onEndSession: () => void;
   currentUser: User | null;
   onToggleHandRaise: () => void;
+  onToggleEditorRole: (targetUserId: string, grant: boolean) => void;
 }
 
-export default function StudyRoomHeader({ room, onToggleChat, onToggleResources, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomHeaderProps) {
+export default function StudyRoomHeader({ room, onToggleChat, onToggleResources, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise, onToggleEditorRole }: StudyRoomHeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
@@ -154,8 +160,28 @@ export default function StudyRoomHeader({ room, onToggleChat, onToggleResources,
          </div>
          {room && <CountdownTimer expiryTimestamp={room.expiresAt.toMillis()} status={room.status} />}
       </div>
-       <ParticipantList participants={participants} />
+      
       <div className="flex items-center gap-2">
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline">
+                    <Users className="mr-2 h-4 w-4" />
+                    Participants ({participants.length})
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+                <div className="p-2">
+                    <h4 className="font-semibold text-sm mb-2">Session Participants</h4>
+                    <ParticipantList 
+                        participants={participants}
+                        room={room}
+                        currentUserId={currentUser?.uid || null}
+                        onToggleEditorRole={onToggleEditorRole}
+                    />
+                </div>
+            </PopoverContent>
+        </Popover>
+
          <Dialog open={isLessonLoaderOpen} onOpenChange={setIsLessonLoaderOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" disabled={room?.status === 'ended'}>
