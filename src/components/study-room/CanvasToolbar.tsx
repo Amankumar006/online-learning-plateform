@@ -30,10 +30,9 @@ export default function CanvasToolbar({ editor }: CanvasToolbarProps) {
   }
 
   const handleToolClick = (toolId: string) => {
-    // For shape tools, we need to activate the 'geo' tool and set the desired shape type.
-    if (toolId === 'rectangle' || toolId === 'ellipse' || toolId === 'triangle') {
-        editor.updateInstanceState({ geoShape: toolId as GeoShapeType });
-        editor.setCurrentTool('geo');
+    // For shape tools, we activate the 'geo' tool and pass the desired shape type as a property.
+    if (toolId === 'rectangle' || toolId === 'arrow') {
+        editor.setCurrentTool('geo', { geo: toolId as GeoShapeType });
     } else {
         editor.setCurrentTool(toolId as any);
     }
