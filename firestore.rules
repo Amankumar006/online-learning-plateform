@@ -102,22 +102,18 @@ service cloud.firestore {
       // GET: Allow reading a single room if it's public or the user is a participant.
       allow get: if request.auth != null && (resource.data.isPublic == true || request.auth.uid in resource.data.participantIds);
 
-      // LIST: Allow any authenticated user to query the list of public, active rooms.
-      // Client-side queries must enforce these conditions.
+      // LIST: Allow any authenticated user to query the list. 
+      // The actual documents returned are filtered by the client-side queries.
       allow list: if request.auth != null;
       
       // CREATE: Any authenticated user can create a room for themselves.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
-      // UPDATE: Allow if the user is the owner OR if they are only adding themselves to the participant list of a public room.
-      allow update: if request.auth != null && (
-        isRoomOwner(roomId) || 
-        (
-          resource.data.isPublic == true &&
-          request.resource.data.participantIds == resource.data.participantIds.concat([request.auth.uid]) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds'])
-        )
-      );
+      // UPDATE: The owner can update the room, or a user can add themselves to the participantIds of a public room.
+      allow update: if request.auth != null && (isRoomOwner(roomId) || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds']) &&
+         request.resource.data.participantIds == resource.data.participantIds.concat([request.auth.uid]) && 
+         resource.data.isPublic == true));
       
       // DELETE: Only the owner can delete a room.
       allow delete: if request.auth != null && isRoomOwner(roomId);
@@ -126,9 +122,9 @@ service cloud.firestore {
 
       // Participants
       match /participants/{userId} {
-        // Read: Anyone who is a participant can see the list of other participants.
-        allow read: if isParticipant(roomId);
-
+        // Read: Anyone can see the list of participants in a public room, or participants can see each other in a private room.
+        allow read: if get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId);
+        
         // Create/Update: A user can only add/update their own status.
         allow write: if request.auth.uid == userId;
         
