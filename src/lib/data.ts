@@ -984,7 +984,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
 
         const [publicSnapshot, participantSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
-            getDocs(participantSnapshot)
+            getDocs(participantRoomsQuery)
         ]);
         
         const roomsMap = new Map<string, StudyRoom>();
@@ -1170,3 +1170,4 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
 }
+
