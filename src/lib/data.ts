@@ -1,5 +1,3 @@
-
-
 // src/lib/data.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, where, setDoc, addDoc, deleteDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, orderBy, limit, writeBatch, onSnapshot, serverTimestamp, deleteField, or, and, arrayRemove } from 'firebase/firestore';
@@ -220,8 +218,7 @@ export interface StudyRoom {
     expiresAt: Timestamp;
     roomState?: string;
     status: 'active' | 'ended';
-    participantIds: string[];
-    editorIds: string[]; // New: list of UIDs with write access
+    editorIds: string[]; // List of UIDs with write access
 }
 
 export interface ChatMessage {
@@ -947,14 +944,13 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'participantIds' | 'editorIds'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'editorIds'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
     const payload: Omit<StudyRoom, 'id'> = {
         ...data,
         isPublic: data.visibility === 'public',
-        participantIds: [data.ownerId],
         editorIds: [data.ownerId], // Owner is an editor by default
         ownerName: owner?.name || 'Anonymous',
         ownerPhotoURL: owner?.photoURL || null,
@@ -979,7 +975,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
         const participantRoomsQuery = query(
             collection(db, 'studyRooms'),
             where('status', '==', 'active'),
-            where('participantIds', 'array-contains', userId)
+            where('editorIds', 'array-contains', userId)
         );
 
         const [publicSnapshot, participantSnapshot] = await Promise.all([
@@ -1084,23 +1080,10 @@ export async function setParticipantStatus(roomId: string, user: User) {
 
         const roomData = roomDoc.data() as StudyRoom;
         if (roomData.status === 'ended') throw new Error("This study session has already ended.");
-
-        const isAlreadyParticipant = roomData.participantIds.includes(user.uid);
-        
-        // A user can join a private room only if they are already on the participant list (i.e., invited).
-        // Anyone can join a public room.
-        if (!roomData.isPublic && !isAlreadyParticipant) {
-            throw new Error("You do not have permission to join this private room.");
-        }
-        
-        // Add user to participant list if they are not already there
-        if (!isAlreadyParticipant) {
-             transaction.update(roomRef, { participantIds: arrayUnion(user.uid) });
-        }
        
         transaction.set(participantRef, {
             uid: user.uid,
-            name: user.name || 'Anonymous', // Default to 'Anonymous' if name is undefined
+            name: user.name || 'Anonymous',
             photoURL: user.photoURL || null,
             handRaised: false,
         }, { merge: true });
@@ -1169,4 +1152,20 @@ export function getStudyRoomResourcesListener(roomId: string, callback: (resourc
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyRoomResource)));
     });
+}
+
+export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
+    try {
+        const roomSnap = await getDoc(doc(db, 'studyRooms', roomId));
+        if (roomSnap.exists()) {
+            return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
+        }
+        return null;
+    } catch (error: any) {
+        console.error(`Error fetching study room ${roomId}:`, error);
+        if (error.code === 'permission-denied') {
+            throw new Error("Room not found or you do not have permission to access it.");
+        }
+        throw new Error(error.message || "Could not retrieve the study room.");
+    }
 }

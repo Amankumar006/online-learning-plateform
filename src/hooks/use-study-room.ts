@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId, GeoShapeType, useValue } from 'tldraw';
-import { getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole, updateStudyRoomState } from '@/lib/data';
+import { getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole, getStudyRoom } from '@/lib/data';
 import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
