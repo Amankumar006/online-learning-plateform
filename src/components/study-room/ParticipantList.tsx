@@ -3,10 +3,11 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, StudyRoom } from "@/lib/data";
-import { Hand, Crown } from "lucide-react";
+import { Hand, Crown, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface Participant extends User {
     handRaised?: boolean;
@@ -43,6 +44,9 @@ export function ParticipantPanel({ participants, room, currentUserId, onToggleEd
     <div className="flex flex-col h-full bg-background">
         <div className="p-4 border-b">
             <h3 className="font-semibold text-lg">Participants ({participants.length})</h3>
+            <p className="text-sm text-muted-foreground">
+              {isOwner ? "You can grant drawing permissions to others." : "Ask the owner to grant you drawing permission."}
+            </p>
         </div>
         <ScrollArea className="flex-1">
             <div className="p-4 space-y-1">
@@ -67,7 +71,18 @@ export function ParticipantPanel({ participants, room, currentUserId, onToggleEd
                         <div className="flex flex-col">
                             <span className="text-sm font-medium flex items-center gap-1.5">
                             {participant.name}
-                            {isParticipantOwner && <Crown className="h-4 w-4 text-yellow-500" title="Owner" />}
+                            {isParticipantOwner && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <Crown className="h-4 w-4 text-yellow-500" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Room Owner</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
                             </span>
                             <span className="text-xs text-muted-foreground">
                             {isEditor ? 'Editor' : 'Viewer'}
@@ -77,13 +92,13 @@ export function ParticipantPanel({ participants, room, currentUserId, onToggleEd
                         
                         {isOwner && !isParticipantOwner && (
                         <div className="flex items-center space-x-2">
-                            <Label htmlFor={`editor-switch-${participant.uid}`} className="text-xs text-muted-foreground">
-                            Can Draw
+                            <Label htmlFor={`editor-switch-${participant.uid}`} className="text-xs font-medium text-muted-foreground">
+                                Can Draw
                             </Label>
                             <Switch
-                            id={`editor-switch-${participant.uid}`}
-                            checked={isEditor}
-                            onCheckedChange={(checked) => onToggleEditorRole(participant.uid, checked)}
+                                id={`editor-switch-${participant.uid}`}
+                                checked={isEditor}
+                                onCheckedChange={(checked) => onToggleEditorRole(participant.uid, checked)}
                             />
                         </div>
                         )}

@@ -3,9 +3,8 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
-import { getStudyRoom, updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole } from '@/lib/data';
+import { getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole } from '@/lib/data';
 import throttle from 'lodash/throttle';
-import { addDoc, collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 
@@ -234,10 +233,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
     
     const toggleHandRaise = useCallback(async () => {
-        if (user) {
+        if (user && room?.status === 'active') {
             await toggleHandRaiseInDb(roomId, user.uid);
         }
-    }, [roomId, user]);
+    }, [roomId, user, room?.status]);
 
     return { 
         store, 
