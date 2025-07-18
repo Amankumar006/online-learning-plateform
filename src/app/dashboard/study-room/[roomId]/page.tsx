@@ -12,6 +12,7 @@ import { useEffect, useState, useMemo } from "react";
 import { User as FirebaseUser } from "firebase/auth";
 import { ChatPanel } from "@/components/study-room/ChatPanel";
 import { ResourcePanel } from "@/components/study-room/ResourcePanel";
+import { ParticipantPanel } from "@/components/study-room/ParticipantList";
 import { User as AppUser, Lesson } from "@/lib/data";
 import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -36,13 +37,15 @@ export default function StudyRoomPage() {
     const [appUser, setAppUser] = useState<AppUser | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isResourcesOpen, setIsResourcesOpen] = useState(false);
+    const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
     const [lessons, setLessons] = useState<Lesson[]>([]);
     
     const activeSidePanel = useMemo(() => {
         if (isChatOpen) return 'chat';
         if (isResourcesOpen) return 'resources';
+        if (isParticipantsOpen) return 'participants';
         return null;
-    }, [isChatOpen, isResourcesOpen]);
+    }, [isChatOpen, isResourcesOpen, isParticipantsOpen]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -77,12 +80,26 @@ export default function StudyRoomPage() {
 
     const handleToggleChat = () => {
         setIsChatOpen(prev => !prev);
-        if (!isChatOpen) setIsResourcesOpen(false); // Close resources if opening chat
+        if (!isChatOpen) {
+             setIsResourcesOpen(false);
+             setIsParticipantsOpen(false);
+        }
     };
 
     const handleToggleResources = () => {
         setIsResourcesOpen(prev => !prev);
-        if (!isResourcesOpen) setIsChatOpen(false); // Close chat if opening resources
+        if (!isResourcesOpen) {
+             setIsChatOpen(false);
+             setIsParticipantsOpen(false);
+        }
+    };
+    
+    const handleToggleParticipants = () => {
+        setIsParticipantsOpen(prev => !prev);
+        if (!isParticipantsOpen) {
+            setIsChatOpen(false);
+            setIsResourcesOpen(false);
+        }
     };
 
     if (error) {
@@ -136,6 +153,7 @@ export default function StudyRoomPage() {
                         room={room}
                         onToggleChat={handleToggleChat}
                         onToggleResources={handleToggleResources}
+                        onToggleParticipants={handleToggleParticipants}
                         participants={participants}
                         lessons={lessons}
                         onAddLessonImage={addLessonImageToCanvas}
@@ -143,13 +161,13 @@ export default function StudyRoomPage() {
                         onEndSession={endSession}
                         currentUser={appUser}
                         onToggleHandRaise={toggleHandRaise}
-                        onToggleEditorRole={toggleParticipantEditorRole}
                      />
                 </div>
                  {activeSidePanel && (
                     <div className="w-[22rem] bg-background shadow-lg border-l shrink-0 flex flex-col animate-in slide-in-from-right-1/4 duration-300">
                         {activeSidePanel === 'chat' && <ChatPanel messages={messages} currentUser={appUser} onSendMessage={handleSendMessage}/>}
                         {activeSidePanel === 'resources' && <ResourcePanel resources={resources} onAddResource={handleAddResource} onDeleteResource={handleDeleteResource} currentUser={appUser} roomOwnerId={room?.ownerId} />}
+                        {activeSidePanel === 'participants' && <ParticipantPanel participants={participants} room={room} currentUserId={appUser.uid} onToggleEditorRole={toggleParticipantEditorRole} />}
                     </div>
                 )}
              </div>

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { ParticipantList } from "./ParticipantList";
 import { User, Lesson, StudyRoom } from "@/lib/data";
 import {
   Dialog,
@@ -16,11 +15,6 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +109,7 @@ interface StudyRoomControlsProps {
   room: StudyRoom | null;
   onToggleChat: () => void;
   onToggleResources: () => void;
+  onToggleParticipants: () => void;
   participants: User[];
   lessons: Lesson[];
   onAddLessonImage: (lesson: Lesson) => void;
@@ -122,10 +117,9 @@ interface StudyRoomControlsProps {
   onEndSession: () => void;
   currentUser: User | null;
   onToggleHandRaise: () => void;
-  onToggleEditorRole: (targetUserId: string, grant: boolean) => void;
 }
 
-export default function StudyRoomControls({ room, onToggleChat, onToggleResources, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise, onToggleEditorRole }: StudyRoomControlsProps) {
+export default function StudyRoomControls({ room, onToggleChat, onToggleResources, onToggleParticipants, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomControlsProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
@@ -174,25 +168,10 @@ export default function StudyRoomControls({ room, onToggleChat, onToggleResource
       </div>
 
       <div className="flex items-center gap-2">
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <Users />
-                    <span className="sr-only">Participants</span>
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-                <div className="p-2">
-                    <h4 className="font-semibold text-sm mb-2">Session Participants ({participants.length})</h4>
-                    <ParticipantList 
-                        participants={participants}
-                        room={room}
-                        currentUserId={currentUser?.uid || null}
-                        onToggleEditorRole={onToggleEditorRole}
-                    />
-                </div>
-            </PopoverContent>
-        </Popover>
+         <Button variant="ghost" size="icon" onClick={onToggleParticipants}>
+            <Users />
+            <span className="sr-only">Participants</span>
+        </Button>
 
          <Button variant="ghost" size="icon" onClick={onToggleResources}>
           <Link2 />
@@ -218,7 +197,7 @@ export default function StudyRoomControls({ room, onToggleChat, onToggleResource
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onEndSession}>End Session</AlertDialogAction>
+                  <AlertDialogAction onClick={onEndSession}>Continue</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
