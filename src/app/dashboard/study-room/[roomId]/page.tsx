@@ -66,6 +66,7 @@ export default function StudyRoomPage() {
     const { 
         store, 
         editor,
+        setEditor,
         error, 
         isLoading,
         isReadOnly,
@@ -150,7 +151,7 @@ export default function StudyRoomPage() {
              
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="flex-1 relative">
-                    <Tldraw store={store} autoFocus isReadOnly={isReadOnly} hideUi={true} />
+                    <Tldraw store={store} autoFocus onMount={setEditor} isReadOnly={isReadOnly} hideUi={true} />
                      <CanvasToolbar editor={editor} />
                      <StudyRoomControls
                         room={room}

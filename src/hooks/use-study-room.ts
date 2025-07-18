@@ -84,7 +84,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                         if (roomData.roomState) {
                             try {
-                                store.loadSnapshot(JSON.parse(roomData.roomState));
+                                const snapshot = JSON.parse(roomData.roomState);
+                                if(snapshot) store.loadSnapshot(snapshot);
                             } catch (e) { console.error("Failed to parse or load room state:", e); }
                         }
                     } else {
