@@ -131,7 +131,7 @@ export default function StudyRoomPage() {
              
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="flex-1 relative">
-                    <Tldraw store={store} autoFocus isReadOnly={isReadOnly} />
+                    <Tldraw store={store} autoFocus isReadOnly={isReadOnly} hideUi={true} />
                      <StudyRoomControls
                         room={room}
                         onToggleChat={handleToggleChat}
