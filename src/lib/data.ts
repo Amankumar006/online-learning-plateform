@@ -945,7 +945,7 @@ export async function getSolutionHistory(userId: string): Promise<UserExerciseRe
 
 // Study Room Functions
 export async function createStudyRoomSession(
-    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL'>
+    data: Omit<StudyRoom, 'id' | 'createdAt' | 'status' | 'ownerName' | 'ownerPhotoURL' | 'isPublic'>
 ): Promise<string> {
     const newRoomRef = doc(collection(db, 'studyRooms'));
     const owner = await getUser(data.ownerId);
@@ -956,6 +956,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
+        editorIds: [data.ownerId], // The owner should always be an editor
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -968,8 +969,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
     try {
         const publicRoomsQuery = query(
             collection(db, 'studyRooms'),
-            where('status', '==', 'active'),
-            where('isPublic', '==', true)
+            where('status', '==', 'active')
         );
         
         const participantRoomsQuery = query(
@@ -988,7 +988,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
         const processSnapshot = (snapshot: any) => {
             snapshot.docs.forEach((doc: any) => {
                 const roomData = doc.data();
-                if (roomData.expiresAt.toMillis() > Date.now()) {
+                if (roomData.isPublic || roomData.editorIds.includes(userId)) {
                     roomsMap.set(doc.id, { id: doc.id, ...roomData } as StudyRoom);
                 }
             });
@@ -1071,23 +1071,27 @@ export function getStudyRoomParticipantsListener(roomId: string, callback: (part
 }
 
 export async function setParticipantStatus(roomId: string, user: User) {
-    const roomRef = doc(db, 'studyRooms', roomId);
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
-    
-    await runTransaction(db, async (transaction) => {
-        const roomDoc = await transaction.get(roomRef);
-        if (!roomDoc.exists()) throw new Error("Room does not exist.");
+    try {
+        await runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'studyRooms', roomId);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) throw new Error("Room does not exist.");
 
-        const roomData = roomDoc.data() as StudyRoom;
-        if (roomData.status === 'ended') throw new Error("This study session has already ended.");
-       
-        transaction.set(participantRef, {
-            uid: user.uid,
-            name: user.name || "Anonymous",
-            photoURL: user.photoURL || null,
-            handRaised: false,
-        }, { merge: true });
-    });
+            const roomData = roomDoc.data() as StudyRoom;
+            if (roomData.status === 'ended') throw new Error("This study session has already ended.");
+           
+            transaction.set(participantRef, {
+                uid: user.uid,
+                name: user.name || "Anonymous",
+                photoURL: user.photoURL || null,
+                handRaised: false,
+            }, { merge: true });
+        });
+    } catch (e: any) {
+        console.error("setParticipantStatus failed:", e.message);
+        throw e;
+    }
 }
 
 export async function toggleHandRaise(roomId: string, userId: string) {

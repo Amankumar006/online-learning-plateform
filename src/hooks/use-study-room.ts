@@ -68,7 +68,9 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                     if (roomData) {
                         setRoom(roomData);
-                        setIsReadOnly(!roomData.editorIds.includes(user.uid));
+                        // Fallback for editorIds to prevent crash
+                        const editorIds = roomData.editorIds || [];
+                        setIsReadOnly(!editorIds.includes(user.uid));
 
                         if (roomData.status === 'ended') {
                             setIsReadOnly(true);
