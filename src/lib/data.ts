@@ -984,7 +984,7 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
 
         const [publicSnapshot, participantSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
-            getDocs(participantRoomsQuery)
+            getDocs(participantSnapshot)
         ]);
         
         const roomsMap = new Map<string, StudyRoom>();
@@ -1023,7 +1023,7 @@ export async function getStudyRoom(roomId: string): Promise<StudyRoom | null> {
         if (roomSnap.exists()) {
             return { id: roomSnap.id, ...roomSnap.data() } as StudyRoom;
         }
-        throw new Error("This study room does not exist.");
+        return null;
     } catch (error: any) {
         console.error(`Error fetching study room ${roomId}:`, error);
         if (error.code === 'permission-denied') {
@@ -1080,26 +1080,18 @@ export async function setParticipantStatus(roomId: string, user: User) {
     
     await runTransaction(db, async (transaction) => {
         const roomDoc = await transaction.get(roomRef);
-        if (!roomDoc.exists()) {
-            throw new Error("Room does not exist.");
-        }
+        if (!roomDoc.exists()) throw new Error("Room does not exist.");
 
-        const roomData = roomDoc.data();
-        if (roomData.status === 'ended') {
-            throw new Error("This study session has already ended.");
+        const roomData = roomDoc.data() as StudyRoom;
+        if (roomData.status === 'ended') throw new Error("This study session has already ended.");
+
+        if (!roomData.isPublic && !roomData.participantIds.includes(user.uid)) {
+            throw new Error("You do not have permission to join this private room.");
         }
         
-        // Add user to the participants array on the main room document
-        transaction.update(roomRef, {
-            participantIds: arrayUnion(user.uid)
-        });
-        
-        // Set their status in the subcollection
+        transaction.update(roomRef, { participantIds: arrayUnion(user.uid) });
         transaction.set(participantRef, {
-            uid: user.uid,
-            name: user.name,
-            photoURL: user.photoURL || null,
-            handRaised: false,
+            uid: user.uid, name: user.name, photoURL: user.photoURL || null, handRaised: false,
         }, { merge: true });
     });
 }

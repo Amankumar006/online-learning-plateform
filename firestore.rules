@@ -9,14 +9,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Helper function to check if the user is a participant in a study room
-    function isParticipant(roomId) {
-      return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.participantIds.hasAny([request.auth.uid]);
-    }
-
     // Helper function to check if the user is the owner of a study room
     function isRoomOwner(roomId) {
       return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
+    }
+
+    // Helper function to check if a user is a declared participant in a room's list
+    function isDeclaredParticipant(roomId) {
+        return request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.participantIds;
     }
 
 
@@ -100,7 +100,7 @@ service cloud.firestore {
     // Rules for Study Rooms
     match /studyRooms/{roomId} {
       // GET: Allow reading a single room if it's public or the user is a participant.
-      allow get: if request.auth != null && (resource.data.isPublic == true || isParticipant(roomId));
+      allow get: if request.auth != null && (resource.data.isPublic == true || isDeclaredParticipant(roomId));
 
       // LIST: Allow any authenticated user to query the list. 
       // The actual documents returned are filtered by the client-side queries.
@@ -109,14 +109,13 @@ service cloud.firestore {
       // CREATE: Any authenticated user can create a room for themselves.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
-      // UPDATE: The owner can update the room, or a user can add themselves to the participantIds of a public room.
-      allow update: if request.auth != null && (
-        // Case 1: The user is the owner, they can update specific fields.
-        (isRoomOwner(roomId) && request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'roomState', 'editorIds'])) ||
-        // Case 2: Any user can join a public room by adding themselves to participantIds.
-        (resource.data.isPublic == true && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds']) && request.resource.data.participantIds.size() == resource.data.participantIds.size() + 1 && request.auth.uid in request.resource.data.participantIds)
-      );
-      
+      // UPDATE: The owner can update the room, or a user can add themselves to the participantIds list.
+      allow update: if request.auth != null && 
+        (isRoomOwner(roomId) || 
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds']) &&
+           request.resource.data.participantIds == resource.data.participantIds.concat([request.auth.uid]) && 
+           (resource.data.isPublic == true || request.auth.uid in resource.data.participantIds)));
+
       // DELETE: Only the owner can delete a room.
       allow delete: if request.auth != null && isRoomOwner(roomId);
       
@@ -125,22 +124,22 @@ service cloud.firestore {
       // Participants
       match /participants/{userId} {
         // Read: Anyone can see the list of participants in a public room, or participants can see each other in a private room.
-        allow read: if get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId);
+        allow read: if get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isDeclaredParticipant(roomId);
         
-        // Create/Update: A user can only add/update their own status.
-        allow write: if request.auth.uid == userId;
+        // Create/Update: A user can only add/update their own status if they are a declared participant.
+        allow write: if request.auth.uid == userId && isDeclaredParticipant(roomId);
         
-        // Delete: A user can only remove themselves (on disconnect). The owner cannot remove others here.
-        allow delete: if request.auth.uid == userId;
+        // Delete: A user can only remove themselves (on disconnect) or the owner can remove others.
+        allow delete: if request.auth.uid == userId || isRoomOwner(roomId);
       }
 
       // Messages
       match /messages/{messageId} {
-        // Read: Any participant can read messages.
-        allow read: if isParticipant(roomId);
+        // Read: Any declared participant can read messages.
+        allow read: if isDeclaredParticipant(roomId);
         
-        // Create: Any participant can send a message. The 'buddy-ai' is also allowed to send messages.
-        allow create: if (isParticipant(roomId) && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'buddy-ai';
+        // Create: Any declared participant can send a message. The 'buddy-ai' is also allowed to send messages.
+        allow create: if (isDeclaredParticipant(roomId) && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'buddy-ai';
 
         // No one can update or delete messages.
         allow update, delete: if false;
@@ -148,11 +147,11 @@ service cloud.firestore {
 
       // Resources
       match /resources/{resourceId} {
-        // Read: Any participant can read the resource list.
-        allow read: if isParticipant(roomId);
+        // Read: Any declared participant can read the resource list.
+        allow read: if isDeclaredParticipant(roomId);
         
-        // Create: Any participant can add a resource.
-        allow create: if isParticipant(roomId) && request.resource.data.addedByUserId == request.auth.uid;
+        // Create: Any declared participant can add a resource.
+        allow create: if isDeclaredParticipant(roomId) && request.resource.data.addedByUserId == request.auth.uid;
 
         // Delete: Only the room owner or the user who added the link can delete it.
         allow delete: if isRoomOwner(roomId) || get(/databases/$(database)/documents/studyRooms/$(roomId)/resources/$(resourceId)).data.addedByUserId == request.auth.uid;
