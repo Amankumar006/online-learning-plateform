@@ -74,3 +74,18 @@
     background-attachment: fixed;
   }
 }
+
+@layer components {
+    .control-bar {
+        @apply absolute bottom-4 left-1/2 -translate-x-1/2;
+        @apply flex items-center justify-between gap-6;
+        @apply p-2 rounded-2xl;
+        @apply bg-background/50 backdrop-blur-md;
+        @apply border border-white/10 shadow-2xl;
+        @apply animate-in fade-in-0 slide-in-from-bottom-5 duration-500;
+    }
+
+    .control-bar > div {
+        @apply flex items-center gap-2;
+    }
+}

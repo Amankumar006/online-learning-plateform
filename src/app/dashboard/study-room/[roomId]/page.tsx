@@ -5,19 +5,18 @@ import '@tldraw/tldraw/tldraw.css';
 import dynamic from 'next/dynamic';
 import { useStudyRoom } from "@/hooks/use-study-room";
 import { useParams } from "next/navigation";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowLeft } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useEffect, useState, useMemo } from "react";
 import { User as FirebaseUser } from "firebase/auth";
-import StudyRoomHeader from "@/components/study-room/StudyRoomHeader";
 import { ChatPanel } from "@/components/study-room/ChatPanel";
 import { ResourcePanel } from "@/components/study-room/ResourcePanel";
-import { User as AppUser, Lesson, StudyRoomResource } from "@/lib/data";
+import { User as AppUser, Lesson } from "@/lib/data";
 import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import StudyRoomControls from '@/components/study-room/StudyRoomControls';
 
 // Dynamically import Tldraw with SSR disabled
 const Tldraw = dynamic(() => import('@tldraw/tldraw').then(mod => mod.Tldraw), {
@@ -123,26 +122,32 @@ export default function StudyRoomPage() {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-background">
-             <StudyRoomHeader
-                room={room}
-                onToggleChat={handleToggleChat}
-                onToggleResources={handleToggleResources}
-                participants={participants}
-                lessons={lessons}
-                onAddLessonImage={addLessonImageToCanvas}
-                isOwner={room?.ownerId === appUser.uid}
-                onEndSession={endSession}
-                currentUser={appUser}
-                onToggleHandRaise={toggleHandRaise}
-                onToggleEditorRole={toggleParticipantEditorRole}
-             />
+        <div className="h-screen w-screen flex flex-col bg-background relative">
+             <Button variant="outline" size="sm" asChild className="absolute top-4 left-4 z-50">
+                <Link href="/dashboard/study-room">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Rooms
+                </Link>
+             </Button>
+             
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="flex-1 relative">
                     <Tldraw store={store} autoFocus isReadOnly={isReadOnly} />
+                     <StudyRoomControls
+                        room={room}
+                        onToggleChat={handleToggleChat}
+                        onToggleResources={handleToggleResources}
+                        participants={participants}
+                        lessons={lessons}
+                        onAddLessonImage={addLessonImageToCanvas}
+                        isOwner={room?.ownerId === appUser.uid}
+                        onEndSession={endSession}
+                        currentUser={appUser}
+                        onToggleHandRaise={toggleHandRaise}
+                        onToggleEditorRole={toggleParticipantEditorRole}
+                     />
                 </div>
                  {activeSidePanel && (
-                    <div className="w-[22rem] bg-background shadow-lg border-l shrink-0 flex flex-col">
+                    <div className="w-[22rem] bg-background shadow-lg border-l shrink-0 flex flex-col animate-in slide-in-from-right-1/4 duration-300">
                         {activeSidePanel === 'chat' && <ChatPanel messages={messages} currentUser={appUser} onSendMessage={handleSendMessage}/>}
                         {activeSidePanel === 'resources' && <ResourcePanel resources={resources} onAddResource={handleAddResource} onDeleteResource={handleDeleteResource} currentUser={appUser} roomOwnerId={room?.ownerId} />}
                     </div>
