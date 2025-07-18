@@ -972,7 +972,7 @@ export async function createStudyRoomSession(
         ownerPhotoURL: owner?.photoURL || null,
         createdAt: Timestamp.now(),
         status: 'active',
-        editorIds: [data.ownerId], // The owner should always be an editor
+        editorIds: [data.ownerId],
     };
     await setDoc(newRoomRef, payload);
     return newRoomRef.id;
@@ -1192,9 +1192,16 @@ export async function deleteTask(userId: string, taskId: string): Promise<void> 
 
 // Notes
 export function getNotesListener(userId: string, callback: (notes: Note[]) => void): () => void {
-    const q = query(collection(db, `users/${userId}/notes`), orderBy('isPinned', 'desc'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, `users/${userId}/notes`), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note)));
+        const fetchedNotes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
+        // Manual sorting for pinned notes
+        fetchedNotes.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return b.createdAt.toMillis() - a.createdAt.toMillis();
+        });
+        callback(fetchedNotes);
     });
 }
 
