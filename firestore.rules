@@ -13,7 +13,7 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
     }
 
-    // Helper function to check if a user is a participant by checking the subcollection.
+    // Helper function to check if a user is a participant by checking the subcollection
     function isParticipant(roomId) {
       return exists(/databases/$(database)/documents/studyRooms/$(roomId)/participants/$(request.auth.uid));
     }
@@ -108,7 +108,7 @@ service cloud.firestore {
       // CREATE: Any authenticated user can create a room for themselves.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
-      // UPDATE: Only the owner can update the room details (e.g., status, editorIds).
+      // UPDATE: Only the owner can update the room details.
       allow update: if request.auth != null && isRoomOwner(roomId);
 
       // DELETE: Only the owner can delete a room.
@@ -121,7 +121,7 @@ service cloud.firestore {
         // Read: Anyone can see the list of participants in a public room, or participants can see each other in a private room.
         allow read: if get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId);
         
-        // Create/Update: A user can add/update their own status if the room is public, or if they are already a participant.
+        // Create/Update: A user can only write to their own participant document. They can join if the room is public.
         allow write: if request.auth.uid == userId && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || isParticipant(roomId));
         
         // Delete: A user can only remove themselves (on disconnect) or the owner can remove others.
