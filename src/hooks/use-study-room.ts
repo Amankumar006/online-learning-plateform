@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId } from 'tldraw';
+import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId, GeoShapeType, useValue } from 'tldraw';
 import { getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole, updateStudyRoomState } from '@/lib/data';
 import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
@@ -123,7 +123,11 @@ export function useStudyRoom(roomId: string, user: User | null) {
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
-                    setError(e.message || "An unexpected error occurred.");
+                    if (e.message === "This study session has already ended.") {
+                        setError(e.message);
+                    } else {
+                        setError(e.message || "Missing or insufficient permissions.");
+                    }
                     setLoading(false);
                 }
             }
