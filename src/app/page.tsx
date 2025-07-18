@@ -56,7 +56,7 @@ const HeroSection = () => {
           <video
             ref={videoRef}
             className="w-full h-full object-cover"
-            src="../video/adapted.mp4"
+            src="/video/adapted.mp4"
             autoPlay
             loop
             muted
