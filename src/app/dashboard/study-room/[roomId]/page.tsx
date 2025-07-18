@@ -18,6 +18,7 @@ import { getUser, getLessons, addStudyRoomResource, deleteStudyRoomResource } fr
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import StudyRoomControls from '@/components/study-room/StudyRoomControls';
+import CanvasToolbar from '@/components/study-room/CanvasToolbar';
 
 // Dynamically import Tldraw with SSR disabled
 const Tldraw = dynamic(() => import('@tldraw/tldraw').then(mod => mod.Tldraw), {
@@ -64,6 +65,7 @@ export default function StudyRoomPage() {
     
     const { 
         store, 
+        editor,
         error, 
         isLoading,
         isReadOnly,
@@ -76,7 +78,7 @@ export default function StudyRoomPage() {
         toggleHandRaise,
         resources,
         toggleParticipantEditorRole,
-    } = useStudyRoom(roomId, appUser);
+    } = useStudyRoom(roomId, user);
 
     const handleToggleChat = () => {
         setIsChatOpen(prev => !prev);
@@ -149,6 +151,7 @@ export default function StudyRoomPage() {
              <div className="flex-grow flex relative overflow-hidden">
                 <div className="flex-1 relative">
                     <Tldraw store={store} autoFocus isReadOnly={isReadOnly} hideUi={true} />
+                     <CanvasToolbar editor={editor} />
                      <StudyRoomControls
                         room={room}
                         onToggleChat={handleToggleChat}

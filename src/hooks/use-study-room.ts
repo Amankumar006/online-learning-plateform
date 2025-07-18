@@ -12,6 +12,7 @@ const SAVE_STATE_INTERVAL = 1000; // ms
 
 export function useStudyRoom(roomId: string, user: User | null) {
     const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
+    const [editor, setEditor] = useState<Editor | null>(null);
     const [loading, setLoading] = useState(true);
     const [room, setRoom] = useState<StudyRoom | null>(null);
     const [isReadOnly, setIsReadOnly] = useState(true); // Default to read-only until permissions are checked
@@ -193,16 +194,16 @@ export function useStudyRoom(roomId: string, user: User | null) {
     };
 
     const addLessonImageToCanvas = useCallback((lesson: Lesson) => {
-        if (!store || isReadOnly) return;
+        if (!editor || isReadOnly) return;
 
         // Create a deterministic asset ID from the image URL
         const assetId = getHashForString(lesson.image);
 
         // Add the asset to the store
-        store.put([
+        editor.createAssets([
             {
                 id: assetId,
-                type: 'asset',
+                type: 'image',
                 typeName: 'asset',
                 props: {
                     name: lesson.title,
@@ -216,7 +217,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         ]);
 
         // Create an image shape that uses the asset
-        store.createShape({
+        editor.createShape({
             id: createShapeId(),
             type: 'image',
             x: 200,
@@ -229,7 +230,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             },
         });
 
-    }, [store, isReadOnly]);
+    }, [editor, isReadOnly]);
 
     
     const toggleHandRaise = useCallback(async () => {
@@ -240,6 +241,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
     return { 
         store, 
+        setEditor,
+        editor,
         error, 
         isLoading: loading, 
         messages,
