@@ -1,7 +1,7 @@
 // src/lib/user.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, setDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, deleteField, query, orderBy, limit, where } from 'firebase/firestore';
-import { format, isYesterday, subDays } from 'date-fns';
+import { format, isYesterday, startOfWeek } from 'date-fns';
 import { generateProactiveSuggestion } from '@/ai/flows/generate-proactive-suggestion';
 import { User, UserProgress, Achievement, UserExerciseResponse, Announcement } from './types';
 
@@ -150,66 +150,37 @@ export async function clearProactiveSuggestion(userId: string): Promise<void> {
     await updateDoc(userRef, { proactiveSuggestion: deleteField() });
 }
 
-export async function checkForStrugglesAndSuggestHelp(userId: string, failedExercise: any) {
-    if (!failedExercise.tags?.length) return;
-    const user = await getUser(userId);
-    if (!user || (user.proactiveSuggestion?.timestamp && user.proactiveSuggestion.timestamp > Date.now() - 24 * 60 * 60 * 1000)) return;
+async function triggerSuggestionIfStruggling(userId: string, failedExerciseTags: string[]): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return;
+    const userData = userSnap.data() as User;
 
-    const responsesQuery = query(collection(db, "exerciseResponses"), where("userId", "==", userId), orderBy("submittedAt", "desc"), limit(10));
-    const recentResponses = await fetchCollection<UserExerciseResponse>('exerciseResponses', responsesQuery);
-    
-    const incorrectResponses = recentResponses.filter(r => !r.isCorrect);
-    const struggleTags: { [key: string]: number } = {};
-    incorrectResponses.forEach(response => {
-        const commonTags = failedExercise.tags!.filter((t: string) => response.tags?.includes(t));
-        commonTags.forEach((tag: string) => struggleTags[tag] = (struggleTags[tag] || 0) + 1);
-    });
-
-    const mostStruggled = Object.entries(struggleTags).find(([_, count]) => count >= 2);
-    if (mostStruggled) {
-        const [topic] = mostStruggled;
-        const { suggestion } = await generateProactiveSuggestion({ strugglingTopic: topic });
-        await updateDoc(doc(db, 'users', userId), {
-            proactiveSuggestion: { message: suggestion, topic, timestamp: Date.now() }
-        });
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    if (userData.proactiveSuggestion && userData.proactiveSuggestion.timestamp > oneDayAgo) {
+      return; 
     }
-}
 
-export async function updateUserAggregates(transaction: any, userRef: any, progress: UserProgress, isCorrect: boolean, score: number) {
-    const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
-    const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-    const newAverageScore = totalAttempted > 0 ? Math.round(((progress.averageScore || 0) * (totalAttempted - 1) + score) / totalAttempted) : 0;
-    transaction.update(userRef, { 
-        'progress.totalExercisesAttempted': totalAttempted,
-        'progress.totalExercisesCorrect': totalCorrect,
-        'progress.averageScore': newAverageScore,
+    const responsesQuery = query(collection(db, "exerciseResponses"), where("userId", "==", userId), where("isCorrect", "==", false), orderBy("submittedAt", "desc"), limit(5));
+    const responseSnapshot = await getDocs(responsesQuery);
+    const recentIncorrectResponses = responseSnapshot.docs.map(doc => doc.data() as UserExerciseResponse);
+
+    const tagFrequencies = new Map<string, number>();
+    recentIncorrectResponses.forEach(res => {
+        res.tags?.forEach(tag => {
+            tagFrequencies.set(tag, (tagFrequencies.get(tag) || 0) + 1);
+        })
     });
-}
 
-export async function updateWeeklyActivity(transaction: any, userRef: any, progress: UserProgress, isCorrect: boolean) {
-    const weeklyActivity = progress.weeklyActivity || [];
-    const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
-    if (currentWeek) {
-        if(isCorrect) currentWeek.skillsMastered += 1;
-    } else {
-        weeklyActivity.push({ week: weekStartDateStr, skillsMastered: isCorrect ? 1 : 0, timeSpent: 0 });
+    for (const tag of failedExerciseTags) {
+        if ((tagFrequencies.get(tag) || 0) >= 2) { 
+            try {
+                const { suggestion } = await generateProactiveSuggestion({ strugglingTopic: tag });
+                await updateDoc(userRef, { proactiveSuggestion: { message: suggestion, topic: tag, timestamp: Date.now() } });
+                return; 
+            } catch (error) {
+                console.error("Failed to generate proactive suggestion:", error);
+            }
+        }
     }
-    transaction.update(userRef, { 'progress.weeklyActivity': weeklyActivity.slice(-5) });
-}
-
-export async function updateAchievements(transaction: any, userRef: any, progress: UserProgress, exercise: any, isCorrect: boolean) {
-    if (!isCorrect) return;
-    const totalCorrect = (progress.totalExercisesCorrect || 0) + 1;
-    const xpGained = 10 + (exercise.difficulty * 5);
-    const newAchievements: Achievement[] = [];
-    if (totalCorrect === 1) newAchievements.push('FIRST_CORRECT_ANSWER');
-    if (exercise.category === 'math' && totalCorrect >= 10 && !progress.achievements.includes('MATH_WHIZ_10')) newAchievements.push('MATH_WHIZ_10');
-    if (exercise.tags?.includes('python') && !progress.achievements.includes('PYTHON_NOVICE')) newAchievements.push('PYTHON_NOVICE');
-    if (exercise.tags?.includes('javascript') && !progress.achievements.includes('JS_NOVICE')) newAchievements.push('JS_NOVICE');
-    
-    transaction.update(userRef, {
-        'progress.xp': increment(xpGained),
-        'progress.achievements': arrayUnion(...newAchievements),
-    });
 }

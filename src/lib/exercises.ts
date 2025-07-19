@@ -1,9 +1,10 @@
 // src/lib/exercises.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit } from 'firebase/firestore';
-import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeMathSolutionOutput } from './types';
-import { updateUserAggregates, updateWeeklyActivity, updateAchievements, checkForStrugglesAndSuggestHelp } from './user';
+import { collection, getDocs, doc, getDoc, addDoc, setDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit } from 'firebase/firestore';
+import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeMathSolutionOutput, Achievement } from './types';
+import { triggerSuggestionIfStruggling } from './user';
 import { createSystemAnnouncement } from './announcements';
+import { format, startOfWeek } from 'date-fns';
 
 export async function getExercise(id: string): Promise<Exercise | null> {
     try {
@@ -115,9 +116,40 @@ export async function saveExerciseAttempt(
                 const userDoc = await t.get(userRef);
                 if (!userDoc.exists()) throw "User not found";
                 const progress = userDoc.data().progress as UserProgress;
-                await updateUserAggregates(t, userRef, progress, isCorrect, score);
-                await updateWeeklyActivity(t, userRef, progress, isCorrect);
-                await updateAchievements(t, userRef, progress, exercise, isCorrect);
+                
+                // Update aggregates
+                const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
+                const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
+                const newAverageScore = totalAttempted > 0 ? Math.round(((progress.averageScore || 0) * (totalAttempted - 1) + score) / totalAttempted) : 0;
+                
+                // Update weekly activity
+                const weeklyActivity = progress.weeklyActivity || [];
+                const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
+                if (currentWeek) {
+                    if(isCorrect) currentWeek.skillsMastered = (currentWeek.skillsMastered || 0) + 1;
+                } else {
+                    weeklyActivity.push({ week: weekStartDateStr, skillsMastered: isCorrect ? 1 : 0, timeSpent: 0 });
+                }
+
+                // Update achievements
+                const xpGained = 10 + (exercise.difficulty * 5);
+                const newAchievements: Achievement[] = [...(progress.achievements || [])];
+                const addAchievement = (ach: Achievement) => !newAchievements.includes(ach) && newAchievements.push(ach);
+
+                if (totalCorrect === 1) addAchievement('FIRST_CORRECT_ANSWER');
+                if (exercise.category === 'math' && totalCorrect >= 10) addAchievement('MATH_WHIZ_10');
+                if (exercise.tags?.includes('python')) addAchievement('PYTHON_NOVICE');
+                if (exercise.tags?.includes('javascript')) addAchievement('JS_NOVICE');
+                
+                t.update(userRef, { 
+                    'progress.totalExercisesAttempted': totalAttempted,
+                    'progress.totalExercisesCorrect': totalCorrect,
+                    'progress.averageScore': newAverageScore,
+                    'progress.weeklyActivity': weeklyActivity.slice(-5),
+                    'progress.xp': increment(xpGained),
+                    'progress.achievements': newAchievements,
+                });
             });
         } else {
             await updateDoc(responseRef, { ...dataToSave, attempts: increment(1) });
@@ -129,7 +161,9 @@ export async function saveExerciseAttempt(
             }
         }
         
-        if (!isCorrect) await checkForStrugglesAndSuggestHelp(userId, exercise).catch(console.error);
+        if (!isCorrect && exercise.tags) {
+            await triggerSuggestionIfStruggling(userId, exercise.tags).catch(console.error);
+        }
 
     } catch (e) {
         console.error("Save exercise attempt failed: ", e);
