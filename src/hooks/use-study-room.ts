@@ -48,7 +48,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
         let stateUnsubscribe: (() => void) | undefined;
         let messagesUnsubscribe: (() => void) | undefined;
-        let saveUnsubscribe: (() => void) | undefined;
         let participantsUnsubscribe: (() => void) | undefined;
         let resourcesUnsubscribe: (() => void) | undefined;
         let expiryTimeout: NodeJS.Timeout | undefined;
@@ -125,20 +124,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     if(stillMounted) setResources(newResources);
                 });
                 
-                // Listener to save local changes to Firestore
-                saveUnsubscribe = store.listen(
-                    (event) => {
-                        if (event.source !== 'user' || isReadOnly) return;
-                        const snapshot = JSON.stringify(store.getSnapshot());
-                        saveStateToFirestore(snapshot);
-                    },
-                    { source: 'user', scope: 'document' }
-                );
-                
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
-                    if (e.message.includes("does not exist") || e.message.includes("has already ended")) {
+                    if (e.message.includes("does not exist") || e.message.includes("ended")) {
                         setError(e.message);
                     } else {
                         setError("An error occurred while joining the room. Please try again.");
@@ -154,6 +143,16 @@ export function useStudyRoom(roomId: string, user: User | null) {
             if(user?.uid) removeParticipantStatus(roomId, user.uid);
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
+        
+        // This listener saves local changes to Firestore. It needs to be aware of the read-only status.
+        const saveUnsubscribe = store.listen(
+            (event) => {
+                if (event.source !== 'user' || isReadOnly) return;
+                const snapshot = JSON.stringify(store.getSnapshot());
+                saveStateToFirestore(snapshot);
+            },
+            { source: 'user', scope: 'document' }
+        );
 
         return () => {
             stillMounted = false;
@@ -166,8 +165,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
             participantsUnsubscribe?.();
             resourcesUnsubscribe?.();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roomId, user, store, saveStateToFirestore]);
+    // Re-run this entire effect if the user or read-only status changes.
+    // This is crucial for re-evaluating permissions and the save listener.
+    }, [roomId, user, store, saveStateToFirestore, isReadOnly, endSession]);
+
 
     // Effect to handle AI triggers
     useEffect(() => {
