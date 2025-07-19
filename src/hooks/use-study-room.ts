@@ -81,6 +81,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     if (roomData) {
                         setRoom(roomData);
                         const editorIds = roomData.editorIds || [];
+                        // Correctly set read-only based on fetched editorIds
                         setIsReadOnly(!editorIds.includes(user.uid));
 
                         if (roomData.status === 'ended') {
@@ -144,9 +145,24 @@ export function useStudyRoom(roomId: string, user: User | null) {
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         
-        // This listener saves local changes to Firestore. It needs to be aware of the read-only status.
+        return () => {
+            stillMounted = false;
+            removeParticipantStatus(roomId, user.uid);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            if(expiryTimeout) clearTimeout(expiryTimeout);
+            stateUnsubscribe?.();
+            messagesUnsubscribe?.();
+            participantsUnsubscribe?.();
+            resourcesUnsubscribe?.();
+        };
+    }, [roomId, user, store, endSession]);
+
+    // This effect now correctly depends on `isReadOnly`
+    useEffect(() => {
+        // This listener saves local changes to Firestore. It is now reactive to the read-only status.
         const saveUnsubscribe = store.listen(
             (event) => {
+                // IMPORTANT: Use the latest `isReadOnly` state value inside the callback
                 if (event.source !== 'user' || isReadOnly) return;
                 const snapshot = JSON.stringify(store.getSnapshot());
                 saveStateToFirestore(snapshot);
@@ -155,19 +171,9 @@ export function useStudyRoom(roomId: string, user: User | null) {
         );
 
         return () => {
-            stillMounted = false;
-            removeParticipantStatus(roomId, user.uid);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            if(expiryTimeout) clearTimeout(expiryTimeout);
-            stateUnsubscribe?.();
-            messagesUnsubscribe?.();
-            saveUnsubscribe?.();
-            participantsUnsubscribe?.();
-            resourcesUnsubscribe?.();
+            saveUnsubscribe();
         };
-    // Re-run this entire effect if the user or read-only status changes.
-    // This is crucial for re-evaluating permissions and the save listener.
-    }, [roomId, user, store, saveStateToFirestore, isReadOnly, endSession]);
+    }, [store, isReadOnly, saveStateToFirestore]);
 
 
     // Effect to handle AI triggers
