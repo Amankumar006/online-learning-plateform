@@ -22,6 +22,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
 
+    // --- Voice Chat State ---
+    const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
             if (room?.status !== 'ended') {
@@ -266,6 +270,23 @@ export function useStudyRoom(roomId: string, user: User | null) {
         }
     }, [roomId, user, room?.status]);
 
+    // --- Voice Chat Handlers (Phase 1) ---
+    const handleJoinVoice = () => {
+        // We will add WebRTC logic here in Phase 3
+        setIsVoiceConnected(true);
+    };
+
+    const handleLeaveVoice = () => {
+        // We will add WebRTC logic here in Phase 3
+        setIsVoiceConnected(false);
+    };
+
+    const handleToggleMute = () => {
+        // We will add WebRTC logic here in Phase 3
+        setIsMuted(prev => !prev);
+    };
+
+
     return { 
         store, 
         setEditor,
@@ -282,5 +303,11 @@ export function useStudyRoom(roomId: string, user: User | null) {
         toggleHandRaise,
         resources,
         toggleParticipantEditorRole: handleToggleEditorRole,
+        // Voice chat props
+        isVoiceConnected,
+        isMuted,
+        onJoinVoice: handleJoinVoice,
+        onLeaveVoice: handleLeaveVoice,
+        onToggleMute: handleToggleMute,
     };
 }

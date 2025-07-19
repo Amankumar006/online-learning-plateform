@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2, Users } from "lucide-react";
+import { MessageSquare, Share2, BookOpen, Hand, Power, Lock, Globe, Timer, Link2, Users, Mic, MicOff, Phone } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { User, Lesson, StudyRoom } from "@/lib/data";
 import {
@@ -30,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
+import { cn } from "@/lib/utils";
 
 interface LessonLoaderProps {
   lessons: Lesson[];
@@ -117,9 +118,31 @@ interface StudyRoomControlsProps {
   onEndSession: () => void;
   currentUser: User | null;
   onToggleHandRaise: () => void;
+  isVoiceConnected: boolean;
+  isMuted: boolean;
+  onJoinVoice: () => void;
+  onLeaveVoice: () => void;
+  onToggleMute: () => void;
 }
 
-export default function StudyRoomControls({ room, onToggleChat, onToggleResources, onToggleParticipants, participants, lessons, onAddLessonImage, isOwner, onEndSession, currentUser, onToggleHandRaise }: StudyRoomControlsProps) {
+export default function StudyRoomControls({
+  room,
+  onToggleChat,
+  onToggleResources,
+  onToggleParticipants,
+  participants,
+  lessons,
+  onAddLessonImage,
+  isOwner,
+  onEndSession,
+  currentUser,
+  onToggleHandRaise,
+  isVoiceConnected,
+  isMuted,
+  onJoinVoice,
+  onLeaveVoice,
+  onToggleMute,
+}: StudyRoomControlsProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isLessonLoaderOpen, setIsLessonLoaderOpen] = useState(false);
@@ -142,6 +165,21 @@ export default function StudyRoomControls({ room, onToggleChat, onToggleResource
       </div>
       
       <div className="flex items-center gap-2">
+        {!isVoiceConnected ? (
+          <Button variant="outline" className="bg-green-500 hover:bg-green-600 text-white" onClick={onJoinVoice}>
+            <Phone className="h-4 w-4 mr-2" /> Join Voice
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" onClick={onToggleMute} className={cn(isMuted && "text-destructive")}>
+              {isMuted ? <MicOff /> : <Mic />}
+            </Button>
+            <Button variant="destructive" onClick={onLeaveVoice}>
+              <Phone className="h-4 w-4 mr-2" /> Leave
+            </Button>
+          </>
+        )}
+        <Separator orientation="vertical" className="h-6" />
         <Dialog open={isLessonLoaderOpen} onOpenChange={setIsLessonLoaderOpen}>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" disabled={room?.status === 'ended'}>

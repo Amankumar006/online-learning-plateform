@@ -8,9 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface Participant extends User {
     handRaised?: boolean;
+    isSpeaking?: boolean;
 }
 
 interface ParticipantPanelProps {
@@ -58,9 +60,9 @@ export function ParticipantPanel({ participants, room, currentUserId, onToggleEd
                     <div key={participant.uid} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
                         <div className="flex items-center gap-3">
                         <div className="relative">
-                            <Avatar className="h-9 w-9">
-                            <AvatarImage src={participant.photoURL || undefined} />
-                            <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
+                            <Avatar className={cn("h-9 w-9", participant.isSpeaking && "ring-2 ring-green-500 ring-offset-2 ring-offset-background transition-all")}>
+                                <AvatarImage src={participant.photoURL || undefined} />
+                                <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
                             </Avatar>
                             {participant.handRaised && (
                             <div className="absolute -bottom-1 -right-1 rounded-full bg-yellow-400 p-0.5 border-2 border-background">

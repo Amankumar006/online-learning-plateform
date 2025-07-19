@@ -79,6 +79,11 @@ export default function StudyRoomPage() {
         toggleHandRaise,
         resources,
         toggleParticipantEditorRole,
+        isVoiceConnected,
+        isMuted,
+        onJoinVoice,
+        onLeaveVoice,
+        onToggleMute,
     } = useStudyRoom(roomId, user);
 
     const handleToggleChat = () => {
@@ -175,6 +180,11 @@ export default function StudyRoomPage() {
                         onEndSession={endSession}
                         currentUser={appUser}
                         onToggleHandRaise={toggleHandRaise}
+                        isVoiceConnected={isVoiceConnected}
+                        isMuted={isMuted}
+                        onJoinVoice={onJoinVoice}
+                        onLeaveVoice={onLeaveVoice}
+                        onToggleMute={onToggleMute}
                      />
                 </div>
                  {activeSidePanel && (
