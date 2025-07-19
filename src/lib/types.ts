@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
