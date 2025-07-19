@@ -1,3 +1,4 @@
+
 // src/lib/user.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, setDoc, updateDoc, arrayUnion, increment, runTransaction, Timestamp, deleteField, query, orderBy, limit, where } from 'firebase/firestore';
@@ -150,7 +151,7 @@ export async function clearProactiveSuggestion(userId: string): Promise<void> {
     await updateDoc(userRef, { proactiveSuggestion: deleteField() });
 }
 
-async function triggerSuggestionIfStruggling(userId: string, failedExerciseTags: string[]): Promise<void> {
+export async function triggerSuggestionIfStruggling(userId: string, failedExerciseTags: string[]): Promise<void> {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return;
