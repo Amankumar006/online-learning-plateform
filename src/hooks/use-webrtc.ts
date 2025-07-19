@@ -15,7 +15,7 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-export function useWebRTC(roomId: string, currentUser: User | null, allParticipants: User[]) {
+export function useWebRTC(roomId: string, currentUser: User | null) {
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -29,11 +29,13 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
   // --- Audio Analysis for Speaking Indicators ---
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    audioContextRef.current = audioContext;
+    if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const audioContext = audioContextRef.current;
 
     const interval = setInterval(() => {
-      if (!isVoiceConnected) {
+      if (!isVoiceConnected || audioContext.state === 'closed') {
         if(speakingPeers.size > 0) setSpeakingPeers(new Set());
         return;
       };
@@ -46,16 +48,23 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
           currentlySpeaking.add(userId);
         }
       });
-      setSpeakingPeers(currentlySpeaking);
+
+      if (currentlySpeaking.size !== speakingPeers.size || ![...currentlySpeaking].every(id => speakingPeers.has(id))) {
+        setSpeakingPeers(currentlySpeaking);
+      }
     }, 200);
 
     return () => {
       clearInterval(interval);
-      audioContext.close().catch(console.error);
+      if(audioContext && audioContext.state !== 'closed') {
+         audioContext.close().catch(console.error);
+         audioContextRef.current = null;
+      }
     };
-  }, [isVoiceConnected, speakingPeers.size]);
+  }, [isVoiceConnected, speakingPeers]);
 
-  useEffect(() => {
+
+   useEffect(() => {
     remoteStreams.forEach((stream, userId) => {
         if (!analyserNodesRef.current.has(userId) && audioContextRef.current && audioContextRef.current.state !== 'closed') {
             try {
@@ -82,16 +91,18 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
   const createPeerConnection = useCallback((peerId: string): RTCPeerConnection => {
     const pc = new RTCPeerConnection(servers);
     
-    // Add local tracks if they exist
     localStreamRef.current?.getTracks().forEach(track => {
       pc.addTrack(track, localStreamRef.current!);
     });
 
     pc.ontrack = (event) => {
-        setRemoteStreams(prev => new Map(prev).set(peerId, event.streams[0]));
+        setRemoteStreams(prev => {
+            const newStreams = new Map(prev);
+            newStreams.set(peerId, event.streams[0]);
+            return newStreams;
+        });
     };
     
-    // Set up ICE candidate handling
     if(currentUser) {
         const myId = currentUser.uid;
         const myIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
@@ -118,7 +129,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
   }, [currentUser, roomId]);
 
 
-  const joinVoiceChannel = useCallback(async () => {
+  const joinVoiceChannel = useCallback(async (allParticipants: User[]) => {
     if (!currentUser || isJoiningRef.current) return;
     isJoiningRef.current = true;
 
@@ -128,7 +139,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
       
       const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-      await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name });
+      await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name || "Anonymous" });
 
       const otherParticipants = allParticipants.filter(p => p.uid !== currentUser.uid);
 
@@ -147,7 +158,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
     } finally {
         isJoiningRef.current = false;
     }
-  }, [currentUser, allParticipants, createPeerConnection, isMuted, roomId]);
+  }, [currentUser, createPeerConnection, isMuted, roomId]);
 
 
   useEffect(() => {
@@ -191,9 +202,13 @@ export function useWebRTC(roomId: string, currentUser: User | null, allParticipa
 
     if (currentUser) {
         const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-        const connectionsSnapshot = await getDocs(collection(myPeerRef, 'connections'));
-        await Promise.all(connectionsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
-        await deleteDoc(myPeerRef);
+        try {
+            const connectionsSnapshot = await getDocs(collection(myPeerRef, 'connections'));
+            await Promise.all(connectionsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+            await deleteDoc(myPeerRef);
+        } catch(e) {
+            console.warn("Could not clean up peer docs, they may already be deleted.", e);
+        }
     }
     
     setIsVoiceConnected(false);
