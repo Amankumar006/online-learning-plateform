@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Editor, createTLStore, defaultShapeUtils, getHashForString, TLShapeId, createShapeId, GeoShapeType, useValue } from 'tldraw';
-import { getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole, getStudyRoom } from '@/lib/data';
+import { updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage, sendStudyRoomMessage, getStudyRoomMessagesListener, getStudyRoomParticipantsListener, setParticipantStatus, User, removeParticipantStatus, Lesson, endStudyRoomSession, toggleHandRaise as toggleHandRaiseInDb, StudyRoomResource, getStudyRoomResourcesListener, addStudyRoomResource, deleteStudyRoomResource, toggleParticipantEditorRole, getStudyRoom } from '@/lib/data';
 import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
@@ -57,6 +57,19 @@ export function useStudyRoom(roomId: string, user: User | null) {
         
         const setup = async () => {
             try {
+                // Pre-check if room is already ended before trying to join
+                const initialRoomData = await getStudyRoom(roomId);
+                if (!initialRoomData) {
+                    setError("This study room does not exist.");
+                    setLoading(false);
+                    return;
+                }
+                if (initialRoomData.status === 'ended') {
+                    setError("This study session has ended.");
+                    setLoading(false);
+                    return;
+                }
+
                 // First, join the room by setting participant status. This will fail if the room doesn't exist or is ended.
                 await setParticipantStatus(roomId, user);
 
@@ -204,12 +217,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
         if (!editor || isReadOnly) return;
 
         // Create a deterministic asset ID from the image URL
-        const assetId = getHashForString(lesson.image);
+        const assetId = `asset:${getHashForString(lesson.image)}`;
 
         // Add the asset to the store
         editor.createAssets([
             {
-                id: assetId,
+                id: assetId as any,
                 type: 'image',
                 typeName: 'asset',
                 props: {
@@ -230,7 +243,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             x: 200,
             y: 200,
             props: {
-                assetId: assetId,
+                assetId: assetId as any,
                 w: 640,
                 h: 360,
                 url: lesson.image,
