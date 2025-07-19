@@ -7,6 +7,7 @@ import { updateStudyRoomState, getStudyRoomStateListener, StudyRoom, ChatMessage
 import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
+import { useWebRTC } from './use-webrtc';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -22,9 +23,15 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
 
-    // --- Voice Chat State ---
-    const [isVoiceConnected, setIsVoiceConnected] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
+    // --- Voice Chat State & Handlers ---
+    const { 
+        isVoiceConnected,
+        isMuted,
+        joinVoiceChannel,
+        leaveVoiceChannel,
+        toggleMute,
+    } = useWebRTC(roomId, user);
+
 
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
@@ -269,24 +276,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             await toggleHandRaiseInDb(roomId, user.uid);
         }
     }, [roomId, user, room?.status]);
-
-    // --- Voice Chat Handlers (Phase 1) ---
-    const handleJoinVoice = () => {
-        // We will add WebRTC logic here in Phase 3
-        setIsVoiceConnected(true);
-    };
-
-    const handleLeaveVoice = () => {
-        // We will add WebRTC logic here in Phase 3
-        setIsVoiceConnected(false);
-    };
-
-    const handleToggleMute = () => {
-        // We will add WebRTC logic here in Phase 3
-        setIsMuted(prev => !prev);
-    };
-
-
+    
     return { 
         store, 
         setEditor,
@@ -306,8 +296,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
         // Voice chat props
         isVoiceConnected,
         isMuted,
-        onJoinVoice: handleJoinVoice,
-        onLeaveVoice: handleLeaveVoice,
-        onToggleMute: handleToggleMute,
+        onJoinVoice: joinVoiceChannel,
+        onLeaveVoice: leaveVoiceChannel,
+        onToggleMute: toggleMute,
     };
 }
