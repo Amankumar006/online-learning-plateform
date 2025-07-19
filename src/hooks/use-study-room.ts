@@ -57,9 +57,23 @@ export function useStudyRoom(roomId: string, user: User | null) {
         
         const setup = async () => {
             try {
+                // --- Step 1: Pre-check room status before doing anything else ---
+                const initialRoomData = await getStudyRoom(roomId);
+                if (!initialRoomData) {
+                    setError("This study room does not exist.");
+                    setLoading(false);
+                    return;
+                }
+                if (initialRoomData.status === 'ended') {
+                    setError("This study session has ended.");
+                    setLoading(false);
+                    return;
+                }
+                
+                // --- Step 2: Try to join the room ---
                 await setParticipantStatus(roomId, user);
 
-                // Now that we have joined, set up the listeners.
+                // --- Step 3: Now that we have joined, set up the listeners. ---
                 
                 // Listener for whiteboard state and room metadata
                 stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
@@ -80,6 +94,9 @@ export function useStudyRoom(roomId: string, user: User | null) {
                                 expiryTimeout = setTimeout(() => {
                                     if (roomData.ownerId === user.uid) endSession();
                                 }, timeUntilExpiry);
+                            } else {
+                                // Room expired while we were in it
+                                if (roomData.ownerId === user.uid) endSession();
                             }
                         }
 
@@ -90,7 +107,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
                             } catch (e) { console.error("Failed to parse or load room state:", e); }
                         }
                     } else {
-                        // Room was deleted or no longer exists
+                        // Room was deleted or no longer exists while we were in it
                         setError("This study room does not exist or has been deleted.");
                     }
                     setLoading(false);
@@ -124,10 +141,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
-                    if (e.message.includes("does not exist") || e.message.includes("session has already ended")) {
+                    if (e.message.includes("does not exist") || e.message.includes("has already ended")) {
                         setError(e.message);
                     } else {
-                        setError("Missing or insufficient permissions.");
+                        setError("An error occurred while joining the room. Please try again.");
                     }
                     setLoading(false);
                 }
