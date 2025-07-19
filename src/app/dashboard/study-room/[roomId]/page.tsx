@@ -8,7 +8,7 @@ import { useParams } from "next/navigation";
 import { Loader2, AlertTriangle, ArrowLeft, Timer } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { User as FirebaseUser } from "firebase/auth";
 import { ChatPanel } from "@/components/study-room/ChatPanel";
 import { ResourcePanel } from "@/components/study-room/ResourcePanel";
@@ -40,6 +40,7 @@ export default function StudyRoomPage() {
     const [isResourcesOpen, setIsResourcesOpen] = useState(false);
     const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
     const [lessons, setLessons] = useState<Lesson[]>([]);
+    const audioContainerRef = useRef<HTMLDivElement>(null);
     
     const activeSidePanel = useMemo(() => {
         if (isChatOpen) return 'chat';
@@ -84,7 +85,36 @@ export default function StudyRoomPage() {
         onJoinVoice,
         onLeaveVoice,
         onToggleMute,
+        remoteStreams,
     } = useStudyRoom(roomId, user);
+    
+    // Effect to manage remote audio streams
+    useEffect(() => {
+        if (!audioContainerRef.current) return;
+        
+        const audioContainer = audioContainerRef.current;
+        
+        // Remove audio elements for streams that no longer exist
+        audioContainer.childNodes.forEach(childNode => {
+            const audioEl = childNode as HTMLAudioElement;
+            if (!remoteStreams.has(audioEl.id)) {
+                audioContainer.removeChild(audioEl);
+            }
+        });
+
+        // Add audio elements for new streams
+        remoteStreams.forEach((stream, userId) => {
+            if (!document.getElementById(userId)) {
+                const audioEl = document.createElement('audio');
+                audioEl.id = userId;
+                audioEl.srcObject = stream;
+                audioEl.autoplay = true;
+                // audioEl.controls = true; // for debugging
+                audioContainer.appendChild(audioEl);
+            }
+        });
+    }, [remoteStreams]);
+
 
     const handleToggleChat = () => {
         setIsChatOpen(prev => !prev);
@@ -158,6 +188,9 @@ export default function StudyRoomPage() {
 
     return (
         <div className="h-screen w-screen flex flex-col bg-background relative">
+             {/* Container for remote audio streams */}
+             <div ref={audioContainerRef} />
+
              <Button variant="outline" size="sm" asChild className="absolute top-4 left-4 z-50">
                 <Link href="/dashboard/study-room">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Rooms

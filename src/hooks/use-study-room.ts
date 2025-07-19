@@ -30,7 +30,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
         joinVoiceChannel,
         leaveVoiceChannel,
         toggleMute,
-    } = useWebRTC(roomId, user);
+        remoteStreams,
+    } = useWebRTC(roomId, user, participants);
 
 
     const saveStateToFirestore = useMemo(() =>
@@ -299,5 +300,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         onJoinVoice: joinVoiceChannel,
         onLeaveVoice: leaveVoiceChannel,
         onToggleMute: toggleMute,
+        remoteStreams,
     };
 }
