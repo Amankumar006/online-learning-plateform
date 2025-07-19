@@ -8,7 +8,7 @@ import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 import { useWebRTC } from './use-webrtc';
-import { doc, onSnapshot, setDoc, updateDoc, collection } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, query, getDocs } from 'firebase/firestore';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -23,7 +23,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [participants, setParticipants] = useState<User[]>([]);
     const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
-    const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
     const { 
         isVoiceConnected,
@@ -33,8 +32,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         toggleMute,
         remoteStreams,
         speakingPeers,
-        createPeerConnection,
-    } = useWebRTC(roomId, user, participants);
+    } = useWebRTC(roomId, user);
     
     const participantsWithVoiceState = useMemo(() => {
         return participants.map(p => ({
@@ -42,6 +40,18 @@ export function useStudyRoom(roomId: string, user: User | null) {
             isSpeaking: speakingPeers.has(p.uid)
         }));
     }, [participants, speakingPeers]);
+
+    const onJoinVoice = useCallback(async () => {
+        await joinVoiceChannel(participants);
+    }, [joinVoiceChannel, participants]);
+
+    const onLeaveVoice = useCallback(async () => {
+        await leaveVoiceChannel();
+    }, [leaveVoiceChannel]);
+
+    const onToggleMute = useCallback(() => {
+        toggleMute();
+    }, [toggleMute]);
 
 
     const saveStateToFirestore = useMemo(() =>
@@ -233,6 +243,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         store, setEditor, editor, error, isLoading: loading, messages, sendMessage: handleSendMessage,
         participants: participantsWithVoiceState, addLessonImageToCanvas, room, isReadOnly, endSession,
         toggleHandRaise, resources, toggleParticipantEditorRole: handleToggleEditorRole,
-        isVoiceConnected, isMuted, onJoinVoice: joinVoiceChannel, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
+        isVoiceConnected, isMuted, onJoinVoice, onLeaveVoice, onToggleMute, remoteStreams,
     };
 }

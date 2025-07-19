@@ -92,7 +92,9 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     const pc = new RTCPeerConnection(servers);
     
     localStreamRef.current?.getTracks().forEach(track => {
-      pc.addTrack(track, localStreamRef.current!);
+      if (localStreamRef.current) {
+        pc.addTrack(track, localStreamRef.current);
+      }
     });
 
     pc.ontrack = (event) => {
