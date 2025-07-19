@@ -81,7 +81,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                     if (roomData) {
                         setRoom(roomData);
-                        // Fallback for editorIds to prevent crash
                         const editorIds = roomData.editorIds || [];
                         setIsReadOnly(!editorIds.includes(user.uid));
 
@@ -95,7 +94,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
                                     if (roomData.ownerId === user.uid) endSession();
                                 }, timeUntilExpiry);
                             } else {
-                                // Room expired while we were in it
                                 if (roomData.ownerId === user.uid) endSession();
                             }
                         }
@@ -107,7 +105,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
                             } catch (e) { console.error("Failed to parse or load room state:", e); }
                         }
                     } else {
-                        // Room was deleted or no longer exists while we were in it
                         setError("This study room does not exist or has been deleted.");
                     }
                     setLoading(false);
