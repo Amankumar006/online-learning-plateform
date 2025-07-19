@@ -4,136 +4,126 @@ This document provides a comprehensive technical overview of the project, coveri
 
 ## 1. Overall Architecture
 
-The application follows a client-server architecture with a clear separation of concerns.
+The application follows a modern client-server architecture built on Next.js, with a clear separation of concerns between the user interface and backend logic.
 
--   **Frontend:** A Next.js application serves as the user interface, providing a dynamic and responsive experience.
--   **Backend:** A Node.js server handles API requests, business logic, and interactions with external services. Firebase is heavily utilized for various backend functionalities.
--   **Database:** Firestore, a NoSQL cloud database, is used for storing structured data like user information, lesson details, and exercise data.
--   **Storage:** Firebase Storage is used for storing user-uploaded files, such as images for practice exercises.
--   **Authentication:** Firebase Authentication manages user registration, login, and session management.
--   **AI Integration:** The application integrates with Google AI services through Genkit for features like AI-powered chat, content generation, and grading.
-
-The frontend communicates with the backend primarily through RESTful APIs, although Firebase SDKs are used directly for real-time database updates and authentication state changes.
-
+-   **Frontend:** A Next.js application using the App Router, React Server Components (RSC), and TypeScript. This provides a dynamic, performant, and type-safe user experience. It interacts with backend services via Server Actions and directly with Firebase for real-time data and authentication.
+-   **Backend Logic (Server Actions):** Instead of a traditional standalone server, backend logic is encapsulated within Next.js Server Actions (`'use server'`). These functions execute securely on the server, handling business logic, database operations, and calls to the AI module. The primary action file is `src/lib/actions.ts`.
+-   **Database:** Firestore, a NoSQL cloud database, is the primary data store for structured data like user profiles, lesson content, exercises, and user progress.
+-   **Storage:** Firebase Storage is used for storing user-uploaded files and AI-generated assets, such as images for lessons and audio for text-to-speech.
+-   **Authentication:** Firebase Authentication manages user registration, login (including email/password and OAuth providers like Google/GitHub), and session management across the application.
+-   **AI Integration:** The application integrates with Google AI services through Genkit, a framework for building production-ready AI applications. Genkit flows are defined in `/src/ai/flows` and are called from Server Actions to perform tasks like content generation, grading, and conversational chat.
 
 ## 2. Core Modules
 
 The project is organized into several key modules, reflected in the file structure:
 
--   `/src/app`: Contains the Next.js application's page routes and root layout. This is where the main application pages (e.g., dashboard, lessons, login) are defined.
--   `/src/components`: Houses reusable React components used across the application, such as UI elements (buttons, inputs), layout components (navigation), and feature-specific components (e.g., `lessons`, `practice`).
--   `/src/lib`: Contains utility functions, helper classes, and configuration files shared throughout the project. This includes Firebase initialization (`firebase.ts`), data fetching and manipulation logic (`data.ts`, `storage.ts`), and general utilities (`utils.ts`).
--   `/src/ai`: Dedicated module for AI-related functionalities. This includes Genkit configurations (`genkit.ts`), AI flows (`flows`), and tool definitions (`tools`), and schema definitions (`schemas`).
--   `/src/hooks`: Custom React hooks for encapsulating component logic, such as `use-mobile.tsx` and `use-toast.ts`.
--   `/src/app/admin`: Contains the pages and components specific to the administrative interface for managing users, lessons, and exercises.
--   `/src/app/dashboard`: Contains the pages and components for the user dashboard, including the main dashboard view, lessons, practice, profile, and progress sections.
+-   **/src/app**: Contains the Next.js application's page routes (e.g., `/dashboard`, `/admin`) and layouts. It uses the file-system based App Router.
+-   **/src/components**: Houses reusable React components. This includes:
+    -   `ui`: Auto-generated, unstyled components from Shadcn/ui (e.g., Button, Card).
+    -   `dashboard`, `admin`, `lessons`, `practice`: Higher-level components specific to a feature area.
+    -   `common`: Components shared across multiple features, like `FormattedContent.tsx`.
+-   **/src/lib**: The core of the application's backend logic and data management.
+    -   `firebase.ts`: Initializes and exports Firebase services (Auth, Firestore, Storage).
+    -   `data.ts`: A crucial abstraction layer for all Firestore interactions. It exports functions for creating, reading, updating, and deleting data (e.g., `getUser`, `createLesson`, `getExercises`), keeping all database logic centralized and consistent.
+    -   `actions.ts`: Defines all Next.js Server Actions, which serve as the primary "API layer" called by the client components.
+    -   `storage.ts`: Contains functions for uploading files (images, audio) to Firebase Storage.
+-   **/src/ai**: The dedicated module for all AI-related functionality.
+    -   `genkit.ts`: Initializes and configures the global Genkit instance and plugins.
+    -   `flows`: Contains individual Genkit flows, each responsible for a specific AI task (e.g., `generate-lesson-content.ts`, `buddy-chat.ts`).
+    -   `tools`: Defines custom tools that AI flows can use, such as searching the web or creating a practice exercise.
+    -   `schemas`: Contains Zod schemas for defining the input and output structures of AI flows and tools.
+-   **/src/hooks**: Custom React hooks for encapsulating complex client-side logic (e.g., `use-study-room.ts`, `use-speech-recognition.ts`, `use-utility-sidebar.tsx`).
+-   **/src/app/admin**: Contains pages and components for the admin dashboard.
+-   **/src/app/dashboard**: Contains pages and components for the student-facing dashboard.
 
 ## 3. Component Interaction
 
 Component interaction occurs at several levels:
 
--   **Frontend to Backend (API):** The Next.js frontend makes asynchronous requests to the Node.js backend endpoints for operations that require server-side logic, data processing, or interaction with external services not directly exposed to the frontend. These are typically RESTful API calls.
--   **Frontend to Firebase (SDK):** For real-time updates, authentication state management, and direct data operations (with appropriate security rules), the frontend utilizes the Firebase JavaScript SDKs to interact directly with Firestore, Firebase Authentication, and Firebase Storage.
--   **Backend to Firebase:** The Node.js backend interacts extensively with Firebase services using the Firebase Admin SDK. This is used for more privileged operations, server-side data validation, and complex data manipulations.
--   **Backend to AI Module (Genkit):** The Node.js backend triggers AI flows and uses AI tools defined within the `/src/ai` module via the Genkit framework. This allows the backend to offload AI processing and integrate with Google AI services.
--   **Components within Frontend:** React components communicate through props, context, and state management libraries (if any are used beyond React's built-in capabilities). Custom hooks in `/src/hooks` also facilitate shared logic between components.
+-   **Client to Server (Server Actions):** Client components (e.g., a form in a page) invoke `async` functions exported from `src/lib/actions.ts`. Next.js automatically handles the RPC-like call to the server, where the action executes. This is the primary method for data mutation and backend logic.
+-   **Client to Firebase (SDK):** For real-time updates and authentication, the client uses the Firebase JS SDK.
+    -   `onAuthStateChanged` is used in layouts to protect routes and fetch user profiles.
+    -   Firestore's `onSnapshot` is used in features like the Study Room to listen for real-time changes to participants and chat messages.
+-   **Server Action to Data Layer:** Server Actions in `actions.ts` call functions from `data.ts` to interact with Firestore, keeping the actions clean and focused on orchestration.
+-   **Server Action to AI Module:** Server Actions call Genkit flows defined in `/src/ai/flows` to perform AI tasks. For example, when an admin generates a lesson, the server action calls the `generateLessonContent` flow.
+-   **Components within Frontend:** Standard React patterns are used:
+    -   Props are passed down from parent to child components.
+    -   State is managed locally with `useState` and `useEffect`.
+    -   Context (`useUtilitySidebar`) is used for managing global UI state like the side panel.
 
 ## 4. Tech Stack
 
--   **Next.js:** Chosen as the frontend framework for its strong support for server-side rendering (SSR) and static site generation (SSG), which improves performance and SEO. It also provides a file-system based routing system and simplifies API route creation.
--   **Node.js:** Serves as the backend runtime environment. Its non-blocking, event-driven architecture is well-suited for handling concurrent requests and interacting with I/O bound services like databases and external APIs.
--   **Firebase:** A comprehensive suite of tools and services chosen for rapid development and ease of integration.
-    -   **Firestore:** A flexible, scalable NoSQL cloud database. Its real-time synchronization capabilities are valuable for features like progress tracking and potentially collaborative features. Its document model fits well for storing diverse data structures.
-    -   **Firebase Authentication:** Provides a secure and easy-to-implement authentication system with support for various providers (email/password, social logins). It simplifies user management and security.
-    -   **Firebase Storage:** Offers secure file uploads and downloads. It's used for storing images associated with practice exercises.
--   **Genkit:** A framework for building AI-powered applications. It simplifies the process of integrating with large language models (LLMs) and other AI services, defining AI workflows (flows), and creating custom tools for AI agents. This was chosen to streamline the development of AI features.
--   **Tailwind CSS:** A utility-first CSS framework used for styling the frontend. Its class-based approach allows for rapid UI development and easy customization.
--   **Shadcn/ui:** A collection of re-usable components built with Tailwind CSS and Radix UI. It provides pre-built, accessible, and customizable UI components, accelerating frontend development.
--   **TypeScript:** Used for both frontend and backend development. It adds static typing, which improves code maintainability, reduces runtime errors, and enhances developer productivity through better tooling and code completion.
+-   **Next.js (App Router):** Chosen for its performance benefits (RSC, Server Actions), improved developer experience with file-system routing, and seamless integration of client and server logic.
+-   **Firebase:** A comprehensive backend-as-a-service platform.
+    -   **Firestore:** A scalable NoSQL database with real-time listeners, perfect for interactive features like chat and live progress updates. Its flexible data model is ideal for the evolving schemas of lessons and exercises.
+    -   **Firebase Authentication:** Provides a secure, managed authentication solution with built-in support for multiple providers, reducing development overhead.
+    -   **Firebase Storage:** A simple and robust solution for storing user-generated content and AI-generated assets.
+-   **Genkit:** A Google-built framework for AI applications. It standardizes the process of defining AI workflows (flows) with typed inputs/outputs (using Zod), chaining model calls, and creating custom tools for the AI to use. This makes the AI logic more structured, testable, and maintainable.
+-   **Tailwind CSS & Shadcn/ui:** A powerful combination for rapid UI development. Tailwind provides low-level utility classes, while Shadcn/ui offers a collection of beautifully crafted, accessible, and customizable components, greatly accelerating the creation of a polished user interface.
+-   **TypeScript:** Used across the entire stack. It ensures type safety between the client, server actions, and database models, significantly reducing runtime errors and improving code quality and developer productivity.
+-   **tldraw:** A library for creating infinite canvas applications, used as the core of the collaborative Study Room feature.
 
 ## 5. Key Features and Workflows
 
--   **User Authentication:** Users can sign up and log in using Firebase Authentication. This secures access to personalized features.
--   **Personalized Dashboard:** Upon logging in, users are directed to a dashboard (`/dashboard`) that provides an overview of their progress and access to different learning modules.
--   **Interactive Lessons:** Users can access and complete interactive lessons (`/dashboard/lessons/[id]`). Lessons include text, code blocks, and AI-powered text-to-speech.
--   **Adaptive Exercises:** The platform provides adaptive exercises (`/dashboard/practice/[id]`) that may adjust difficulty or type based on user performance. This involves fetching exercise data from Firestore and submitting user answers for evaluation.
--   **Progress Tracking:** User activity and performance on lessons and exercises are tracked and visualized (`/dashboard/progress`). This data is stored in Firestore and potentially aggregated or analyzed in the backend.
--   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated, standalone chat interface (`/dashboard/buddy-ai`) powered by a central Genkit flow (`buddy-chat.ts`). This AI can:
-    *   Adopt different personas (e.g., friendly 'Study Buddy' or technical 'Code Mentor').
-    *   Maintain conversation history.
-    *   Use tools to search the web, create custom exercises, suggest study topics, generate images, and analyze code complexity.
--   **Unified Content Generation (Admin):** The admin interface features a unified, tab-based page for generating exercises. Admins can either generate a set of exercises based on an existing lesson or generate a single, custom exercise from a detailed text prompt. This is powered by AI flows (`/src/ai/flows/generate-lesson-content.ts`, `/src/ai/flows/generate-custom-exercise.ts`, `/src/ai/flows/generate-lesson-image.ts`).
--   **Code Execution Simulation:** A feature to simulate code execution (`src/components/lessons/code-editor.tsx`, powered by the `simulate-code-execution.ts` flow).
--   **Long Form Answer Grading:** An AI flow (`/src/ai/flows/grade-long-form-answer.ts`) is used to grade open-ended text responses, including handwritten work submitted as an image.
+-   **User Authentication:** Users can sign up and log in via email/password or OAuth (Google, GitHub). `createUserInFirestore` is called on first login to create a corresponding user profile in the database.
+-   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated chat interface (`/dashboard/buddy-ai`) powered by the `buddy-chat.ts` Genkit flow. The AI can adopt different personas and use a suite of tools defined in `buddy-tools.ts` (e.g., `createCustomExercise`, `searchTheWeb`) to provide rich, interactive responses.
+-   **Unified Content Generation (Admin):** Admins use a unified page (`/admin/exercises/new`) to generate exercises. They can either generate a set based on an existing lesson's content or create a single, custom exercise from a detailed prompt. This is powered by the `generate-exercise.ts` and `generate-custom-exercise.ts` flows.
+-   **Code Execution Simulation:** In practice exercises, students can write code in a Monaco-based editor (`/components/lessons/code-editor.tsx`). The `simulate-code-execution.ts` flow analyzes this code, predicting its output, errors, and computational complexity without actually executing it on the server.
+-   **Long Form & Math Answer Grading:** For open-ended questions, the `grade-long-form-answer.ts` flow uses AI to evaluate the student's text and/or handwritten image uploads. The `grade-math-solution.ts` flow is specialized for grading step-by-step mathematical solutions.
+-   **Collaborative Study Rooms:** A real-time collaborative space built with **tldraw** and Firebase. The `useStudyRoom` hook manages the connection to a specific room, synchronizing the whiteboard state (via a throttled listener in `data.ts`), chat messages, and participant lists using Firestore's `onSnapshot` listener.
 
 ## 6. Data Flow
 
--   **User Authentication:** User credentials from the frontend are sent to Firebase Authentication for verification. Upon successful authentication, Firebase provides a user object and token to the frontend.
--   **Data Fetching (Frontend):** The frontend fetches data for the dashboard, lessons, and exercises by making requests to the backend API or directly querying Firestore collections using the Firebase SDK. Firestore's real-time capabilities can update the frontend automatically when data changes on the backend.
--   **Data Submission (Frontend):** User input from exercises, profile updates, or AI chat is sent from the frontend to the backend API or directly written to Firestore (depending on the sensitivity and complexity of the operation).
--   **Backend Processing:** The Node.js backend receives data from the frontend, performs validation, applies business logic, and interacts with Firestore and Firebase Storage. For AI-related requests, the backend triggers the appropriate Genkit flows.
--   **Firestore Interactions:** The backend reads from and writes to Firestore collections (e.g., `users`, `lessons`, `exercises`, `userProgress`).
--   **Firebase Storage Interactions:** The backend handles file uploads (e.g., exercise images) to Firebase Storage. The frontend receives signed URLs from the backend to display or interact with these files.
--   **AI Data Flow:** When an AI flow is triggered, Genkit orchestrates the interaction with Google AI services. Input data (like user prompts and conversation history) is passed to the AI model, and the generated output is returned to the backend, which then sends it back to the frontend.
+-   **User Input -> Server Action:** A user action (e.g., submitting a form) calls a Server Action from `actions.ts`.
+-   **Server Action -> Data Layer:** The action calls a function from `data.ts` (e.g., `createLesson`).
+-   **Data Layer -> Firestore:** The `data.ts` function executes the necessary Firestore command (e.g., `addDoc`).
+-   **AI Flow:**
+    1.  A user action calls a Server Action (e.g., `generateExercise`).
+    2.  The action calls the corresponding AI flow from `/ai/flows`.
+    3.  The flow prepares a prompt and calls `ai.generate()` or `ai.generateStream()`.
+    4.  Genkit sends the request to the configured Google AI model.
+    5.  The model's response is parsed (often into a Zod schema) and returned up the call stack to the client.
+-   **Real-time Updates:**
+    1.  A user's action (e.g., sending a chat message) writes data to Firestore.
+    2.  The `onSnapshot` listener in another user's `useStudyRoom` hook is triggered by the change.
+    3.  The hook updates the component's state (`setMessages`), and the UI re-renders with the new message.
 
 ## 7. Security Considerations
 
--   **Firebase Authentication:** Secures user accounts and prevents unauthorized access to user-specific data.
--   **Firestore Security Rules:** Fine-grained access control is enforced using Firestore Security Rules, which define who can read, write, and delete data in specific collections and documents based on authentication status, user ID, and data content. The `firestore.rules` file defines these rules.
--   **Backend Validation:** Server-side validation in the Node.js backend is crucial to ensure data integrity and prevent malicious data from being written to the database, even if frontend validation is bypassed.
--   **Firebase Admin SDK Privileges:** The Firebase Admin SDK used in the backend has elevated privileges. It's essential to ensure that backend endpoints are properly secured and only expose necessary functionality to authenticated and authorized users.
--   **API Security:** Backend API endpoints should be protected to prevent unauthorized access and potential abuse. This involves verifying user authentication tokens and implementing rate limiting where necessary.
--   **Firebase Storage Security Rules:** Similar to Firestore, Firebase Storage uses security rules to control access to uploaded files.
+-   **Firebase Authentication:** All user-facing routes are protected. Layout components (`/app/dashboard/layout.tsx`, `/app/admin/layout.tsx`) use `onAuthStateChanged` to redirect unauthenticated users.
+-   **Firestore Security Rules:** The project relies on Firestore's server-side security rules (`firestore.rules`) to enforce data access policies. These rules should be configured to ensure that:
+    -   Users can only read and write their own profile data.
+    -   Admins have broader permissions.
+    -   Data validation is performed at the database level.
+-   **Server Actions:** As the primary backend entry point, Server Actions are the main surface for security validation. They should always validate user input and permissions before performing sensitive operations.
+-   **Environment Variables:** Sensitive information like API keys and Firebase configuration is stored in environment variables (`.env`) and accessed via `process.env`. These should never be committed to source control.
 
 ## 8. Deployment Process
 
-The deployment process likely involves:
+The application is deployed using Firebase services:
 
--   **Frontend Deployment:** The Next.js application can be deployed to platforms that support Next.js hosting, such as Vercel, Netlify, or Firebase App Hosting. This typically involves building the Next.js project and deploying the output files.
--   **Backend Deployment:** The Node.js backend, which includes the Genkit setup and Firebase Admin SDK usage, needs to be deployed to a server environment. This could be a cloud function (e.g., Firebase Functions), a containerized application (e.g., Docker on Cloud Run or Kubernetes), or a traditional server.
--   **Firebase Service Setup:** Setting up and configuring Firebase projects, including enabling Authentication, Firestore, and Storage, and configuring security rules.
--   **Environment Configuration:** Setting up environment variables on the hosting platform for both the frontend and backend, including Firebase project configuration and API keys.
--   **Genkit Deployment:** Deploying the Genkit flows, which might involve deploying them as cloud functions or within the backend service.
+-   **Hosting:** Firebase App Hosting is used to deploy the Next.js application. The `apphosting.yaml` file configures the build and run settings.
+-   **Database & Auth:** Firestore, Firebase Authentication, and Storage are configured directly in the Firebase Console. Security rules are deployed via the Firebase CLI.
+-   **Environment Configuration:** Secret keys (like SMTP passwords or external API keys) are stored in Google Secret Manager, which can be accessed by Firebase services during runtime.
 
 ## 9. Scalability Strategy
 
--   **Firebase Services:** Firebase services (Firestore, Authentication, Storage) are managed services designed to scale automatically to handle increased load without significant operational overhead. This is a major advantage for scalability.
--   **Next.js Scalability:** Next.js applications can be scaled horizontally by running multiple instances behind a load balancer. SSR and SSG also contribute to performance and scalability by reducing the load on the server for static or frequently accessed content.
--   **Node.js Backend Scalability:** The Node.js backend can be scaled horizontally by running multiple instances. Using serverless functions (like Firebase Functions) can also provide automatic scaling based on demand. Designing the backend to be stateless as much as possible simplifies horizontal scaling.
--   **Database Design:** The Firestore data model is designed for scalability. Proper indexing and denormalization strategies are important for maintaining performance as the data size grows.
--   **Caching:** Implementing caching mechanisms for frequently accessed data can reduce the load on the database and backend.
+-   **Firebase Services:** Firestore, Authentication, and Storage are designed to scale automatically to handle massive traffic with low operational overhead.
+-   **Serverless Execution:** By using Next.js with Server Actions and deploying on a managed platform like App Hosting, the backend logic runs in a serverless environment, which scales automatically based on request volume.
+-   **Edge Caching:** Next.js and Firebase Hosting can cache static assets and pages at the edge, reducing latency for users worldwide.
+-   **Efficient Queries:** The data layer in `data.ts` should use efficient Firestore queries with proper indexing to maintain performance as the dataset grows.
 
-## 10. APIs and Integrations
+## 10. Authentication
 
--   **Internal REST APIs:** The project utilizes internal RESTful APIs exposed by the Node.js backend. These APIs are used by the frontend to interact with the backend logic, data processing, and AI functionalities. Examples might include endpoints for fetching lesson data, submitting exercise answers, or triggering AI flows.
--   **Google AI Integration (via Genkit):** The primary external integration is with Google AI services (likely using models like Gemini) through the Genkit framework. This enables features like AI chat, content generation, and grading.
--   **Firebase SDKs:** While used for interaction, the Firebase SDKs themselves represent an integration with the Firebase platform's various services.
--   **Other Potential Integrations:** Depending on the project's features, there might be integrations with other services not immediately apparent from the file structure, such as email services, payment gateways, or analytics platforms.
+Firebase Authentication is the sole authentication mechanism.
 
-## 11. Authentication
+-   **Providers:** Supports email/password, Google, and GitHub OAuth.
+-   **User Creation:** When a user signs up or logs in via OAuth for the first time, `createUserInFirestore` is called to create a user document in the `users` collection, storing their role, name, and initializing their progress data.
+-   **Session Management:** Firebase handles session persistence. The `onAuthStateChanged` listener is the primary way the app detects the current user's session state.
+-   **Role-Based Access Control (RBAC):** A `role` field ('student' or 'admin') on the user document is used to control access. Layouts and components check this role to render the appropriate UI (e.g., redirecting non-admins from `/admin`).
 
-Firebase Authentication is the sole authentication mechanism used in the project.
+## 11. Configuration and Environment
 
--   **User Registration:** New users register by providing email and password (or using social login providers). Firebase handles the secure storage of user credentials.
--   **Login:** Existing users log in using their registered credentials. Firebase verifies the credentials and provides an authentication token.
--   **Session Management:** Firebase Authentication manages user sessions, keeping track of the authenticated user's state. The frontend listens for authentication state changes to update the UI and grant access to protected routes.
--   **Protected Routes:** Routes and data that require authentication are protected on both the frontend (by checking the authentication state) and the backend/Firestore (using security rules and middleware).
--   **User Data:** User-specific data in Firestore is linked to the authenticated user's ID, ensuring that users can only access their own data (enforced by Firestore Security Rules).
-
-## 12. Configuration and Environment Requirements
-
--   **Firebase Configuration:** The project requires Firebase project configuration details (API key, project ID, etc.) to connect to the Firebase services. These are typically stored in environment variables (`.env.local` for Next.js frontend and environment variables for the backend).
--   **Google Cloud Project Configuration:** For using Google AI services via Genkit, a Google Cloud project is required with the necessary APIs enabled. Credentials for accessing these services (e.g., service account keys or application default credentials) are needed for the backend/Genkit deployment.
--   **Environment Variables:** Various environment variables are used for configuration, including:
-    -   Firebase project settings
-    -   Google Cloud project settings and credentials
-    -   Any external API keys
-    -   Application-specific settings (e.g., feature flags, base URLs).
--   **Configuration Files:**
-    -   `next.config.ts`: Next.js configuration.
-    -   `tailwind.config.ts`, `postcss.config.mjs`: Frontend styling configuration.
-    -   `tsconfig.json`: TypeScript configuration.
-    -   `apphosting.yaml`: Configuration for Firebase App Hosting (if used).
-    -   `firestore.rules`: Firestore security rules.
-    -   Genkit configuration in `/src/ai/genkit.ts`.
--   **Node.js Environment:** The backend requires a Node.js environment with the project dependencies installed (`package.json`).
+-   **Firebase Configuration:** Stored in `.env` and loaded into `next.config.ts` or directly accessed via `process.env`.
+-   **Genkit Configuration:** The core Genkit instance is configured in `src/ai/genkit.ts`, specifying the AI models to use (e.g., `googleai/gemini-2.0-flash`).
+-   **Styling Configuration:** The app's theme (colors, fonts, etc.) is defined in `tailwind.config.ts` and `src/app/globals.css` using CSS variables, making it easy to theme the application.
