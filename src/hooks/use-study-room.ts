@@ -57,20 +57,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         
         const setup = async () => {
             try {
-                // Pre-check if room is already ended before trying to join
-                const initialRoomData = await getStudyRoom(roomId);
-                if (!initialRoomData) {
-                    setError("This study room does not exist.");
-                    setLoading(false);
-                    return;
-                }
-                if (initialRoomData.status === 'ended') {
-                    setError("This study session has ended.");
-                    setLoading(false);
-                    return;
-                }
-
-                // First, join the room by setting participant status. This will fail if the room doesn't exist or is ended.
                 await setParticipantStatus(roomId, user);
 
                 // Now that we have joined, set up the listeners.
@@ -138,10 +124,10 @@ export function useStudyRoom(roomId: string, user: User | null) {
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
-                    if (e.message === "This study session has already ended.") {
+                    if (e.message.includes("does not exist") || e.message.includes("session has already ended")) {
                         setError(e.message);
                     } else {
-                        setError(e.message || "Missing or insufficient permissions.");
+                        setError("Missing or insufficient permissions.");
                     }
                     setLoading(false);
                 }
