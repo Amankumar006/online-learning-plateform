@@ -24,8 +24,10 @@ export async function createStudyRoomSession(data: Omit<StudyRoom, 'id' | 'creat
 export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
     if (!userId) return [];
     try {
-        const publicRoomsQuery = query(collection(db, 'studyRooms'), where('status', '==', 'active'), where('isPublic', '==', true));
-        const privateRoomsQuery = query(collection(db, 'studyRooms'), where('status', '==', 'active'), where('editorIds', 'array-contains', userId));
+        // Fetch all public rooms (active or ended)
+        const publicRoomsQuery = query(collection(db, 'studyRooms'), where('isPublic', '==', true));
+        // Fetch all private rooms (active or ended) the user is an editor in
+        const privateRoomsQuery = query(collection(db, 'studyRooms'), where('editorIds', 'array-contains', userId));
 
         const [publicSnapshot, privateSnapshot] = await Promise.all([
             getDocs(publicRoomsQuery),
