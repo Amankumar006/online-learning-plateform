@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { User } from '@/lib/data';
-import { collection, doc, addDoc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, addDoc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, getDocs } from 'firebase/firestore';
 
 const servers = {
   iceServers: [
@@ -15,7 +15,7 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-export function useWebRTC(roomId: string, currentUser: User | null) {
+export function useWebRTC(roomId: string, currentUser: User | null, allParticipants: User[]) {
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -24,24 +24,19 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   const [speakingPeers, setSpeakingPeers] = useState<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserNodesRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
+  const isJoiningRef = useRef(false);
 
-  const addRemoteStream = useCallback((userId: string, stream: MediaStream) => {
-    setRemoteStreams(prev => new Map(prev).set(userId, stream));
-  }, []);
-
-  const removeRemoteStream = useCallback((userId: string) => {
-    setRemoteStreams(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(userId);
-        return newMap;
-    });
-  }, []);
-
+  // --- Audio Analysis for Speaking Indicators ---
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     audioContextRef.current = audioContext;
 
     const interval = setInterval(() => {
+      if (!isVoiceConnected) {
+        if(speakingPeers.size > 0) setSpeakingPeers(new Set());
+        return;
+      };
       const currentlySpeaking = new Set<string>();
       analyserNodesRef.current.forEach((nodes, userId) => {
         const dataArray = new Uint8Array(nodes.analyser.frequencyBinCount);
@@ -52,26 +47,28 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         }
       });
       setSpeakingPeers(currentlySpeaking);
-    }, 200); // Check every 200ms
+    }, 200);
 
     return () => {
       clearInterval(interval);
-      audioContext.close();
+      audioContext.close().catch(console.error);
     };
-  }, []);
+  }, [isVoiceConnected, speakingPeers.size]);
 
   useEffect(() => {
     remoteStreams.forEach((stream, userId) => {
-        if (!analyserNodesRef.current.has(userId) && audioContextRef.current) {
-            const source = audioContextRef.current.createMediaStreamSource(stream);
-            const analyser = audioContextRef.current.createAnalyser();
-            analyser.fftSize = 512;
-            source.connect(analyser);
-            analyserNodesRef.current.set(userId, { source, analyser });
+        if (!analyserNodesRef.current.has(userId) && audioContextRef.current && audioContextRef.current.state !== 'closed') {
+            try {
+                const source = audioContextRef.current.createMediaStreamSource(stream);
+                const analyser = audioContextRef.current.createAnalyser();
+                analyser.fftSize = 512;
+                source.connect(analyser);
+                analyserNodesRef.current.set(userId, { source, analyser });
+            } catch(e) {
+                console.error("Error creating audio analyser:", e);
+            }
         }
     });
-
-    // Cleanup for streams that are removed
     analyserNodesRef.current.forEach((nodes, userId) => {
         if (!remoteStreams.has(userId)) {
             nodes.source.disconnect();
@@ -81,55 +78,110 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   }, [remoteStreams]);
 
 
-  const createPeerConnection = useCallback((peerId: string) => {
-    if (!currentUser) return;
-    
+  // --- Core Connection Logic ---
+  const createPeerConnection = useCallback((peerId: string): RTCPeerConnection => {
     const pc = new RTCPeerConnection(servers);
     
+    // Add local tracks if they exist
     localStreamRef.current?.getTracks().forEach(track => {
       pc.addTrack(track, localStreamRef.current!);
     });
-    
+
     pc.ontrack = (event) => {
-      addRemoteStream(peerId, event.streams[0]);
-    };
-
-    const myId = currentUser.uid;
-    const peerConnectionsCollection = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
-    const remoteIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        addDoc(peerConnectionsCollection, event.candidate.toJSON());
-      }
+        setRemoteStreams(prev => new Map(prev).set(peerId, event.streams[0]));
     };
     
-    onSnapshot(remoteIceCandidatesCollection, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-                const candidate = new RTCIceCandidate(change.doc.data());
-                pc.addIceCandidate(candidate);
+    // Set up ICE candidate handling
+    if(currentUser) {
+        const myId = currentUser.uid;
+        const myIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
+        const peerIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                addDoc(myIceCandidatesCollection, event.candidate.toJSON());
             }
+        };
+
+        onSnapshot(peerIceCandidatesCollection, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const candidate = new RTCIceCandidate(change.doc.data());
+                    pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
+                }
+            });
         });
-    });
+    }
 
     peerConnectionsRef.current.set(peerId, pc);
     return pc;
-  }, [currentUser, roomId, addRemoteStream]);
+  }, [currentUser, roomId]);
+
 
   const joinVoiceChannel = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || isJoiningRef.current) return;
+    isJoiningRef.current = true;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+      
+      const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
+      await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name });
+
+      const otherParticipants = allParticipants.filter(p => p.uid !== currentUser.uid);
+
+      for (const peer of otherParticipants) {
+          const pc = createPeerConnection(peer.uid);
+          const offerDescription = await pc.createOffer();
+          await pc.setLocalDescription(offerDescription);
+          const offer = { sdp: offerDescription.sdp, type: offerDescription.type };
+          const offerRef = doc(db, 'studyRooms', roomId, 'peers', peer.uid, 'connections', currentUser.uid);
+          await setDoc(offerRef, { offer });
+      }
+
       setIsVoiceConnected(true);
     } catch (error) {
-      console.error("Error accessing microphone:", error);
+      console.error("Error accessing microphone or joining voice:", error);
+    } finally {
+        isJoiningRef.current = false;
     }
-  }, [currentUser, isMuted]);
+  }, [currentUser, allParticipants, createPeerConnection, isMuted, roomId]);
 
-  const leaveVoiceChannel = useCallback(() => {
+
+  useEffect(() => {
+    if (!isVoiceConnected || !currentUser) return;
+    
+    const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', currentUser.uid, 'connections');
+    const unsubscribe = onSnapshot(myConnectionsRef, (snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
+            const peerId = change.doc.id;
+            const data = change.doc.data();
+
+            if (data.offer && !peerConnectionsRef.current.has(peerId)) {
+                const pc = createPeerConnection(peerId);
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answerDescription = await pc.createAnswer();
+                await pc.setLocalDescription(answerDescription);
+                const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
+                await updateDoc(change.doc.ref, { answer });
+            }
+
+            if (data.answer) {
+                const pc = peerConnectionsRef.current.get(peerId);
+                if (pc && pc.signalingState !== 'stable') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
+            }
+        });
+    });
+
+    return () => unsubscribe();
+  }, [isVoiceConnected, currentUser, roomId, createPeerConnection]);
+  
+
+  const leaveVoiceChannel = useCallback(async () => {
     localStreamRef.current?.getTracks().forEach(track => track.stop());
     localStreamRef.current = null;
 
@@ -139,7 +191,9 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     if (currentUser) {
         const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-        deleteDoc(myPeerRef);
+        const connectionsSnapshot = await getDocs(collection(myPeerRef, 'connections'));
+        await Promise.all(connectionsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+        await deleteDoc(myPeerRef);
     }
     
     setIsVoiceConnected(false);
@@ -163,6 +217,5 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     toggleMute,
     remoteStreams,
     speakingPeers,
-    createPeerConnection, // Export for use in the main hook
   };
 }

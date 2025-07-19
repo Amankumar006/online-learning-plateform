@@ -93,26 +93,30 @@ export default function StudyRoomPage() {
         if (!audioContainerRef.current) return;
         
         const audioContainer = audioContainerRef.current;
+        const existingAudioElements = new Set(Array.from(audioContainer.children).map(child => child.id));
         
-        // Remove audio elements for streams that no longer exist
-        audioContainer.childNodes.forEach(childNode => {
-            const audioEl = childNode as HTMLAudioElement;
-            if (!remoteStreams.has(audioEl.id)) {
-                audioContainer.removeChild(audioEl);
-            }
-        });
-
-        // Add audio elements for new streams
+        // Add new audio elements
         remoteStreams.forEach((stream, userId) => {
-            if (!document.getElementById(userId)) {
+            if (!existingAudioElements.has(userId)) {
                 const audioEl = document.createElement('audio');
                 audioEl.id = userId;
                 audioEl.srcObject = stream;
                 audioEl.autoplay = true;
-                // audioEl.controls = true; // for debugging
+                // audioEl.controls = true; // For debugging
                 audioContainer.appendChild(audioEl);
             }
         });
+        
+        // Remove old audio elements
+        existingAudioElements.forEach(id => {
+            if (!remoteStreams.has(id)) {
+                const audioEl = document.getElementById(id);
+                if (audioEl) {
+                    audioContainer.removeChild(audioEl);
+                }
+            }
+        });
+
     }, [remoteStreams]);
 
 
