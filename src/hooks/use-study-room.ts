@@ -8,7 +8,7 @@ import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 import { useWebRTC } from './use-webrtc';
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, collection } from 'firebase/firestore';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -34,7 +34,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         remoteStreams,
         speakingPeers,
         createPeerConnection,
-    } = useWebRTC(roomId, user);
+    } = useWebRTC(roomId, user, participants);
     
     const participantsWithVoiceState = useMemo(() => {
         return participants.map(p => ({
@@ -176,62 +176,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         );
         return () => saveUnsubscribe();
     }, [store, isReadOnly, saveStateToFirestore]);
-
-    // Effect for handling WebRTC connections
-    useEffect(() => {
-        if (!isVoiceConnected || !user) return;
     
-        const otherParticipants = participants.filter(p => p.uid !== user.uid);
-    
-        // Connect to new participants
-        otherParticipants.forEach(peer => {
-          if (!peerConnectionsRef.current.has(peer.uid)) {
-            const pc = createPeerConnection(peer.uid);
-            if(pc) {
-                peerConnectionsRef.current.set(peer.uid, pc);
-                pc.createOffer().then(offer => {
-                    pc.setLocalDescription(offer);
-                    const offerDoc = doc(db, 'studyRooms', roomId, 'peers', peer.uid, 'connections', user.uid);
-                    setDoc(offerDoc, { offer });
-                });
-            }
-          }
-        });
-    
-        // Disconnect from participants who left
-        peerConnectionsRef.current.forEach((pc, peerId) => {
-          if (!otherParticipants.some(p => p.uid === peerId)) {
-            pc.close();
-            peerConnectionsRef.current.delete(peerId);
-          }
-        });
-    
-    }, [isVoiceConnected, participants, user, createPeerConnection, roomId]);
-
-    // Effect to handle incoming offers and answers
-    useEffect(() => {
-        if (!isVoiceConnected || !user) return;
-        const connectionsRef = doc(db, 'studyRooms', roomId, 'peers', user.uid);
-        const unsubscribe = onSnapshot(collection(connectionsRef, 'connections'), (snapshot) => {
-            snapshot.docChanges().forEach(async (change) => {
-                const peerId = change.doc.id;
-                const data = change.doc.data();
-                const pc = peerConnectionsRef.current.get(peerId) || createPeerConnection(peerId);
-                if (pc) {
-                    if (data.offer && pc.signalingState !== 'stable') {
-                        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        await updateDoc(change.doc.ref, { answer });
-                    } else if (data.answer && pc.signalingState !== 'stable') {
-                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    }
-                }
-            });
-        });
-
-        return unsubscribe;
-    }, [isVoiceConnected, user, roomId, createPeerConnection]);
 
     // Effect to handle AI triggers
     useEffect(() => {
