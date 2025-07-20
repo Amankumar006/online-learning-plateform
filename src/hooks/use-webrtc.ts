@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { User } from '@/lib/data';
-import { collection, doc, addDoc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
 
 const servers = {
   iceServers: [
@@ -105,7 +105,9 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     if (currentUser) {
         const myId = currentUser.uid;
-        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'iceCandidates', peerId);
+        
+        // Path to where *I* will send *my* candidates for the connection *to them*
+        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
@@ -113,7 +115,8 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
             }
         };
 
-        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'iceCandidates', myId);
+        // Path to where *they* will send *their* candidates for the connection *to me*
+        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
         onSnapshot(remoteIceCandidatesCollectionRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
@@ -198,7 +201,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
                 await updateDoc(change.doc.ref, { answer });
             }
 
-            if (data.answer && pc.signalingState !== 'have-local-offer') {
+            if (data.answer && pc.signalingState === 'have-local-offer') {
                 await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
         });
@@ -222,33 +225,39 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     peerConnectionsRef.current.clear();
     setRemoteStreams(new Map());
 
-    const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-    try {
-        const myId = currentUser.uid;
-        const peersSnapshot = await getDocs(query(collection(db, 'studyRooms', roomId, 'peers')));
-        
-        // Asynchronously delete all connection and ICE candidate documents related to me
-        const cleanupPromises: Promise<any>[] = [];
-        
-        peersSnapshot.forEach(peerDoc => {
-            const peerId = peerDoc.id;
-            if (peerId === myId) {
-                const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections');
-                const myIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'iceCandidates');
-                cleanupPromises.push(getDocs(myConnectionsRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
-                cleanupPromises.push(getDocs(myIceCandidatesRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
-            } else {
-                cleanupPromises.push(deleteDoc(doc(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId)));
-                const iceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'iceCandidates', myId);
-                cleanupPromises.push(getDocs(iceCandidatesRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
-            }
-        });
+    const myId = currentUser.uid;
+    const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', myId);
 
-        await Promise.all(cleanupPromises);
-        await deleteDoc(myPeerRef);
+    try {
+        const batch = writeBatch(db);
+
+        // Delete all connections initiated by me
+        const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections');
+        const myConnectionsSnap = await getDocs(myConnectionsRef);
+        for (const connDoc of myConnectionsSnap.docs) {
+            // Also delete any ICE candidates within this connection
+            const iceCandidatesRef = collection(connDoc.ref, 'iceCandidates');
+            const iceCandidatesSnap = await getDocs(iceCandidatesRef);
+            iceCandidatesSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
+            batch.delete(connDoc.ref);
+        }
+
+        // Delete all connections initiated to me by others
+        const peersSnapshot = await getDocs(query(collection(db, 'studyRooms', roomId, 'peers')));
+        for (const peerDoc of peersSnapshot.docs) {
+            if (peerDoc.id !== myId) {
+                const connToMeRef = doc(db, 'studyRooms', roomId, 'peers', peerDoc.id, 'connections', myId);
+                batch.delete(connToMeRef); // This will fail if it doesn't exist, but that's okay in a batch
+            }
+        }
+        
+        batch.delete(myPeerRef);
+        await batch.commit();
 
     } catch(e) {
-        console.warn("Could not clean up all peer docs, some may already be deleted.", e);
+        // Fallback to simpler delete if batch fails (e.g., due to trying to delete non-existent docs)
+        console.warn("Batch cleanup failed, trying simple delete.", e);
+        await deleteDoc(myPeerRef).catch(console.error);
     }
     
     setIsVoiceConnected(false);
