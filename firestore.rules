@@ -97,8 +97,7 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
       }
       function isUserAnEditor() {
-        // Use `get()` to safely access data that might not exist yet.
-        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds.hasAny([request.auth.uid]);
+        return request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds;
       }
       function isRoomPublic() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true;
@@ -120,7 +119,8 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
       // UPDATE: Only the owner can update the room details (like name, visibility, or adding editors).
-      allow update: if request.auth != null && isRoomOwner();
+      // A participant can update the shared room state via throttle.
+      allow update: if request.auth != null && (isRoomOwner() || (isParticipant() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roomState'])));
 
       // DELETE: Only the owner can delete a room.
       allow delete: if request.auth != null && isRoomOwner();
@@ -136,21 +136,17 @@ service cloud.firestore {
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        // FIX: Allow listing peers if the user has access to the room. This resolves the race condition.
+        allow get, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
         allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        
-        allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
-        
-        // This subcollection holds offers/answers between peers.
+
         match /connections/{connectionId} {
-           // Allow read/write/delete if you are either the caller (connectionId) or the callee (peerId).
-           allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
-           
-            // This subcollection holds the ICE candidates for a specific connection.
-            match /iceCandidates/{candidateId} {
-                // Same rule as the parent connection document.
-                allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
-            }
+          allow read, create, update: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+          allow delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId);
+
+          match /iceCandidates/{candidateId} {
+             allow read, create: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+             allow delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId);
+          }
         }
       }
 
