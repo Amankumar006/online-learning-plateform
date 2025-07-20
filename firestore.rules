@@ -135,15 +135,17 @@ service cloud.firestore {
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        // Corrected rule: Allow any authenticated user with room access to list peers.
         allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
         allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
         
         match /connections/{connectionId} {
-          allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+          allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+          allow get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+          allow create, update, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
           match /iceCandidates/{candidateId} {
-             allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+             allow list, get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+             allow create, update, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
           }
         }
       }
