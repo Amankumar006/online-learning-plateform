@@ -114,8 +114,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
 
     const pc = new RTCPeerConnection(servers);
     
-    // **FIX**: Add tracks from the existing local stream when a new peer connection is created.
-    // This handles cases where new peers join after the current user is already broadcasting.
+    // Add tracks from the existing local stream when a new peer connection is created.
     if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => {
             pc.addTrack(track, localStreamRef.current!);
@@ -129,16 +128,16 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
     if (currentUser) {
         const myId = currentUser.uid;
         
-        const myIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
-        const remoteIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
+        const myIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
+        const remoteIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                addDoc(remoteIceCandidatesRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
+                addDoc(myIceCandidatesRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
             }
         };
         
-        onSnapshot(myIceCandidatesRef, (snapshot) => {
+        onSnapshot(remoteIceCandidatesRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
                     if (pc.signalingState !== 'closed') {
@@ -164,8 +163,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
       localStreamRef.current = stream;
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
 
-      // **FIX**: After getting the stream, ensure all existing peer connections get the tracks.
-      // This handles the case where connections were created before the stream was available.
+      // After getting the stream, ensure all existing peer connections get the tracks.
       addTracksToAllPeerConnections();
       
       const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
@@ -196,7 +194,7 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
                 await pc.setLocalDescription(offerDescription);
 
                 const offer = { sdp: offerDescription.sdp, type: offerDescription.type };
-                await setDoc(doc(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId), { offer });
+                await setDoc(doc(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId), { offer });
             }
 
             if (change.type === 'removed') {
