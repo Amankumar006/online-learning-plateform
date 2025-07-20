@@ -119,8 +119,7 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
       // UPDATE: Only the owner can update the room details (like name, visibility, or adding editors).
-      // A participant can update the shared room state via throttle.
-      allow update: if request.auth != null && (isRoomOwner() || (isParticipant() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roomState'])));
+      allow update: if request.auth != null && isRoomOwner();
 
       // DELETE: Only the owner can delete a room.
       allow delete: if request.auth != null && isRoomOwner();
@@ -136,16 +135,15 @@ service cloud.firestore {
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        allow get, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
+        // Corrected rule: Allow any authenticated user with room access to list peers.
         allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-
+        allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
+        
         match /connections/{connectionId} {
-          allow read, create, update: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
-          allow delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId);
+          allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
           match /iceCandidates/{candidateId} {
-             allow read, create: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
-             allow delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId);
+             allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
           }
         }
       }
