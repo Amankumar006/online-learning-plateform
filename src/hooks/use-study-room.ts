@@ -22,8 +22,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [participants, setParticipants] = useState<User[]>([]);
     const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
+    
+    const roomDataForWebRTC = useMemo(() => room ? {
+        isPublic: room.isPublic,
+        editorIds: room.editorIds,
+    } : null, [room]);
 
-    // Integrate the refactored, self-contained WebRTC hook
     const { 
         isVoiceConnected,
         isMuted,
@@ -32,9 +36,8 @@ export function useStudyRoom(roomId: string, user: User | null) {
         toggleMute,
         remoteStreams,
         speakingPeers,
-    } = useWebRTC(roomId, user);
+    } = useWebRTC(roomId, user, roomDataForWebRTC);
     
-    // Combine participant data with real-time voice state from the WebRTC hook
     const participantsWithVoiceState = useMemo(() => {
         return participants.map(p => ({
             ...p,
@@ -63,7 +66,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         }
     }, [roomId, user?.uid, room?.ownerId]);
 
-    // Main setup effect for Firestore listeners
     useEffect(() => {
         if (!user) return;
 
@@ -83,11 +85,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
                     if (stillMounted) setLoading(false);
                     return;
                 }
-                if (initialRoomData.status === 'ended') {
-                    if (stillMounted) setError("This study session has ended.");
-                    if (stillMounted) setLoading(false);
-                    return;
-                }
                 
                 await setParticipantStatus(roomId, user);
 
@@ -101,13 +98,14 @@ export function useStudyRoom(roomId: string, user: User | null) {
                         if (roomData.status === 'ended') {
                             setIsReadOnly(true);
                             if(expiryTimeout) clearTimeout(expiryTimeout);
+                            leaveVoiceChannel();
                         } else {
                             const timeUntilExpiry = roomData.expiresAt.toMillis() - Date.now();
                             if (timeUntilExpiry > 0 && !expiryTimeout) {
                                 expiryTimeout = setTimeout(() => {
                                     if (roomData.ownerId === user.uid) endSession();
                                 }, timeUntilExpiry);
-                            } else if (timeUntilExpiry <= 0) {
+                            } else if (timeUntilExpiry <= 0 && roomData.status !== 'ended') {
                                 if (roomData.ownerId === user.uid) endSession();
                             }
                         }
@@ -139,7 +137,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             } catch (e: any) {
                 console.error("Error setting up study room:", e);
                 if (stillMounted) {
-                    setError(e.message.includes("ended") ? e.message : "An error occurred while joining the room.");
+                    setError(e.message || "An error occurred while joining the room.");
                     setLoading(false);
                 }
             }
@@ -167,7 +165,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         };
     }, [roomId, user, store, endSession, leaveVoiceChannel]);
 
-    // Effect for saving canvas state
     useEffect(() => {
         const saveUnsubscribe = store.listen(
             (event) => {
@@ -180,7 +177,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         return () => saveUnsubscribe();
     }, [store, isReadOnly, saveStateToFirestore]);
     
-    // Effect to handle AI triggers
     useEffect(() => {
         const lastMessage = messages[messages.length - 1];
         if (
@@ -235,7 +231,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         store, setEditor, editor, error, isLoading: loading, messages, sendMessage: handleSendMessage,
         participants: participantsWithVoiceState, addLessonImageToCanvas, room, isReadOnly, endSession,
         toggleHandRaise, resources, toggleParticipantEditorRole: handleToggleEditorRole,
-        // Expose state and functions from useWebRTC directly to the UI
         isVoiceConnected, isMuted, onJoinVoice: joinVoiceChannel, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
     };
 }

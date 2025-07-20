@@ -15,7 +15,13 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-export function useWebRTC(roomId: string, currentUser: User | null) {
+// This type helps pass room permissions from the main hook
+type RoomPermissions = {
+    isPublic: boolean;
+    editorIds: string[];
+} | null;
+
+export function useWebRTC(roomId: string, currentUser: User | null, roomData: RoomPermissions) {
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -26,16 +32,19 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   const analyserNodesRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
   const isJoiningRef = useRef(false);
 
-  // --- Audio Analysis for Speaking Indicators ---
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        try {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (e) {
+            console.error("AudioContext is not supported.", e);
+        }
     }
     const audioContext = audioContextRef.current;
 
     const interval = setInterval(() => {
-      if (!isVoiceConnected || audioContext.state === 'closed') {
+      if (!isVoiceConnected || !audioContext || audioContext.state === 'closed') {
         if(speakingPeers.size > 0) setSpeakingPeers(new Set());
         return;
       };
@@ -44,7 +53,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         const dataArray = new Uint8Array(nodes.analyser.frequencyBinCount);
         nodes.analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-        if (average > 20) { // Threshold for speaking
+        if (average > 20) {
           currentlySpeaking.add(userId);
         }
       });
@@ -87,8 +96,6 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   }, [remoteStreams]);
 
 
-  // --- Core Connection Logic ---
-
   const addTracksToAllPeerConnections = useCallback(() => {
     if (!localStreamRef.current) return;
     for (const pc of peerConnectionsRef.current.values()) {
@@ -120,16 +127,16 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     if (currentUser) {
         const myId = currentUser.uid;
         
-        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
-        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
+        const myIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
+        const remoteIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                addDoc(remoteIceCandidatesCollectionRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
+                addDoc(remoteIceCandidatesRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
             }
         };
         
-        onSnapshot(iceCandidatesCollectionRef, (snapshot) => {
+        onSnapshot(myIceCandidatesRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
                     if (pc.signalingState !== 'closed') {
@@ -168,9 +175,8 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     }
   }, [currentUser, isVoiceConnected, isMuted, roomId, addTracksToAllPeerConnections]);
 
-  // Main listener for peer discovery and signaling
   useEffect(() => {
-    if (!isVoiceConnected || !currentUser) return;
+    if (!isVoiceConnected || !currentUser || !roomData) return;
     
     const myId = currentUser.uid;
     const peersRef = collection(db, 'studyRooms', roomId, 'peers');
@@ -227,7 +233,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         unsubscribeConnections();
     };
 
-  }, [isVoiceConnected, currentUser, roomId, createPeerConnection]);
+  }, [isVoiceConnected, currentUser, roomId, createPeerConnection, roomData]);
 
 
   const leaveVoiceChannel = useCallback(async () => {
@@ -245,9 +251,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     try {
         const batch = writeBatch(db);
-
-        // Delete all connections initiated by me and their ICE candidates
-        const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections');
+        const myConnectionsRef = collection(myPeerRef, 'connections');
         const myConnectionsSnap = await getDocs(myConnectionsRef);
         for (const connDoc of myConnectionsSnap.docs) {
             const iceCandidatesRef = collection(connDoc.ref, 'iceCandidates');
@@ -256,11 +260,11 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
             batch.delete(connDoc.ref);
         }
 
-        // Delete all connections initiated by others to me
-        const peersSnapshot = await getDocs(query(collection(db, 'studyRooms', roomId, 'peers')));
+        const q = query(collection(db, 'studyRooms', roomId, 'peers'));
+        const peersSnapshot = await getDocs(q);
         for (const peerDoc of peersSnapshot.docs) {
             if (peerDoc.id !== myId) {
-                const connToMeRef = doc(db, 'studyRooms', roomId, 'peers', peerDoc.id, 'connections', myId);
+                const connToMeRef = doc(peerDoc.ref, 'connections', myId);
                 const iceCandidatesToMeRef = collection(connToMeRef, 'iceCandidates');
                 const iceToMeSnap = await getDocs(iceCandidatesToMeRef);
                 iceToMeSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
@@ -273,7 +277,11 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     } catch(e) {
         console.warn("Batch cleanup failed, trying simple delete.", e);
-        await deleteDoc(myPeerRef).catch(console.error);
+        try {
+            await deleteDoc(myPeerRef);
+        } catch (delErr) {
+            console.error("Simple delete also failed:", delErr);
+        }
     }
     
     setIsVoiceConnected(false);
