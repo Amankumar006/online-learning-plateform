@@ -102,6 +102,9 @@ service cloud.firestore {
       function isRoomPublic() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true;
       }
+      function hasRoomAccess() {
+        return isRoomPublic() || isUserAnEditor();
+      }
       function isRoomActive() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.status == 'active';
       }
@@ -110,7 +113,7 @@ service cloud.firestore {
       }
 
       // GET: Allow reading a single room if it's public or the user is an editor.
-      allow get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+      allow get: if request.auth != null && hasRoomAccess();
 
       // LIST: Allow any authenticated user to query the list of rooms.
       allow list: if request.auth != null;
@@ -128,25 +131,20 @@ service cloud.firestore {
 
       // Participants subcollection
       match /participants/{userId} {
-        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+        allow read: if request.auth != null && hasRoomAccess();
         allow write: if request.auth != null && request.auth.uid == userId && isRoomActive();
         allow delete: if request.auth != null && (request.auth.uid == userId || isRoomOwner());
       }
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        // Allow a user to see the list of peers if they are a participant.
-        allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        // A user can create, read, and delete their own peer document.
+        allow list: if request.auth != null && hasRoomAccess();
         allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
         
         match /connections/{connectionId} {
-          // Allow read/write/delete if the user is either the peer being connected to,
-          // or the user initiating the connection.
           allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
           match /iceCandidates/{candidateId} {
-             // Same logic applies to ICE candidates.
              allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
           }
         }
