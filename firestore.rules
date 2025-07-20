@@ -92,7 +92,7 @@ service cloud.firestore {
     
     // Rules for Study Rooms
     match /studyRooms/{roomId} {
-      // Helper functions for study room rules
+      // Helper functions for Study Room rules
       function isRoomOwner() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
       }
@@ -112,14 +112,15 @@ service cloud.firestore {
       // GET: Allow reading a single room if it's public or the user is an editor.
       allow get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
 
-      // LIST: Allow any authenticated user to query the list of rooms.
+      // LIST: Allow any authenticated user to query the list of active rooms.
       allow list: if request.auth != null;
       
       // CREATE: Any authenticated user can create a room for themselves.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       
       // UPDATE: Only the owner can update the room details (like name, visibility, or adding editors).
-      allow update: if request.auth != null && isRoomOwner();
+      // A participant can update the roomState (for the whiteboard).
+      allow update: if request.auth != null && (isRoomOwner() || (isUserAnEditor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roomState'])));
 
       // DELETE: Only the owner can delete a room.
       allow delete: if request.auth != null && isRoomOwner();
@@ -128,36 +129,61 @@ service cloud.firestore {
 
       // Participants subcollection
       match /participants/{userId} {
+        // Any authenticated user can see who is in a public room or a private room they are an editor of.
         allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+        
+        // A user can only write their own participant document.
         allow write: if request.auth != null && request.auth.uid == userId && isRoomActive();
+        
+        // A user can remove themselves (on disconnect) or the owner can remove others.
         allow delete: if request.auth != null && (request.auth.uid == userId || isRoomOwner());
       }
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
+        // Any authenticated user who has access to the room can see the list of peers in voice chat.
+        allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
         
-        match /connections/{connectionId} {
-          allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+        // A user can create/delete their own peer document.
+        allow write, delete: if request.auth != null && request.auth.uid == peerId;
 
-          match /iceCandidates/{candidateId} {
-             allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
-          }
+        // Connections subcollection
+        match /connections/{connectionId} {
+            // A user can write offers/answers to another user's connection document.
+            allow write: if request.auth != null;
+        }
+
+        // ICE Candidates subcollection
+        match /iceCandidates/{peerIdForCandidates}/{candidateId} {
+            // A user can create ICE candidates for another user.
+            allow create: if request.auth != null;
         }
       }
 
       // Messages subcollection
       match /messages/{messageId} {
-        allow read: if request.auth != null && isParticipant();
-        allow create: if request.auth != null && isParticipant() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'buddy-ai');
+        // Anyone in a public room or an editor in a private room can read messages.
+        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+        
+        // The user must be a participant and the message must be from them, or from the AI.
+        allow create: if request.auth != null && (isParticipant() && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'buddy-ai';
+
+        // Messages are immutable.
         allow update, delete: if false;
       }
 
       // Resources subcollection
       match /resources/{resourceId} {
-        allow read: if request.auth != null && isParticipant();
+        // Anyone in a public room or an editor in a private room can see resources.
+        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+        
+        // A participant can add a resource.
         allow create: if request.auth != null && isParticipant() && request.resource.data.addedByUserId == request.auth.uid;
+
+        // The room owner or the user who added the link can delete it.
         allow delete: if request.auth != null && (isRoomOwner() || resource.data.addedByUserId == request.auth.uid);
+
+        // Resources are immutable.
         allow update: if false;
       }
     }
