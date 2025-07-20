@@ -120,8 +120,8 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     if (currentUser) {
         const myId = currentUser.uid;
         
-        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
-        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
+        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
+        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
@@ -132,8 +132,10 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         onSnapshot(iceCandidatesCollectionRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
-                    const candidate = new RTCIceCandidate(change.doc.data());
-                    pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
+                    if (pc.signalingState !== 'closed') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
+                    }
                 }
             });
         });
