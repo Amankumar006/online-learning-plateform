@@ -88,16 +88,31 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
 
   // --- Core Connection Logic ---
+
+  const addTracksToAllPeerConnections = useCallback(() => {
+    if (!localStreamRef.current) return;
+    for (const pc of peerConnectionsRef.current.values()) {
+        localStreamRef.current.getTracks().forEach(track => {
+            if (!pc.getSenders().find(sender => sender.track === track)) {
+                pc.addTrack(track, localStreamRef.current!);
+            }
+        });
+    }
+  }, []);
+
   const createPeerConnection = useCallback((peerId: string): RTCPeerConnection => {
     if (peerConnectionsRef.current.has(peerId)) {
         peerConnectionsRef.current.get(peerId)?.close();
     }
 
     const pc = new RTCPeerConnection(servers);
-
-    localStreamRef.current?.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current!);
-    });
+    
+    // Add local tracks if stream already exists
+    if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+            pc.addTrack(track, localStreamRef.current!);
+        });
+    }
 
     pc.ontrack = (event) => {
         setRemoteStreams(prev => new Map(prev).set(peerId, event.streams[0]));
@@ -106,7 +121,6 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     if (currentUser) {
         const myId = currentUser.uid;
         
-        // Path to where *I* will send *my* candidates for the connection *to them*
         const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
@@ -114,8 +128,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
                 addDoc(iceCandidatesCollectionRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
             }
         };
-
-        // Path to where *they* will send *their* candidates for the connection *to me*
+        
         const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
         onSnapshot(remoteIceCandidatesCollectionRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
@@ -141,6 +154,9 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+
+      // Now that we have the stream, add tracks to any existing peer connections
+      addTracksToAllPeerConnections();
       
       const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
       await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name || "Anonymous", joinedAt: Timestamp.now() });
@@ -151,7 +167,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     } finally {
         isJoiningRef.current = false;
     }
-  }, [currentUser, isVoiceConnected, isMuted, roomId]);
+  }, [currentUser, isVoiceConnected, isMuted, roomId, addTracksToAllPeerConnections]);
 
   // Main listener for peer discovery and signaling
   useEffect(() => {
@@ -235,19 +251,20 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections');
         const myConnectionsSnap = await getDocs(myConnectionsRef);
         for (const connDoc of myConnectionsSnap.docs) {
-            // Also delete any ICE candidates within this connection
             const iceCandidatesRef = collection(connDoc.ref, 'iceCandidates');
             const iceCandidatesSnap = await getDocs(iceCandidatesRef);
             iceCandidatesSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
             batch.delete(connDoc.ref);
         }
 
-        // Delete all connections initiated to me by others
         const peersSnapshot = await getDocs(query(collection(db, 'studyRooms', roomId, 'peers')));
         for (const peerDoc of peersSnapshot.docs) {
             if (peerDoc.id !== myId) {
                 const connToMeRef = doc(db, 'studyRooms', roomId, 'peers', peerDoc.id, 'connections', myId);
-                batch.delete(connToMeRef); // This will fail if it doesn't exist, but that's okay in a batch
+                const iceCandidatesToMeRef = collection(connToMeRef, 'iceCandidates');
+                const iceToMeSnap = await getDocs(iceCandidatesToMeRef);
+                iceToMeSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
+                batch.delete(connToMeRef);
             }
         }
         
@@ -255,7 +272,6 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         await batch.commit();
 
     } catch(e) {
-        // Fallback to simpler delete if batch fails (e.g., due to trying to delete non-existent docs)
         console.warn("Batch cleanup failed, trying simple delete.", e);
         await deleteDoc(myPeerRef).catch(console.error);
     }
