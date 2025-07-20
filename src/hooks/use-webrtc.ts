@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { User } from '@/lib/data';
-import { collection, doc, addDoc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, addDoc, onSnapshot, setDoc, updateDoc, deleteDoc, query, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
 
 const servers = {
   iceServers: [
@@ -122,6 +122,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         const myId = currentUser.uid;
         
         const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId, 'iceCandidates');
+        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
@@ -129,7 +130,6 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
             }
         };
         
-        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections', peerId, 'iceCandidates');
         onSnapshot(remoteIceCandidatesCollectionRef, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
@@ -142,8 +142,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     peerConnectionsRef.current.set(peerId, pc);
     return pc;
-}, [currentUser, roomId]);
-
+  }, [currentUser, roomId]);
 
 
   const joinVoiceChannel = useCallback(async () => {
@@ -261,10 +260,13 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         for (const peerDoc of peersSnapshot.docs) {
             if (peerDoc.id !== myId) {
                 const connToMeRef = doc(db, 'studyRooms', roomId, 'peers', peerDoc.id, 'connections', myId);
-                const iceCandidatesToMeRef = collection(connToMeRef, 'iceCandidates');
-                const iceToMeSnap = await getDocs(iceCandidatesToMeRef);
-                iceToMeSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
-                batch.delete(connToMeRef);
+                const connToMeSnap = await getDoc(connToMeRef);
+                if (connToMeSnap.exists()) {
+                    const iceCandidatesToMeRef = collection(connToMeRef, 'iceCandidates');
+                    const iceToMeSnap = await getDocs(iceCandidatesToMeRef);
+                    iceToMeSnap.forEach(iceDoc => batch.delete(iceDoc.ref));
+                    batch.delete(connToMeRef);
+                }
             }
         }
         

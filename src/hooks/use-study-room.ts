@@ -8,7 +8,6 @@ import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 import { useWebRTC } from './use-webrtc';
-import { onSnapshot, collection } from 'firebase/firestore';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 

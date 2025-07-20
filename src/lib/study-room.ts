@@ -24,9 +24,7 @@ export async function createStudyRoomSession(data: Omit<StudyRoom, 'id' | 'creat
 export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]> {
     if (!userId) return [];
     try {
-        // Fetch all public rooms (active or ended)
         const publicRoomsQuery = query(collection(db, 'studyRooms'), where('isPublic', '==', true));
-        // Fetch all private rooms (active or ended) the user is an editor in
         const privateRoomsQuery = query(collection(db, 'studyRooms'), where('editorIds', 'array-contains', userId));
 
         const [publicSnapshot, privateSnapshot] = await Promise.all([
@@ -37,7 +35,9 @@ export async function getStudyRoomsForUser(userId: string): Promise<StudyRoom[]>
         const roomsMap = new Map<string, StudyRoom>();
         const processSnapshot = (snapshot: any) => {
             snapshot.docs.forEach((doc: any) => {
-                roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+                if (doc.data().status === 'active') { // Only show active rooms on the dashboard
+                   roomsMap.set(doc.id, { id: doc.id, ...doc.data() } as StudyRoom);
+                }
             });
         };
         processSnapshot(publicSnapshot);
