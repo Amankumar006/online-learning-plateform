@@ -1,4 +1,3 @@
-
 // src/lib/study-room.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, setDoc, addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy, Timestamp, where, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
@@ -109,29 +108,31 @@ export function getStudyRoomParticipantsListener(roomId: string, callback: (part
 export async function setParticipantStatus(roomId: string, user: User) {
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, user.uid);
     try {
-        await runTransaction(db, async (transaction) => {
-            const roomRef = doc(db, 'studyRooms', roomId);
-            const roomDoc = await transaction.get(roomRef);
-            if (!roomDoc.exists()) throw new Error("Room does not exist.");
-            const roomData = roomDoc.data() as StudyRoom;
-            if (roomData.status === 'ended') throw new Error("This study session has already ended.");
-           
-            transaction.set(participantRef, {
-                uid: user.uid, name: user.name || "Anonymous", photoURL: user.photoURL || null, handRaised: false,
-            }, { merge: true });
-        });
+        const roomDoc = await getDoc(doc(db, 'studyRooms', roomId));
+        if (!roomDoc.exists()) throw new Error("Room does not exist.");
+        const roomData = roomDoc.data() as StudyRoom;
+        if (roomData.status === 'ended') throw new Error("This study session has already ended.");
+       
+        await setDoc(participantRef, {
+            uid: user.uid, name: user.name || "Anonymous", photoURL: user.photoURL || null, handRaised: false,
+        }, { merge: true });
+
     } catch (e: any) {
         console.error("setParticipantStatus failed:", e.message);
         throw e;
     }
 }
 
+
 export async function toggleHandRaise(roomId: string, userId: string) {
     const participantRef = doc(db, `studyRooms/${roomId}/participants`, userId);
     try {
         await runTransaction(db, async (t) => {
-            const doc = await t.get(participantRef);
-            if (doc.exists()) t.update(participantRef, { handRaised: !doc.data().handRaised });
+            const docSnap = await t.get(participantRef);
+            if (docSnap.exists()) {
+                const currentStatus = docSnap.data().handRaised || false;
+                t.update(participantRef, { handRaised: !currentStatus });
+            }
         });
     } catch (error) {
         console.error("Error toggling hand raise:", error);

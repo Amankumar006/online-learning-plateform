@@ -1,49 +1,76 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // =================================
+    // Helper Functions
+    // =================================
+
+    // Checks if the requesting user is a registered admin.
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Checks if a user is authenticated.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Checks if the user making the request is the owner of the resource.
+    function isResourceOwner(resource) {
+      return request.auth.uid == resource.data.userId;
+    }
+
+    // =================================
+    // User Management
+    // =================================
+
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isAdmin();
-      allow update: if request.auth.uid == userId || isAdmin();
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if request.auth.uid == userId;
       allow delete: if false;
 
-      match /{collection}/{docId} {
+      // Rules for user's tasks and notes subcollections
+      match /{subcollection}/{docId} {
         allow read, write, delete: if request.auth.uid == userId;
       }
     }
 
+    // =================================
+    // Core Content
+    // =================================
+
     match /lessons/{lessonId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin(); // create, update, delete
     }
 
     match /exercises/{exerciseId} {
-      allow read: if request.auth != null && (isAdmin() || resource.data.isCustom == false || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && (isAdmin() || (request.resource.data.isCustom == true && request.resource.data.userId == request.auth.uid));
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.isCustom == false || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.isCustom == true && isResourceOwner(request.resource)));
       allow update: if isAdmin();
-      allow delete: if request.auth != null && (isAdmin() || (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid && get(/databases/$(database)/documents/exercises/$(exerciseId)).data.isCustom == true));
+      allow delete: if isAuthenticated() && (isAdmin() || (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid));
     }
     
     match /exerciseResponses/{responseId} {
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (isResourceOwner(resource) || isAdmin());
+      allow write: if isAuthenticated() && isResourceOwner(request.resource);
     }
 
+    // =================================
+    // Admin & System
+    // =================================
+
     match /announcements/{announcementId} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
     match /lessonRequests/{requestId} {
       allow read, update, delete: if isAdmin();
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isResourceOwner(request.resource);
     }
 
     match /emailQueue/{emailId} {
@@ -51,68 +78,66 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
     
+    // =================================
+    // Study Rooms
+    // =================================
     match /studyRooms/{roomId} {
-      function isRoomOwner() {
-        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid;
-      }
-      function isUserAnEditor() {
-        return request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds;
-      }
-      function isRoomPublic() {
-        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true;
-      }
-      function isRoomActive() {
-        return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.status == 'active';
-      }
-      
-      // Allow read access if the room is public or the user is an editor.
-      // This rule is primarily for the main hook to fetch room details once.
-      allow get: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-      
-      // Allow any authenticated user to list rooms to display on the dashboard.
-      allow list: if request.auth != null;
-      
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
-      allow update: if request.auth != null && isRoomOwner();
-      allow delete: if request.auth != null && isRoomOwner();
-      
-      match /participants/{userId} {
-        // Any user who can be in the room can see the participant list.
-        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        // A user can only write to their own participant document.
-        allow write: if request.auth != null && request.auth.uid == userId && isRoomActive();
-        // A user can delete their own doc, or the owner can kick them.
-        allow delete: if request.auth != null && (request.auth.uid == userId || isRoomOwner());
-      }
-      
-      // WebRTC Signaling
-      match /peers/{peerId} {
-        // Any user who has access to the room can see who is in the voice channel.
-        allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        // A user can only create/delete their own peer document.
-        allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
-        
-        match /connections/{connectionId} {
-          // A user can read/write/delete connections if they are either the sender or receiver.
-          allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
+      // Room-level access
+      allow get: if isAuthenticated() && (resource.data.isPublic == true || request.auth.uid in resource.data.editorIds);
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      
+      // --- Subcollection Rules ---
+
+      // Any user allowed in the room can see who is participating.
+      // A user can only create/update their own participant document.
+      // The owner can remove anyone.
+      match /participants/{userId} {
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+        allow write: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && (request.auth.uid == userId || get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid);
+      }
+      
+      // A user can see the list of peers if they are allowed in the room.
+      // A user can only create/manage their own peer document.
+      match /peers/{peerId} {
+        allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+        allow write, delete: if isAuthenticated() && request.auth.uid == peerId;
+        
+        // A user can see the list of connections for a peer.
+        // A user can only create a connection document for themself, targeting another peer.
+        // The peer or the connection owner can modify/delete it.
+        match /connections/{connectionId} {
+          allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+          allow write, delete: if isAuthenticated() && (request.auth.uid == peerId || request.auth.uid == connectionId);
+
+          // A user can see the list of candidates for a connection.
+          // The peer or connection owner can create candidates.
           match /iceCandidates/{candidateId} {
-             // A user can access ICE candidates if they are part of that specific connection.
-             allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+             allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+             allow write, delete: if isAuthenticated() && (request.auth.uid == peerId || request.auth.uid == connectionId);
           }
         }
       }
 
+      // Any user allowed in the room can read messages.
+      // A user can only create messages as themself or as 'buddy-ai'.
       match /messages/{messageId} {
-        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        allow create: if request.auth != null && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'buddy-ai');
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+        allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'buddy-ai');
         allow update, delete: if false;
       }
 
+      // Any user allowed in the room can read resources.
+      // A user can only create resources as themself.
+      // The owner or original creator can delete resources.
       match /resources/{resourceId} {
-        allow read: if request.auth != null && (isRoomPublic() || isUserAnEditor());
-        allow create: if request.auth != null && request.resource.data.addedByUserId == request.auth.uid;
-        allow delete: if request.auth != null && (isRoomOwner() || resource.data.addedByUserId == request.auth.uid);
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
+        allow create: if isAuthenticated() && request.resource.data.addedByUserId == request.auth.uid;
+        allow delete: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid || resource.data.addedByUserId == request.auth.uid);
         allow update: if false;
       }
     }

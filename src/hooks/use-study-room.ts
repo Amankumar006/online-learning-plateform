@@ -73,21 +73,27 @@ export function useStudyRoom(roomId: string, user: User | null) {
         let messagesUnsubscribe: (() => void) | undefined;
         let participantsUnsubscribe: (() => void) | undefined;
         let resourcesUnsubscribe: (() => void) | undefined;
-        let expiryTimeout: NodeJS.Timeout | undefined;
-
         let stillMounted = true;
         
         const setup = async () => {
             try {
+                // Fetch initial room data to decide if user can even attempt to join
                 const initialRoomData = await getStudyRoom(roomId);
                 if (!initialRoomData) {
                     if (stillMounted) setError("This study room does not exist.");
                     if (stillMounted) setLoading(false);
                     return;
                 }
-                
+                const canAccess = initialRoomData.isPublic || initialRoomData.editorIds.includes(user.uid);
+                if (!canAccess) {
+                    if (stillMounted) setError("You do not have permission to access this room.");
+                    if (stillMounted) setLoading(false);
+                    return;
+                }
+
                 await setParticipantStatus(roomId, user);
 
+                // Now setup listeners
                 stateUnsubscribe = getStudyRoomStateListener(roomId, (roomData) => {
                     if (!stillMounted) return;
                     if (roomData) {
@@ -97,24 +103,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
                         if (roomData.status === 'ended') {
                             setIsReadOnly(true);
-                            if(expiryTimeout) clearTimeout(expiryTimeout);
                             leaveVoiceChannel();
-                        } else {
-                            const timeUntilExpiry = roomData.expiresAt.toMillis() - Date.now();
-                            if (timeUntilExpiry > 0 && !expiryTimeout) {
-                                expiryTimeout = setTimeout(() => {
-                                    if (roomData.ownerId === user.uid) endSession();
-                                }, timeUntilExpiry);
-                            } else if (timeUntilExpiry <= 0 && roomData.status !== 'ended') {
-                                if (roomData.ownerId === user.uid) endSession();
-                            }
-                        }
-
-                        if (roomData.roomState) {
-                            try {
-                                const snapshot = JSON.parse(roomData.roomState);
-                                if(snapshot) store.loadSnapshot(snapshot);
-                            } catch (e) { console.error("Failed to parse or load room state:", e); }
                         }
                     } else {
                         setError("This study room does not exist or has been deleted.");
@@ -157,13 +146,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
             stillMounted = false;
             handleBeforeUnload(); 
             window.removeEventListener('beforeunload', handleBeforeUnload);
-            if(expiryTimeout) clearTimeout(expiryTimeout);
             stateUnsubscribe?.();
             messagesUnsubscribe?.();
             participantsUnsubscribe?.();
             resourcesUnsubscribe?.();
         };
-    }, [roomId, user, store, endSession, leaveVoiceChannel]);
+    }, [roomId, user, store, leaveVoiceChannel]);
 
     useEffect(() => {
         const saveUnsubscribe = store.listen(
