@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -102,14 +103,14 @@ service cloud.firestore {
       function isRoomPublic() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true;
       }
-      function hasRoomAccess() {
-        return isRoomPublic() || isUserAnEditor();
-      }
       function isRoomActive() {
         return get(/databases/$(database)/documents/studyRooms/$(roomId)).data.status == 'active';
       }
       function isParticipant() {
         return exists(/databases/$(database)/documents/studyRooms/$(roomId)/participants/$(request.auth.uid));
+      }
+      function hasRoomAccess() {
+        return isRoomPublic() || isUserAnEditor();
       }
 
       // GET: Allow reading a single room if it's public or the user is an editor.
@@ -142,10 +143,10 @@ service cloud.firestore {
         allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
         
         match /connections/{connectionId} {
-          allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+           allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
           match /iceCandidates/{candidateId} {
-             allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
+             allow read, write, delete: if request.auth != null && hasRoomAccess() && isRoomActive();
           }
         }
       }
