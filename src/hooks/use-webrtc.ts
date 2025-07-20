@@ -90,44 +90,44 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   // --- Core Connection Logic ---
   const createPeerConnection = useCallback((peerId: string): RTCPeerConnection => {
     if (peerConnectionsRef.current.has(peerId)) {
-      peerConnectionsRef.current.get(peerId)?.close();
+        peerConnectionsRef.current.get(peerId)?.close();
     }
-    
+
     const pc = new RTCPeerConnection(servers);
-    
+
     localStreamRef.current?.getTracks().forEach(track => {
-      pc.addTrack(track, localStreamRef.current!);
+        pc.addTrack(track, localStreamRef.current!);
     });
 
     pc.ontrack = (event) => {
-      setRemoteStreams(prev => new Map(prev).set(peerId, event.streams[0]));
+        setRemoteStreams(prev => new Map(prev).set(peerId, event.streams[0]));
     };
-    
+
     if (currentUser) {
-      const myId = currentUser.uid;
-      const myIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', myId, 'iceCandidates', peerId);
+        const myId = currentUser.uid;
+        const iceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'iceCandidates', peerId);
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          addDoc(myIceCandidatesCollection, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
-        }
-      };
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                addDoc(iceCandidatesCollectionRef, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
+            }
+        };
 
-      // Listen for ICE candidates from the specific peer
-      const peerIceCandidatesCollection = collection(db, 'studyRooms', roomId, 'peers', peerId, 'iceCandidates', myId);
-      onSnapshot(peerIceCandidatesCollection, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const candidate = new RTCIceCandidate(change.doc.data());
-            pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
-          }
+        const remoteIceCandidatesCollectionRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'iceCandidates', myId);
+        onSnapshot(remoteIceCandidatesCollectionRef, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const candidate = new RTCIceCandidate(change.doc.data());
+                    pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
+                }
+            });
         });
-      });
     }
 
     peerConnectionsRef.current.set(peerId, pc);
     return pc;
-  }, [currentUser, roomId]);
+}, [currentUser, roomId]);
+
 
 
   const joinVoiceChannel = useCallback(async () => {
@@ -232,24 +232,19 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         
         peersSnapshot.forEach(peerDoc => {
             const peerId = peerDoc.id;
-            // Delete connection docs where I am the callee
             if (peerId === myId) {
                 const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'connections');
                 const myIceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', myId, 'iceCandidates');
                 cleanupPromises.push(getDocs(myConnectionsRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
                 cleanupPromises.push(getDocs(myIceCandidatesRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
             } else {
-                // Delete connection docs where I was the caller
                 cleanupPromises.push(deleteDoc(doc(db, 'studyRooms', roomId, 'peers', peerId, 'connections', myId)));
-                // Delete ICE candidates I sent to this peer
                 const iceCandidatesRef = collection(db, 'studyRooms', roomId, 'peers', peerId, 'iceCandidates', myId);
                 cleanupPromises.push(getDocs(iceCandidatesRef).then(snap => Promise.all(snap.docs.map(d => deleteDoc(d.ref)))));
             }
         });
 
         await Promise.all(cleanupPromises);
-        
-        // Finally, delete my own peer document
         await deleteDoc(myPeerRef);
 
     } catch(e) {
