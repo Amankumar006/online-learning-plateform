@@ -135,16 +135,18 @@ service cloud.firestore {
       
       // WebRTC Signaling Peers subcollection
       match /peers/{peerId} {
-        // Allow any participant to list the peers to discover who to connect to.
-        allow list: if request.auth != null && isParticipant();
-        
-        // A user can read, create, or delete their own peer document.
-        allow get, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
+        // Allow a user to see the list of peers if they are a participant.
+        allow list: if request.auth != null && (isRoomPublic() || isUserAnEditor());
+        // A user can create, read, and delete their own peer document.
+        allow read, write, delete: if request.auth != null && request.auth.uid == peerId && isRoomActive();
         
         match /connections/{connectionId} {
+          // Allow read/write/delete if the user is either the peer being connected to,
+          // or the user initiating the connection.
           allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
 
           match /iceCandidates/{candidateId} {
+             // Same logic applies to ICE candidates.
              allow read, write, delete: if request.auth != null && (request.auth.uid == peerId || request.auth.uid == connectionId) && isRoomActive();
           }
         }
