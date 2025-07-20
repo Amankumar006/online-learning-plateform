@@ -112,7 +112,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
         
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                addDoc(myIceCandidatesCollection, event.candidate.toJSON());
+                addDoc(myIceCandidatesCollection, event.candidate.toJSON()).catch(e => console.error("Failed to add ICE candidate:", e));
             }
         };
 
@@ -131,8 +131,8 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
   }, [currentUser, roomId]);
 
 
-  const joinVoiceChannel = useCallback(async (allParticipants: User[]) => {
-    if (!currentUser || isJoiningRef.current) return;
+  const joinVoiceChannel = useCallback(async () => {
+    if (!currentUser || isJoiningRef.current || isVoiceConnected) return;
     isJoiningRef.current = true;
 
     try {
@@ -141,18 +141,7 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
       
       const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-      await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name || "Anonymous" });
-
-      const otherParticipants = allParticipants.filter(p => p.uid !== currentUser.uid);
-
-      for (const peer of otherParticipants) {
-          const pc = createPeerConnection(peer.uid);
-          const offerDescription = await pc.createOffer();
-          await pc.setLocalDescription(offerDescription);
-          const offer = { sdp: offerDescription.sdp, type: offerDescription.type };
-          const offerRef = doc(db, 'studyRooms', roomId, 'peers', peer.uid, 'connections', currentUser.uid);
-          await setDoc(offerRef, { offer });
-      }
+      await setDoc(myPeerRef, { uid: currentUser.uid, name: currentUser.name || "Anonymous", joinedAt: Timestamp.now() });
 
       setIsVoiceConnected(true);
     } catch (error) {
@@ -160,20 +149,58 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     } finally {
         isJoiningRef.current = false;
     }
-  }, [currentUser, createPeerConnection, isMuted, roomId]);
+  }, [currentUser, isVoiceConnected, isMuted, roomId]);
 
-
+  // Main listener for peer connections
   useEffect(() => {
     if (!isVoiceConnected || !currentUser) return;
-    
+
+    const peersCollectionRef = collection(db, 'studyRooms', roomId, 'peers');
+
+    const unsubscribe = onSnapshot(peersCollectionRef, (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        const peerId = change.doc.id;
+        if (peerId === currentUser.uid) return;
+
+        if (change.type === 'added') {
+          // A new peer has joined, create an offer
+          const pc = createPeerConnection(peerId);
+          const offerDescription = await pc.createOffer();
+          await pc.setLocalDescription(offerDescription);
+          const offer = { sdp: offerDescription.sdp, type: offerDescription.type };
+          const offerRef = doc(db, 'studyRooms', roomId, 'peers', peerId, 'connections', currentUser.uid);
+          await setDoc(offerRef, { offer });
+        }
+
+        if (change.type === 'removed') {
+          // A peer has left
+          peerConnectionsRef.current.get(peerId)?.close();
+          peerConnectionsRef.current.delete(peerId);
+          setRemoteStreams(prev => {
+            const newStreams = new Map(prev);
+            newStreams.delete(peerId);
+            return newStreams;
+          });
+        }
+      });
+    });
+
+    return () => unsubscribe();
+  }, [isVoiceConnected, currentUser, roomId, createPeerConnection]);
+  
+
+  // Listener for answers and offers directed at the current user
+  useEffect(() => {
+    if (!isVoiceConnected || !currentUser) return;
+
     const myConnectionsRef = collection(db, 'studyRooms', roomId, 'peers', currentUser.uid, 'connections');
     const unsubscribe = onSnapshot(myConnectionsRef, (snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
             const peerId = change.doc.id;
             const data = change.doc.data();
 
-            if (data.offer && !peerConnectionsRef.current.has(peerId)) {
-                const pc = createPeerConnection(peerId);
+            if (data.offer) {
+                const pc = peerConnectionsRef.current.get(peerId) || createPeerConnection(peerId);
                 await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
                 const answerDescription = await pc.createAnswer();
                 await pc.setLocalDescription(answerDescription);
@@ -192,9 +219,11 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
 
     return () => unsubscribe();
   }, [isVoiceConnected, currentUser, roomId, createPeerConnection]);
-  
+
 
   const leaveVoiceChannel = useCallback(async () => {
+    if (!currentUser) return;
+
     localStreamRef.current?.getTracks().forEach(track => track.stop());
     localStreamRef.current = null;
 
@@ -202,15 +231,22 @@ export function useWebRTC(roomId: string, currentUser: User | null) {
     peerConnectionsRef.current.clear();
     setRemoteStreams(new Map());
 
-    if (currentUser) {
-        const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
-        try {
-            const connectionsSnapshot = await getDocs(collection(myPeerRef, 'connections'));
-            await Promise.all(connectionsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
-            await deleteDoc(myPeerRef);
-        } catch(e) {
-            console.warn("Could not clean up peer docs, they may already be deleted.", e);
-        }
+    const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
+    try {
+        const connectionsSnapshot = await getDocs(collection(myPeerRef, 'connections'));
+        await Promise.all(connectionsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        const otherPeersSnapshot = await getDocs(query(collection(db, 'studyRooms', roomId, 'peers')));
+        await Promise.all(otherPeersSnapshot.docs.map(async (peerDoc) => {
+            if (peerDoc.id !== currentUser.uid) {
+                const connRef = doc(db, 'studyRooms', roomId, 'peers', peerDoc.id, 'connections', currentUser.uid);
+                await deleteDoc(connRef).catch(() => {}); // Ignore errors if already deleted
+            }
+        }));
+
+        await deleteDoc(myPeerRef);
+    } catch(e) {
+        console.warn("Could not clean up all peer docs, they may already be deleted.", e);
     }
     
     setIsVoiceConnected(false);

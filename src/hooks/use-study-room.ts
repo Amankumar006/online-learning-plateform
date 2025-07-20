@@ -8,7 +8,6 @@ import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 import { useWebRTC } from './use-webrtc';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, query, getDocs } from 'firebase/firestore';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -40,19 +39,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
             isSpeaking: speakingPeers.has(p.uid)
         }));
     }, [participants, speakingPeers]);
-
-    const onJoinVoice = useCallback(async () => {
-        await joinVoiceChannel(participants);
-    }, [joinVoiceChannel, participants]);
-
-    const onLeaveVoice = useCallback(async () => {
-        await leaveVoiceChannel();
-    }, [leaveVoiceChannel]);
-
-    const onToggleMute = useCallback(() => {
-        toggleMute();
-    }, [toggleMute]);
-
 
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
@@ -159,12 +145,17 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
         setup();
 
-        const handleBeforeUnload = () => { if(user?.uid) removeParticipantStatus(roomId, user.uid); };
+        const handleBeforeUnload = () => { 
+            if(user?.uid) {
+                leaveVoiceChannel(); // Disconnect from voice
+                removeParticipantStatus(roomId, user.uid); // Remove presence
+            }
+        };
         window.addEventListener('beforeunload', handleBeforeUnload);
         
         return () => {
             stillMounted = false;
-            if(user?.uid) removeParticipantStatus(roomId, user.uid);
+            handleBeforeUnload(); // Call on unmount as well
             window.removeEventListener('beforeunload', handleBeforeUnload);
             if(expiryTimeout) clearTimeout(expiryTimeout);
             stateUnsubscribe?.();
@@ -172,7 +163,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
             participantsUnsubscribe?.();
             resourcesUnsubscribe?.();
         };
-    }, [roomId, user, store, endSession]);
+    }, [roomId, user, store, endSession, leaveVoiceChannel]);
 
     // Effect for saving canvas state
     useEffect(() => {
@@ -243,6 +234,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         store, setEditor, editor, error, isLoading: loading, messages, sendMessage: handleSendMessage,
         participants: participantsWithVoiceState, addLessonImageToCanvas, room, isReadOnly, endSession,
         toggleHandRaise, resources, toggleParticipantEditorRole: handleToggleEditorRole,
-        isVoiceConnected, isMuted, onJoinVoice, onLeaveVoice, onToggleMute, remoteStreams,
+        isVoiceConnected, isMuted, onJoinVoice: joinVoiceChannel, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
     };
 }
