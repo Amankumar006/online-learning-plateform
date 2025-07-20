@@ -114,6 +114,8 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
 
     const pc = new RTCPeerConnection(servers);
     
+    // **FIX**: Add tracks from the existing local stream when a new peer connection is created.
+    // This handles cases where new peers join after the current user is already broadcasting.
     if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => {
             pc.addTrack(track, localStreamRef.current!);
@@ -162,6 +164,8 @@ export function useWebRTC(roomId: string, currentUser: User | null, roomData: Ro
       localStreamRef.current = stream;
       stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
 
+      // **FIX**: After getting the stream, ensure all existing peer connections get the tracks.
+      // This handles the case where connections were created before the stream was available.
       addTracksToAllPeerConnections();
       
       const myPeerRef = doc(db, 'studyRooms', roomId, 'peers', currentUser.uid);
