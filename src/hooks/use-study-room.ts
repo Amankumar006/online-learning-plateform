@@ -8,6 +8,7 @@ import throttle from 'lodash/throttle';
 import { db } from '@/lib/firebase';
 import { studyRoomBuddy } from '@/ai/flows/study-room-buddy';
 import { useWebRTC } from './use-webrtc';
+import { onSnapshot, collection } from 'firebase/firestore';
 
 const SAVE_STATE_INTERVAL = 1000; // ms
 
@@ -39,6 +40,12 @@ export function useStudyRoom(roomId: string, user: User | null) {
             isSpeaking: speakingPeers.has(p.uid)
         }));
     }, [participants, speakingPeers]);
+    
+    const onJoinVoice = useCallback(() => {
+        if (user) {
+            joinVoiceChannel();
+        }
+    }, [user, joinVoiceChannel]);
 
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
@@ -234,6 +241,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         store, setEditor, editor, error, isLoading: loading, messages, sendMessage: handleSendMessage,
         participants: participantsWithVoiceState, addLessonImageToCanvas, room, isReadOnly, endSession,
         toggleHandRaise, resources, toggleParticipantEditorRole: handleToggleEditorRole,
-        isVoiceConnected, isMuted, onJoinVoice: joinVoiceChannel, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
+        isVoiceConnected, isMuted, onJoinVoice: onJoinVoice, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
     };
 }
