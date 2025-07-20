@@ -23,6 +23,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
     const [resources, setResources] = useState<StudyRoomResource[]>([]);
     const lastProcessedMessageId = useRef<string | null>(null);
 
+    // Integrate the refactored, self-contained WebRTC hook
     const { 
         isVoiceConnected,
         isMuted,
@@ -33,6 +34,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         speakingPeers,
     } = useWebRTC(roomId, user);
     
+    // Combine participant data with real-time voice state from the WebRTC hook
     const participantsWithVoiceState = useMemo(() => {
         return participants.map(p => ({
             ...p,
@@ -40,12 +42,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         }));
     }, [participants, speakingPeers]);
     
-    const onJoinVoice = useCallback(() => {
-        if (user) {
-            joinVoiceChannel();
-        }
-    }, [user, joinVoiceChannel]);
-
     const saveStateToFirestore = useMemo(() =>
         throttle((snapshot: string) => {
             if (room?.status !== 'ended') {
@@ -67,7 +63,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         }
     }, [roomId, user?.uid, room?.ownerId]);
 
-    // Main setup effect
+    // Main setup effect for Firestore listeners
     useEffect(() => {
         if (!user) return;
 
@@ -153,15 +149,15 @@ export function useStudyRoom(roomId: string, user: User | null) {
 
         const handleBeforeUnload = () => { 
             if(user?.uid) {
-                leaveVoiceChannel(); // Disconnect from voice
-                removeParticipantStatus(roomId, user.uid); // Remove presence
+                leaveVoiceChannel(); 
+                removeParticipantStatus(roomId, user.uid);
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         
         return () => {
             stillMounted = false;
-            handleBeforeUnload(); // Call on unmount as well
+            handleBeforeUnload(); 
             window.removeEventListener('beforeunload', handleBeforeUnload);
             if(expiryTimeout) clearTimeout(expiryTimeout);
             stateUnsubscribe?.();
@@ -184,7 +180,6 @@ export function useStudyRoom(roomId: string, user: User | null) {
         return () => saveUnsubscribe();
     }, [store, isReadOnly, saveStateToFirestore]);
     
-
     // Effect to handle AI triggers
     useEffect(() => {
         const lastMessage = messages[messages.length - 1];
@@ -240,6 +235,7 @@ export function useStudyRoom(roomId: string, user: User | null) {
         store, setEditor, editor, error, isLoading: loading, messages, sendMessage: handleSendMessage,
         participants: participantsWithVoiceState, addLessonImageToCanvas, room, isReadOnly, endSession,
         toggleHandRaise, resources, toggleParticipantEditorRole: handleToggleEditorRole,
-        isVoiceConnected, isMuted, onJoinVoice: onJoinVoice, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
+        // Expose state and functions from useWebRTC directly to the UI
+        isVoiceConnected, isMuted, onJoinVoice: joinVoiceChannel, onLeaveVoice: leaveVoiceChannel, onToggleMute: toggleMute, remoteStreams,
     };
 }
