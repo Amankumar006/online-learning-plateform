@@ -77,7 +77,7 @@ const generateExerciseFlow = ai.defineFlow(
   {
     name: 'generateExerciseFlow',
     inputSchema: GenerateExerciseInputSchema,
-    outputSchema: GenerateExerciseOutputSchema,
+    outputSchema: GenerateExerciseOutputSchema.nullable(),
   },
   async input => {
     const {output} = await prompt(input);
