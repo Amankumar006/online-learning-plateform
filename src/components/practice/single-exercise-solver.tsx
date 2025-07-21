@@ -304,7 +304,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                 correct = selectedAnswer === exercise.correctAnswer;
                 break;
             case 'true_false':
-                correct = (exercise.correctAnswer as unknown as string === String(selectedAnswer === 'True').toLowerCase());
+                correct = ((exercise as TrueFalseExercise).correctAnswer).toString() === (selectedAnswer === 'True').toString();
                 break;
         }
         score = correct ? 100 : 0;
@@ -314,7 +314,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setIsCorrect(correct);
     
     try {
-        await saveExerciseAttempt( userId, lessonTitle, exercise, submittedAnswer, correct, score, aiFeedback || undefined, imageDataUri );
+        await saveExerciseAttempt( userId, lessonTitle, exercise, submittedAnswer, correct, score, aiFeedback, imageDataUri );
          if (exercise.type !== 'long_form') {
             toast({ title: correct ? "Correct!" : "Not quite" });
         }
@@ -468,7 +468,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={isGrading || isSimulating || (exercise.type !== 'fill_in_the_blanks' && !selectedAnswer && !longFormAnswer && !imageDataUri) } size="lg">
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || isSimulating || (exercise.type !== 'long_form' && !selectedAnswer && !longFormAnswer && !imageDataUri) } size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (

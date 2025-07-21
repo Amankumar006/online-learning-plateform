@@ -1,7 +1,7 @@
 // src/lib/exercises.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, setDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit } from 'firebase/firestore';
-import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeMathSolutionOutput, Achievement } from './types';
+import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeMathSolutionOutput, Achievement, GradeLongFormAnswerOutput } from './types';
 import { triggerSuggestionIfStruggling } from './user';
 import { createSystemAnnouncement } from './announcements';
 import { format, startOfWeek } from 'date-fns';
@@ -36,7 +36,7 @@ export async function getCustomExercisesForUser(userId: string): Promise<Exercis
     const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
     const snapshot = await getDocs(q);
     const exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0)));
 }
 
 export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
@@ -94,7 +94,7 @@ export async function deleteExercise(exerciseId: string): Promise<void> {
 
 export async function saveExerciseAttempt(
     userId: string, lessonTitle: string, exercise: Exercise, submittedAnswer: string | boolean | string[],
-    isCorrect: boolean, score: number, feedback?: string | GradeLongFormAnswerOutput, imageDataUri?: string | null
+    isCorrect: boolean, score: number, feedback?: GradeLongFormAnswerOutput | null, imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
@@ -102,10 +102,14 @@ export async function saveExerciseAttempt(
     try {
         const responseSnap = await getDoc(responseRef);
         const isFirstAttempt = !responseSnap.exists();
+        
+        // Ensure feedback is stored as a string or is undefined.
+        const feedbackString = typeof feedback === 'object' && feedback !== null ? feedback.feedback : undefined;
+
         const dataToSave: Partial<UserExerciseResponse> = {
             userId, lessonId: exercise.lessonId, exerciseId: exercise.id,
             question: exercise.type === 'fill_in_the_blanks' ? (exercise as FillInTheBlanksExercise).questionParts.join('___') : (exercise as BaseExercise).question,
-            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedback || undefined, tags: exercise.tags || [],
+            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedbackString, tags: exercise.tags || [],
             submittedAt: Date.now(),
         };
         if (imageDataUri) dataToSave.imageDataUri = imageDataUri;
