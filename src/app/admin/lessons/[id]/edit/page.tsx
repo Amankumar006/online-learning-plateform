@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getLesson, updateLesson, Lesson, Section, generateAndStoreLessonAudio } from "@/lib/data";
-import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight, RefreshCw } from "lucide-react";
+import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight, RefreshCw, ArrowUp, ArrowDown } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
@@ -237,6 +237,18 @@ export default function EditLessonPage() {
       router.push(`/admin/lessons/new?${query.toString()}`);
   }
 
+  const handleMoveSection = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === sections.length - 1) return;
+
+    const newSections = [...sections];
+    const sectionToMove = newSections[index];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    newSections[index] = newSections[swapIndex];
+    newSections[swapIndex] = sectionToMove;
+    setSections(newSections);
+  };
+
   const breadcrumbItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/lessons", label: "Lessons" },
@@ -326,8 +338,14 @@ export default function EditLessonPage() {
                   {sections.length > 0 ? (
                       <div className="space-y-6">
                           {sections.map((section, sIndex) => (
-                              <div key={sIndex} className="p-4 rounded-md border bg-secondary/30">
-                                  <h3 className="font-semibold text-lg mb-2">{section.title}</h3>
+                              <div key={sIndex} className="p-4 rounded-md border bg-secondary/30 group">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="font-semibold text-lg">{section.title}</h3>
+                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button type="button" variant="ghost" size="icon" disabled={sIndex === 0} onClick={() => handleMoveSection(sIndex, 'up')}><ArrowUp className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" disabled={sIndex === sections.length - 1} onClick={() => handleMoveSection(sIndex, 'down')}><ArrowDown className="h-4 w-4" /></Button>
+                                    </div>
+                                  </div>
                                   <div className="space-y-4">
                                       {section.blocks.map((block, bIndex) => (
                                           <div key={bIndex} className="p-3 bg-background rounded-md shadow-sm">
