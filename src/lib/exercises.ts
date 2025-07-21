@@ -94,7 +94,7 @@ export async function deleteExercise(exerciseId: string): Promise<void> {
 
 export async function saveExerciseAttempt(
     userId: string, lessonTitle: string, exercise: Exercise, submittedAnswer: string | boolean | string[],
-    isCorrect: boolean, score: number, feedback?: string | GradeMathSolutionOutput, imageDataUri?: string | null
+    isCorrect: boolean, score: number, feedback?: string | GradeLongFormAnswerOutput, imageDataUri?: string | null
 ) {
     const userRef = doc(db, 'users', userId);
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
@@ -105,7 +105,7 @@ export async function saveExerciseAttempt(
         const dataToSave: Partial<UserExerciseResponse> = {
             userId, lessonId: exercise.lessonId, exerciseId: exercise.id,
             question: exercise.type === 'fill_in_the_blanks' ? (exercise as FillInTheBlanksExercise).questionParts.join('___') : (exercise as BaseExercise).question,
-            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedback || "", tags: exercise.tags || [],
+            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedback || undefined, tags: exercise.tags || [],
             submittedAt: Date.now(),
         };
         if (imageDataUri) dataToSave.imageDataUri = imageDataUri;

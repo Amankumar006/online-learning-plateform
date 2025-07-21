@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse } from "@/lib/data";
+import type { Exercise, McqExercise, TrueFalseExercise, LongFormExercise, UserExerciseResponse, FillInTheBlanksExercise } from "@/lib/data";
 import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "../ui/skeleton";
+import { Input } from "../ui/input";
 
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
@@ -56,7 +57,7 @@ const difficultyToText = (level: number) => {
 
 const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
     <div className="space-y-6">
-        <FormattedQuestion text={exercise.type !== 'fill_in_the_blanks' ? exercise.question : exercise.questionParts.join(' ___ ')} />
+        <FormattedQuestion text={exercise.type !== 'fill_in_the_blanks' ? exercise.question : (exercise as FillInTheBlanksExercise).questionParts.join(' ___ ')} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <Card>
@@ -209,6 +210,8 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [longFormAnswer, setLongFormAnswer] = useState("");
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+  const [fibAnswers, setFibAnswers] = useState<string[]>([]);
+  const [fibCorrectness, setFibCorrectness] = useState<boolean[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
@@ -227,6 +230,10 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setFeedback(null);
     setSimulationResult(null);
     setActiveOutputTab("console");
+
+    if (exercise.type === 'fill_in_the_blanks') {
+        setFibAnswers(Array(exercise.correctAnswers.length).fill(''));
+    }
     
     if (initialResponse) {
       setIsAnswered(true);
@@ -244,6 +251,11 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
         }
       } else if (exercise.type === 'true_false') {
         setSelectedAnswer(initialResponse.submittedAnswer ? 'True' : 'False');
+      } else if (exercise.type === 'fill_in_the_blanks') {
+        const submitted = initialResponse.submittedAnswer as string[];
+        setFibAnswers(submitted);
+        const correctness = submitted.map((ans, i) => ans.trim().toLowerCase() === exercise.correctAnswers[i].trim().toLowerCase());
+        setFibCorrectness(correctness);
       } else { 
         setSelectedAnswer(initialResponse.submittedAnswer as string);
       }
@@ -254,27 +266,18 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
   const handleAnswerSubmit = async () => {
     let correct = false;
     let score = 0;
-    let submittedAnswer: string | boolean = selectedAnswer!;
+    let submittedAnswer: string | boolean | string[] = selectedAnswer!;
     let aiFeedback: GradeLongFormAnswerOutput | null = null;
     
     if (exercise.type === 'long_form') {
         if (!longFormAnswer && !imageDataUri) {
-            toast({
-                variant: "destructive",
-                title: "No Answer",
-                description: "Please provide a typed answer or upload an image of your work.",
-            });
+            toast({ variant: "destructive", title: "No Answer", description: "Please provide a typed answer or upload an image of your work." });
             return;
         }
         submittedAnswer = longFormAnswer;
         setIsGrading(true);
         try {
-            const result = await gradeLongFormAnswer({
-                question: exercise.question,
-                evaluationCriteria: exercise.evaluationCriteria,
-                studentAnswer: longFormAnswer,
-                imageDataUri: imageDataUri || undefined,
-            });
+            const result = await gradeLongFormAnswer({ question: exercise.question, evaluationCriteria: exercise.evaluationCriteria, studentAnswer: longFormAnswer, imageDataUri: imageDataUri || undefined });
             aiFeedback = result;
             setFeedback(aiFeedback);
             correct = result.isCorrect;
@@ -288,6 +291,12 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
         } finally {
             setIsGrading(false);
         }
+    } else if (exercise.type === 'fill_in_the_blanks') {
+        submittedAnswer = fibAnswers;
+        const correctnessArray = fibAnswers.map((ans, i) => ans.trim().toLowerCase() === exercise.correctAnswers[i].trim().toLowerCase());
+        setFibCorrectness(correctnessArray);
+        correct = correctnessArray.every(c => c);
+        score = correct ? 100 : 0;
     } else {
         if (!selectedAnswer) return;
         switch (exercise.type) {
@@ -305,16 +314,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setIsCorrect(correct);
     
     try {
-        await saveExerciseAttempt(
-            userId, 
-            lessonTitle,
-            exercise,
-            submittedAnswer,
-            correct,
-            score,
-            aiFeedback?.feedback,
-            imageDataUri
-        );
+        await saveExerciseAttempt( userId, lessonTitle, exercise, submittedAnswer, correct, score, aiFeedback || undefined, imageDataUri );
          if (exercise.type !== 'long_form') {
             toast({ title: correct ? "Correct!" : "Not quite" });
         }
@@ -331,10 +331,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setIsSimulating(true);
     setSimulationResult(null);
     try {
-      const result = await simulateCodeExecution({
-        code: longFormAnswer,
-        language: codeExercise.language,
-      });
+      const result = await simulateCodeExecution({ code: longFormAnswer, language: codeExercise.language });
       setSimulationResult(result);
       toast({ title: "Analysis Complete", description: "The AI has simulated and analyzed your code." });
       setActiveOutputTab("analysis");
@@ -350,6 +347,12 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
   const handleApplySuggestion = (code: string) => {
       setLongFormAnswer(code);
       toast({ title: "Suggestion Applied!", description: "The code in the editor has been updated." });
+  };
+  
+  const handleFibAnswerChange = (index: number, value: string) => {
+    const newAnswers = [...fibAnswers];
+    newAnswers[index] = value;
+    setFibAnswers(newAnswers);
   };
 
 
@@ -406,16 +409,25 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                     </div>
                  );
             }
-            // For General long form questions
             return (
                 <div className="space-y-6">
                     <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />
                     <Separator />
-                    <ImageUploader 
-                        onImageChange={setImageDataUri} 
-                        disabled={isAnswered || isGrading} 
-                        initialImageUrl={imageDataUri}
-                    />
+                    <ImageUploader onImageChange={setImageDataUri} disabled={isAnswered || isGrading} initialImageUrl={imageDataUri} />
+                </div>
+            );
+        case 'fill_in_the_blanks':
+            const fib = exercise as FillInTheBlanksExercise;
+            return (
+                <div className="flex flex-wrap items-center gap-2 text-lg">
+                    {fib.questionParts.map((part, index) => (
+                        <React.Fragment key={index}>
+                            <span>{part}</span>
+                            {index < fib.correctAnswers.length && (
+                                <Input type="text" value={fibAnswers[index] || ''} onChange={(e) => handleFibAnswerChange(index, e.target.value)} disabled={isAnswered} className={cn("w-32 inline-block", isAnswered && (fibCorrectness[index] ? "border-primary ring-2 ring-primary" : "border-destructive ring-2 ring-destructive"))} />
+                            )}
+                        </React.Fragment>
+                    ))}
                 </div>
             );
         default:
@@ -456,7 +468,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
             {initialResponse ? (
                 <Button onClick={onSolved} size="lg">Return to Practice</Button>
             ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !longFormAnswer && !imageDataUri) || isGrading || isSimulating} size="lg">
+                <Button onClick={handleAnswerSubmit} disabled={isGrading || isSimulating || (exercise.type !== 'fill_in_the_blanks' && !selectedAnswer && !longFormAnswer && !imageDataUri) } size="lg">
                     {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
                 </Button>
             ) : (
