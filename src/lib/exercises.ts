@@ -1,7 +1,8 @@
+
 // src/lib/exercises.ts
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, setDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit } from 'firebase/firestore';
-import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeMathSolutionOutput, Achievement, GradeLongFormAnswerOutput } from './types';
+import { collection, getDocs, doc, getDoc, addDoc, setDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit, arrayUnion } from 'firebase/firestore';
+import { Exercise, ExerciseWithLessonTitle, FillInTheBlanksExercise, BaseExercise, UserExerciseResponse, UserProgress, GradeLongFormAnswerOutput, Achievement } from './types';
 import { triggerSuggestionIfStruggling } from './user';
 import { createSystemAnnouncement } from './announcements';
 import { format, startOfWeek } from 'date-fns';
@@ -36,7 +37,7 @@ export async function getCustomExercisesForUser(userId: string): Promise<Exercis
     const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
     const snapshot = await getDocs(q);
     const exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0)));
+    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
 export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
@@ -103,7 +104,6 @@ export async function saveExerciseAttempt(
         const responseSnap = await getDoc(responseRef);
         const isFirstAttempt = !responseSnap.exists();
         
-        // Ensure feedback is stored as a string or is undefined.
         const feedbackString = typeof feedback === 'object' && feedback !== null ? feedback.feedback : undefined;
 
         const dataToSave: Partial<UserExerciseResponse> = {
@@ -152,7 +152,7 @@ export async function saveExerciseAttempt(
                     'progress.averageScore': newAverageScore,
                     'progress.weeklyActivity': weeklyActivity.slice(-5),
                     'progress.xp': increment(xpGained),
-                    'progress.achievements': newAchievements,
+                    'progress.achievements': arrayUnion(...newAchievements),
                 });
             });
         } else {
