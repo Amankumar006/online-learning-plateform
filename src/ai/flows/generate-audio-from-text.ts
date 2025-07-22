@@ -45,10 +45,8 @@ async function toWav(
 }
 
 // Step 1: Define a prompt to convert raw text into a clean, speakable script.
-// This uses a general model capable of text transformation.
 const makeSpeakablePrompt = ai.definePrompt({
   name: 'makeSpeakablePrompt',
-  model: 'googleai/gemini-2.0-flash', // Use a general model for this task
   input: {schema: z.object({ text: z.string() })},
   output: {schema: z.object({ speakableText: z.string() })},
   prompt: `Convert the following text, which may contain Markdown, LaTeX math expressions (e.g., $ax^2+bx+c=0$), or code blocks (e.g., \`\`\`python...), into a clean, natural-sounding script for a text-to-speech engine.
