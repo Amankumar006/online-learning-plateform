@@ -49,7 +49,7 @@ const makeSpeakablePrompt = ai.definePrompt({
   name: 'makeSpeakablePrompt',
   input: {schema: z.object({ text: z.string() })},
   output: {schema: z.object({ speakableText: z.string() })},
-  model: 'googleai/gemini-2.0-flash', // Specify the model for this prompt
+  model: 'googleai/gemini-2.0-flash',
   prompt: `Convert the following text, which may contain Markdown, LaTeX math expressions (e.g., $ax^2+bx+c=0$), or code blocks (e.g., \`\`\`python...), into a clean, natural-sounding script for a text-to-speech engine.
 - Read all mathematical expressions aloud clearly. For example, convert $x^2$ to "x squared".
 - When you encounter a code block, say "Here is a code snippet:" and then read the code content.
@@ -86,7 +86,7 @@ export async function generateAudioFromText(input: GenerateAudioFromTextInput): 
           },
         },
       },
-      prompt: fullScript,
+      prompt: { text: fullScript },
     });
 
     if (!media) {
