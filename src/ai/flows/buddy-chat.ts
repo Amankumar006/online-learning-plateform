@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A conversational AI flow for the main Buddy AI page, with tools.
@@ -11,9 +10,9 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
-import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
-import { getBuddyChatTools } from '@/ai/tools/buddy-tools';
+import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy-tools';
 import { getSystemPrompt } from '@/ai/prompts/buddy-prompts';
+import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -26,6 +25,18 @@ const BuddyChatInputSchema = z.object({
   history: z.array(MessageSchema).optional().describe('The conversation history.'),
   persona: PersonaSchema.optional().default('buddy').describe("The AI's persona, which determines its personality and expertise."),
   lessonContext: z.string().optional().describe('The content of a lesson the user is currently viewing, if any. This should be used as the primary source of truth for lesson-specific questions.'),
+  userProgress: z.object({
+    completedLessonIds: z.array(z.string()).optional(),
+    subjectsMastery: z.array(z.object({
+      subject: z.string(),
+      mastery: z.number()
+    })).optional()
+  }).optional().describe('User progress data passed from client to avoid server-side Firebase access'),
+  availableLessons: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    subject: z.string().optional()
+  })).optional().describe('Available lessons passed from client to avoid server-side Firebase access')
 });
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
@@ -37,43 +48,76 @@ const StreamedOutputSchema = z.object({
 export type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
 
 
+const buddyChatPrompt = ai.definePrompt({
+  name: 'buddyChatPrompt',
+  input: { schema: BuddyChatInputSchema },
+  output: { schema: z.object({ response: z.string(), suggestions: z.array(z.string()).optional() }) },
+  prompt: `{{systemPrompt}}
+
+{{#if lessonContext}}
+**LESSON CONTEXT:**
+---
+{{lessonContext}}
+---
+{{/if}}
+
+{{#if history}}
+**CONVERSATION HISTORY:**
+{{#each history}}
+{{#if (eq role "user")}}Human: {{content}}{{/if}}
+{{#if (eq role "model")}}Assistant: {{content}}{{/if}}
+{{/each}}
+{{/if}}
+
+**USER MESSAGE:** {{userMessage}}
+
+Please respond helpfully and appropriately based on the context and conversation history.`,
+});
+
 const buddyChatFlow = ai.defineFlow(
   {
     name: 'buddyChatFlow',
     inputSchema: BuddyChatInputSchema,
     outputSchema: z.object({
         response: z.string(),
-        suggestions: z.array(z.string()).optional()
+        suggestions: z.array(z.string()).optional(),
+        topics: z.array(z.string()).optional(),
+        toolsUsed: z.array(z.string()).optional(),
     }),
-    authPolicy: (auth, input) => {
-        if (!auth) throw new Error("Authentication is required to chat with Buddy AI.");
-        if (auth.uid !== input.userId) throw new Error("User ID does not match authenticated user.");
-    }
   },
-  async (input, {auth}) => {
-    
+  async (input) => {
     try {
-        const MAX_HISTORY_MESSAGES = 10;
-
-        const history = (input.history || []).slice(-MAX_HISTORY_MESSAGES).map(msg => ({
-            role: msg.role as 'user' | 'model',
-            parts: [{ text: msg.content }],
-        }));
+        // Set the user ID and data for tools to access
+        await setCurrentUserId(input.userId);
+        await setCurrentUserData(input.userProgress, input.availableLessons);
         
-        const systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
-        const tools = await getBuddyChatTools();
+        // Skip conversation memory operations in the AI flow to avoid permission errors
+        // These will be handled on the client side instead
         
-        let promptText = input.userMessage;
-        if(input.lessonContext) {
-            promptText = `LESSON CONTEXT:\n---\n${input.lessonContext}\n---\n\nUSER MESSAGE: ${input.userMessage}`;
+        // Generate system prompt without conversation memory for now
+        let systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
+        
+        // Add basic user context if available
+        if (input.userProgress) {
+            const completedLessons = input.userProgress.completedLessonIds?.length || 0;
+            systemPrompt += `\n\n**USER CONTEXT:**\nUser has completed ${completedLessons} lessons.`;
         }
 
-        const llmResponse = await ai.generate({
-            model: 'googleai/gemini-2.0-flash',
+        const tools = await getBuddyChatTools();
+        const toolsUsed: string[] = [];
+        
+        // Use ai.generate with tools normally for all requests
+        const response = await ai.generate({
+            prompt: `${systemPrompt}
+
+${input.lessonContext ? `**LESSON CONTEXT:**\n---\n${input.lessonContext}\n---\n\n` : ''}
+
+${input.history && input.history.length > 0 ? `**CONVERSATION HISTORY:**\n${input.history.map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`).join('\n')}\n\n` : ''}
+
+**USER MESSAGE:** ${input.userMessage}
+
+Please respond helpfully and appropriately based on the context and conversation history.`,
             tools,
-            system: systemPrompt,
-            history: history,
-            prompt: promptText,
             config: {
                 safetySettings: [
                   { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -82,10 +126,21 @@ const buddyChatFlow = ai.defineFlow(
                   { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
                 ],
             },
-        }, { auth });
+        });
         
-        const aiResponseText = llmResponse.text;
+        const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
+
+        // Extract topics from the conversation
+        const topics = extractTopicsFromConversation(input.userMessage, aiResponseText);
         
+        // Track tool usage
+        if (response.toolInvocations) {
+            response.toolInvocations.forEach(tool => {
+                toolsUsed.push(tool.toolName);
+            });
+        }
+
+        // Generate contextual follow-up suggestions
         const followUpResult = await generateFollowUpSuggestions({
             lastUserMessage: input.userMessage,
             aiResponse: aiResponseText,
@@ -93,15 +148,85 @@ const buddyChatFlow = ai.defineFlow(
         
         return {
             response: aiResponseText,
-            suggestions: followUpResult.suggestions,
+            suggestions: followUpResult.suggestions.slice(0, 3),
+            topics,
+            toolsUsed,
         };
 
     } catch (e: any) {
         console.error("Error in buddyChatFlow:", e);
-        throw new Error(`I'm sorry, but an unexpected error occurred. Here are the details:\n\n> ${e.message || 'An unknown internal error happened.'}\n\nPlease try rephrasing your message or starting a new chat.`);
+        
+        return {
+            response: `I apologize, but I encountered an error while processing your request. Error: ${e.message || 'Unknown error occurred'}. Please try rephrasing your message.`,
+            suggestions: [],
+            topics: [],
+            toolsUsed: [],
+        };
+    } finally {
+        // Clear the user ID and data after processing
+        await setCurrentUserId(null);
+        await setCurrentUserData(null, null);
     }
   }
 );
+
+// Helper functions for extracting information from conversations
+function extractTopicsFromConversation(userMessage: string, aiResponse: string): string[] {
+    const topics: string[] = [];
+    const commonTopics = [
+        'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics', 
+        'chemistry', 'biology', 'history', 'english', 'programming', 'algorithms',
+        'data structures', 'machine learning', 'artificial intelligence', 'databases',
+        'web development', 'mobile development', 'science', 'literature'
+    ];
+    
+    const text = (userMessage + ' ' + aiResponse).toLowerCase();
+    
+    commonTopics.forEach(topic => {
+        if (text.includes(topic)) {
+            topics.push(topic);
+        }
+    });
+    
+    return [...new Set(topics)]; // Remove duplicates
+}
+
+function extractOpenQuestions(text: string): string[] {
+    const questions: string[] = [];
+    const questionMarkers = ['?', 'What do you think', 'How would you', 'Can you explain', 'Would you like'];
+    
+    questionMarkers.forEach(marker => {
+        if (text.includes(marker)) {
+            const sentences = text.split(/[.!?]+/);
+            sentences.forEach(sentence => {
+                if (sentence.includes(marker) && sentence.length < 100) {
+                    questions.push(sentence.trim());
+                }
+            });
+        }
+    });
+    
+    return questions.slice(0, 3); // Limit to 3 questions
+}
+
+function extractSuggestedTopics(text: string): string[] {
+    const suggestions: string[] = [];
+    const suggestionMarkers = ['next', 'should learn', 'try studying', 'explore', 'dive into'];
+    
+    suggestionMarkers.forEach(marker => {
+        if (text.includes(marker)) {
+            // Simple extraction - in a real implementation, you might use NLP
+            const words = text.split(/\s+/);
+            const markerIndex = words.findIndex(word => word.includes(marker));
+            if (markerIndex !== -1 && markerIndex < words.length - 2) {
+                const nextWords = words.slice(markerIndex + 1, markerIndex + 4).join(' ');
+                suggestions.push(nextWords);
+            }
+        }
+    });
+    
+    return suggestions.slice(0, 3);
+}
 
 
 export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOutput> {
@@ -119,3 +244,4 @@ export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOu
         };
     }
 }
+

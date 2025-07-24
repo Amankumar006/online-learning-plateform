@@ -1,4 +1,3 @@
-
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -18,7 +17,6 @@ function DashboardLoader() {
     </div>
   );
 }
-
 
 export default function DashboardLayout({
   children,
@@ -46,7 +44,12 @@ export default function DashboardLayout({
     /^\/dashboard\/study-room\/[^/]+$/,
   ];
 
+  const fullHeightPaths = [
+    /^\/dashboard\/buddy-ai$/,
+  ];
+
   const hideNav = noNavPaths.some(path => path.test(pathname));
+  const isFullHeight = fullHeightPaths.some(path => path.test(pathname));
 
   if (hideNav) {
     return <>{children}</>;
@@ -61,7 +64,7 @@ export default function DashboardLayout({
         <div className="flex h-screen w-full flex-col font-body">
           <DashboardNav />
           <div className="flex flex-1 overflow-hidden">
-             <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6 lg:p-8">
+             <main className={`flex-1 flex flex-col ${isFullHeight ? 'overflow-hidden' : 'overflow-y-auto p-4 md:p-6 lg:p-8'}`}>
                 {children}
             </main>
             <UtilitySidebar />

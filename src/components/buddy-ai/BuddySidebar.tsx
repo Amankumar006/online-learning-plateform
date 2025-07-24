@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -37,9 +36,23 @@ interface BuddySidebarProps {
     onNewChat: (persona: Persona) => void;
 }
 
-export const Personas: { id: Persona; name: string; description: string; icon: React.ReactNode }[] = [
-    { id: 'buddy', name: 'Study Buddy', description: 'Friendly and encouraging learning companion.', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'mentor', name: 'Code Mentor', description: 'Expert guidance for technical questions.', icon: <Briefcase className="w-5 h-5" /> },
+export const Personas: { id: Persona; name: string; description: string; icon: React.ReactNode; color: string; specialties: string[] }[] = [
+    { 
+        id: 'buddy', 
+        name: 'Study Buddy', 
+        description: 'Friendly and encouraging learning companion.', 
+        icon: <BookOpen className="w-5 h-5" />,
+        color: 'text-blue-500',
+        specialties: ['General Learning', 'Study Tips', 'Motivation', 'Explanations']
+    },
+    { 
+        id: 'mentor', 
+        name: 'Code Mentor', 
+        description: 'Expert guidance for technical questions.', 
+        icon: <Briefcase className="w-5 h-5" />,
+        color: 'text-purple-500',
+        specialties: ['Programming', 'Code Review', 'Algorithms', 'Best Practices']
+    },
 ];
 
 const getInitials = (name?: string | null) => {

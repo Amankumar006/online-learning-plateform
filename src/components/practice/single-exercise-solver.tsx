@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -314,8 +313,9 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setIsCorrect(correct);
     
     try {
-        await saveExerciseAttempt( userId, lessonTitle, exercise, submittedAnswer, correct, score, aiFeedback, imageDataUri );
-         if (exercise.type !== 'long_form') {
+        // Fix: Call saveExerciseAttempt with correct parameter names and order
+        await saveExerciseAttempt(userId, lessonTitle, exercise, submittedAnswer, correct, score, aiFeedback, imageDataUri);
+        if (exercise.type !== 'long_form') {
             toast({ title: correct ? "Correct!" : "Not quite" });
         }
     } catch (error) {

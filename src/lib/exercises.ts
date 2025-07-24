@@ -1,4 +1,3 @@
-
 // src/lib/exercises.ts
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, setDoc, deleteDoc, updateDoc, increment, runTransaction, query, where, orderBy, limit, arrayUnion } from 'firebase/firestore';
@@ -12,7 +11,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         const exerciseRef = doc(db, 'exercises', id);
         const exerciseSnap = await getDoc(exerciseRef);
         if (exerciseSnap.exists()) {
-            const data = exerciseSnap.data();
+            const data = exerciseSnap.data();   
             if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
                 data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
             }
@@ -20,7 +19,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         } else {
             return null;
         }
-    } catch (error) {
+    } catch (error) {   
         console.error("Error fetching exercise: ", error);
         throw new Error(`Failed to fetch exercise ${id}.`);
     }
@@ -97,79 +96,40 @@ export async function saveExerciseAttempt(
     userId: string, lessonTitle: string, exercise: Exercise, submittedAnswer: string | boolean | string[],
     isCorrect: boolean, score: number, feedback?: GradeLongFormAnswerOutput | null, imageDataUri?: string | null
 ) {
-    const userRef = doc(db, 'users', userId);
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
+    let responseSnap: any = null;
+    let isFirstAttempt = true;
     
     try {
-        const responseSnap = await getDoc(responseRef);
-        const isFirstAttempt = !responseSnap.exists();
+        // Check if this response already exists
+        responseSnap = await getDoc(responseRef);
+        isFirstAttempt = !responseSnap.exists();
         
         const feedbackString = typeof feedback === 'object' && feedback !== null ? feedback.feedback : undefined;
 
         const dataToSave: Partial<UserExerciseResponse> = {
-            userId, lessonId: exercise.lessonId, exerciseId: exercise.id,
+            userId, 
+            lessonId: exercise.lessonId, 
+            exerciseId: exercise.id,
             question: exercise.type === 'fill_in_the_blanks' ? (exercise as FillInTheBlanksExercise).questionParts.join('___') : (exercise as BaseExercise).question,
-            lessonTitle, submittedAnswer, isCorrect, score, feedback: feedbackString, tags: exercise.tags || [],
+            lessonTitle, 
+            submittedAnswer, 
+            isCorrect, 
+            score, 
+            feedback: feedbackString, 
+            tags: exercise.tags || [],
             submittedAt: Date.now(),
         };
         if (imageDataUri) dataToSave.imageDataUri = imageDataUri;
 
+        // Save exercise response
         if (isFirstAttempt) {
             await setDoc(responseRef, { ...dataToSave, attempts: 1 });
-            await runTransaction(db, async (t) => {
-                const userDoc = await t.get(userRef);
-                if (!userDoc.exists()) throw "User not found";
-                const progress = userDoc.data().progress as UserProgress;
-                
-                // Update aggregates
-                const totalAttempted = (progress.totalExercisesAttempted || 0) + 1;
-                const totalCorrect = (progress.totalExercisesCorrect || 0) + (isCorrect ? 1 : 0);
-                const newAverageScore = totalAttempted > 0 ? Math.round(((progress.averageScore || 0) * (totalAttempted - 1) + score) / totalAttempted) : 0;
-                
-                // Update weekly activity
-                const weeklyActivity = progress.weeklyActivity || [];
-                const weekStartDateStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-                let currentWeek = weeklyActivity.find(w => w.week === weekStartDateStr);
-                if (currentWeek) {
-                    if(isCorrect) currentWeek.skillsMastered = (currentWeek.skillsMastered || 0) + 1;
-                } else {
-                    weeklyActivity.push({ week: weekStartDateStr, skillsMastered: isCorrect ? 1 : 0, timeSpent: 0 });
-                }
-
-                // Update achievements
-                const xpGained = 10 + (exercise.difficulty * 5);
-                const newAchievements: Achievement[] = [...(progress.achievements || [])];
-                const addAchievement = (ach: Achievement) => !newAchievements.includes(ach) && newAchievements.push(ach);
-
-                if (totalCorrect === 1) addAchievement('FIRST_CORRECT_ANSWER');
-                if (exercise.category === 'math' && totalCorrect >= 10) addAchievement('MATH_WHIZ_10');
-                if (exercise.tags?.includes('python')) addAchievement('PYTHON_NOVICE');
-                if (exercise.tags?.includes('javascript')) addAchievement('JS_NOVICE');
-                
-                t.update(userRef, { 
-                    'progress.totalExercisesAttempted': totalAttempted,
-                    'progress.totalExercisesCorrect': totalCorrect,
-                    'progress.averageScore': newAverageScore,
-                    'progress.weeklyActivity': weeklyActivity.slice(-5),
-                    'progress.xp': increment(xpGained),
-                    'progress.achievements': arrayUnion(...newAchievements),
-                });
-            });
         } else {
             await updateDoc(responseRef, { ...dataToSave, attempts: increment(1) });
-            if (isCorrect) {
-                await updateDoc(userRef, {
-                    'progress.totalExercisesCorrect': increment(1),
-                    'progress.xp': increment(10 + (exercise.difficulty * 5)),
-                });
-            }
-        }
-        
-        if (!isCorrect && exercise.tags) {
-            await triggerSuggestionIfStruggling(userId, exercise.tags).catch(console.error);
         }
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("Save exercise attempt failed: ", e);
         throw new Error("Failed to save exercise result.");
     }

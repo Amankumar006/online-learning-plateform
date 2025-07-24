@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -6,11 +5,12 @@ import { Bot, User, Loader2, Send, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getUser, ProactiveSuggestion, clearProactiveSuggestion } from '@/lib/data';
+import { getUser, ProactiveSuggestion, clearProactiveSuggestion, getLessons, getConversationMemory, generatePersonalizedPrompts, saveConversationSession, updateConversationPatterns } from '@/lib/data';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
+import { Timestamp } from 'firebase/firestore';
 
 import { BuddySidebar, Personas } from '@/components/buddy-ai/BuddySidebar';
 import { MessageList } from '@/components/buddy-ai/MessageList';
@@ -39,15 +39,107 @@ export default function BuddyAIPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // Add state for user progress and lessons data
+  const [userProgress, setUserProgress] = useState<any>(null);
+  const [availableLessons, setAvailableLessons] = useState<any[]>([]);
+  
+  // Add session tracking state
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionTopics, setSessionTopics] = useState<string[]>([]);
+  const [sessionToolsUsed, setSessionToolsUsed] = useState<string[]>([]);
+  
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const { toast } = useToast();
-  
-  const handleSend = async (prompt?: string) => {
+
+  // Move activeConversation memoization before the callbacks that use it
+  const activeConversation = useMemo(() => {
+    return conversations.find(c => c.id === activeConversationId);
+  }, [conversations, activeConversationId]);
+
+  // Session tracking functions
+  const startNewSession = useCallback(() => {
+    setSessionStartTime(new Date());
+    setSessionTopics([]);
+    setSessionToolsUsed([]);
+  }, []);
+
+  const endSession = useCallback(async () => {
+    if (!user || !sessionStartTime || !activeConversation) return;
+
+    const endTime = new Date();
+    const duration = Math.floor((endTime.getTime() - sessionStartTime.getTime()) / 1000);
+    
+    // Only save sessions longer than 30 seconds
+    if (duration < 30) return;
+
+    try {
+      await saveConversationSession({
+        userId: user.uid,
+        persona: activeConversation.persona,
+        title: activeConversation.title,
+        messages: activeConversation.messages.map((msg, index) => ({
+          id: `msg_${index}`,
+          role: msg.role,
+          content: msg.content,
+          timestamp: Timestamp.fromDate(new Date(sessionStartTime.getTime() + (index * 30000))), // Approximate timestamps
+          mediaContent: [],
+          context: {
+            topicTags: sessionTopics,
+            toolsUsed: sessionToolsUsed,
+          }
+        })),
+        startTime: Timestamp.fromDate(sessionStartTime),
+        endTime: Timestamp.fromDate(endTime),
+        duration,
+        topicsCovered: sessionTopics,
+        toolsUsed: sessionToolsUsed,
+      });
+
+      // Update conversation patterns
+      await updateConversationPatterns(user.uid, {
+        topics: sessionTopics,
+        toolsUsed: sessionToolsUsed,
+        duration,
+        messageCount: activeConversation.messages.length,
+      });
+
+    } catch (error) {
+      console.error("Error saving session:", error);
+    }
+  }, [user, sessionStartTime, activeConversation, sessionTopics, sessionToolsUsed]);
+
+  // Helper function to extract topics from AI response
+  const extractTopicsFromResponse = useCallback((content: string): string[] => {
+    const topics: string[] = [];
+    const commonTopics = [
+      'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics', 
+      'chemistry', 'biology', 'history', 'english', 'programming', 'algorithms',
+      'data structures', 'machine learning', 'artificial intelligence', 'databases',
+      'web development', 'mobile development', 'science', 'literature'
+    ];
+    
+    const text = content.toLowerCase();
+    commonTopics.forEach(topic => {
+      if (text.includes(topic)) {
+        topics.push(topic);
+      }
+    });
+    
+    return topics;
+  }, []);
+
+  // Enhanced handleSend with session tracking
+  const handleSend = useCallback(async (prompt?: string) => {
     const messageToSend = prompt || input;
     if (!messageToSend.trim() || !user || !activeConversation) return;
+
+    // Start session if not already started
+    if (!sessionStartTime) {
+      startNewSession();
+    }
 
     const userMessage: Message = { role: 'user', content: messageToSend };
     
@@ -69,7 +161,113 @@ export default function BuddyAIPage() {
             userMessage: messageToSend,
             history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
             userId: user.uid,
-            persona: activeConversation.persona
+            persona: activeConversation.persona,
+            userProgress: userProgress,
+            availableLessons: availableLessons
+        });
+        
+        const isError = result.type === 'error';
+        const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
+
+        setConversations(prev => prev.map(c => {
+            if (c.id === activeConversationId) {
+                return { ...c, messages: [...c.messages, assistantMessage] };
+            }
+            return c;
+        }));
+
+        // Track topics and tools from the AI response
+        if (result.type === 'response') {
+          // Extract topics from the response (you can enhance this with better NLP)
+          const detectedTopics = extractTopicsFromResponse(result.content);
+          setSessionTopics(prev => [...new Set([...prev, ...detectedTopics])]);
+
+          // Track tool usage if available
+          if (result.suggestions) {
+            setSessionToolsUsed(prev => [...new Set([...prev, 'generateFollowUpSuggestions'])]);
+          }
+        }
+
+    } catch (e: any) {
+        console.error(e);
+        const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
+        const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
+        setConversations(prev => prev.map(c => {
+            if (c.id === activeConversationId) {
+                return { ...c, messages: [...c.messages, errorMessage] };
+            }
+            return c;
+        }));
+    } finally {
+        setIsLoading(false);
+    }
+  }, [input, user, activeConversation, sessionStartTime, startNewSession, activeConversationId, userProgress, availableLessons, extractTopicsFromResponse]);
+
+  // End session when conversation changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (sessionStartTime) {
+        endSession();
+      }
+    };
+  }, [endSession, sessionStartTime]);
+
+  // End session when switching conversations
+  const handleSelectConversation = useCallback((id: string) => {
+    if (sessionStartTime && activeConversationId !== id) {
+      endSession();
+    }
+    setActiveConversationId(id);
+    startNewSession();
+  }, [sessionStartTime, activeConversationId, endSession, startNewSession]);
+
+  const handleNewChat = useCallback((persona: Persona) => {
+    if (sessionStartTime) {
+      endSession();
+    }
+    const newId = `convo_${Date.now()}_${Math.random()}`;
+    const newConversation: Conversation = { id: newId, title: "New Chat", messages: [], createdAt: Date.now(), persona };
+    setConversations(prev => [newConversation, ...prev.sort((a, b) => b.createdAt - a.createdAt)]);
+    setActiveConversationId(newId);
+    setInput('');
+    startNewSession();
+  }, [sessionStartTime, endSession, startNewSession]);
+  
+  const handleDeleteConversation = useCallback((convoId: string) => {
+    const newConversations = conversations.filter(c => c.id !== convoId);
+    setConversations(newConversations);
+    if (activeConversationId === convoId) {
+        if (newConversations.length > 0) setActiveConversationId(newConversations[0].id);
+        else handleNewChat('buddy');
+    }
+  }, [conversations, activeConversationId, handleNewChat]);
+
+  const handleRegenerate = useCallback(async () => {
+    if (!activeConversation || !user) return;
+    const lastModelIndex = activeConversation.messages.findLastIndex(m => m.role === 'model');
+    if (lastModelIndex === -1) return;
+    const historyForRegen = activeConversation.messages.slice(0, lastModelIndex);
+    const lastUserMessage = historyForRegen.at(-1);
+
+    if (!lastUserMessage || lastUserMessage.role !== 'user') {
+        toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
+        return;
+    }
+    
+    // Remove the last AI response from the conversation
+    setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
+    
+    // Start loading and regenerate response without adding user message again
+    setIsLoading(true);
+
+    try {
+        const result = await buddyChatStream({
+            userMessage: lastUserMessage.content,
+            history: historyForRegen.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content })), // Exclude the last user message from history
+            userId: user.uid,
+            persona: activeConversation.persona,
+            userProgress: userProgress,
+            availableLessons: availableLessons
         });
         
         const isError = result.type === 'error';
@@ -94,10 +292,24 @@ export default function BuddyAIPage() {
     } finally {
         setIsLoading(false);
     }
-  };
+  }, [activeConversation, user, activeConversationId, userProgress, availableLessons, toast]);
 
+  const handleProactiveSuggestion = useCallback((suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
+    const newId = `convo_${Date.now()}_${Math.random()}`;
+    const proactiveConversation: Conversation = {
+        id: newId,
+        title: `Help with ${suggestion.topic}`,
+        messages: [{ role: 'model', content: suggestion.message }],
+        createdAt: Date.now(),
+        persona: 'buddy'
+    };
+    const updatedConversations = [proactiveConversation, ...newConversations];
+    setConversations(updatedConversations);
+    setActiveConversationId(newId);
+    startNewSession();
+  }, [startNewSession]);
 
-   const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({ onSpeechEnd: () => { if (transcript) handleSend(transcript); }});
+  const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({ onSpeechEnd: () => { if (transcript) handleSend(transcript); }});
   
   useEffect(() => { if (transcript) setInput(transcript); }, [transcript]);
   
@@ -134,103 +346,72 @@ export default function BuddyAIPage() {
     return () => audio.removeEventListener('ended', onEnded);
   }, []);
   
-  const activeConversation = useMemo(() => {
-    return conversations.find(c => c.id === activeConversationId);
-  }, [conversations, activeConversationId]);
-
-  const handleProactiveSuggestion = useCallback((suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
-    const newId = `convo_${Date.now()}_${Math.random()}`;
-    const proactiveConversation: Conversation = {
-        id: newId,
-        title: `Help with ${suggestion.topic}`,
-        messages: [{ role: 'model', content: suggestion.message }],
-        createdAt: Date.now(),
-        persona: 'buddy'
-    };
-    const updatedConversations = [proactiveConversation, ...newConversations];
-    setConversations(updatedConversations);
-    setActiveConversationId(newId);
-  }, []);
-
+  // Load user data and conversation memory
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const [userProfile, savedConvos] = await Promise.all([ getUser(currentUser.uid), localStorage.getItem(`conversations_${currentUser.uid}`) ]);
-        let parsedConvos: Conversation[] = [];
-        if (savedConvos) {
+        
+        try {
+          // Load user progress and lessons data
+          const [userProfile, lessonsData, savedConvos] = await Promise.all([
+            getUser(currentUser.uid),
+            getLessons(),
+            localStorage.getItem(`conversations_${currentUser.uid}`)
+          ]);
+
+          if (userProfile) {
+            setUserProgress(userProfile.progress);
+          }
+          setAvailableLessons(lessonsData);
+
+          let parsedConvos: Conversation[] = [];
+          if (savedConvos) {
             try {
-                // Perform a more robust check before parsing
-                if (savedConvos && savedConvos.trim().startsWith('[')) {
-                    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-                    parsedConvos = JSON.parse(savedConvos)
-                      .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
-                      .filter((convo: Conversation) => convo.createdAt && convo.createdAt > thirtyDaysAgo);
-                } else {
-                    throw new Error("Invalid JSON format for conversations.");
-                }
+              if (savedConvos && savedConvos.trim().startsWith('[')) {
+                const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+                parsedConvos = JSON.parse(savedConvos)
+                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
+                  .filter((convo: Conversation) => convo.createdAt && convo.createdAt > thirtyDaysAgo);
+              } else {
+                throw new Error("Invalid JSON format for conversations.");
+              }
             } catch (e) {
-                console.error("Failed to parse conversations from localStorage, clearing data.", e);
-                localStorage.removeItem(`conversations_${currentUser.uid}`);
+              console.error("Failed to parse conversations from localStorage, clearing data.", e);
+              localStorage.removeItem(`conversations_${currentUser.uid}`);
             }
-        }
-        if (userProfile?.proactiveSuggestion) {
+          }
+          
+          if (userProfile?.proactiveSuggestion) {
             handleProactiveSuggestion(userProfile.proactiveSuggestion, parsedConvos);
             clearProactiveSuggestion(currentUser.uid).catch(console.error);
-        } else {
+          } else {
             setConversations(parsedConvos);
-            if (parsedConvos.length > 0) setActiveConversationId(parsedConvos[0].id);
-            else handleNewChat('buddy');
+            if (parsedConvos.length > 0) {
+              setActiveConversationId(parsedConvos[0].id);
+              startNewSession();
+            } else {
+              handleNewChat('buddy');
+            }
+          }
+        } catch (error) {
+          console.error("Error loading user data:", error);
+          handleNewChat('buddy');
         }
       }
     });
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleProactiveSuggestion]);
+  }, [handleProactiveSuggestion, startNewSession]);
 
+  // Save conversations to localStorage
   useEffect(() => {
     if (user && conversations.length > 0) {
         localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
     }
   }, [conversations, user]);
-  
-  const handleSelectConversation = (id: string) => setActiveConversationId(id);
-
-  const handleNewChat = (persona: Persona) => {
-    const newId = `convo_${Date.now()}_${Math.random()}`;
-    const newConversation: Conversation = { id: newId, title: "New Chat", messages: [], createdAt: Date.now(), persona };
-    setConversations(prev => [newConversation, ...prev.sort((a, b) => b.createdAt - a.createdAt)]);
-    setActiveConversationId(newId);
-    setInput('');
-  };
-  
-  const handleDeleteConversation = (convoId: string) => {
-    const newConversations = conversations.filter(c => c.id !== convoId);
-    setConversations(newConversations);
-    if (activeConversationId === convoId) {
-        if (newConversations.length > 0) setActiveConversationId(newConversations[0].id);
-        else handleNewChat('buddy');
-    }
-  };
-
-  const handleRegenerate = async () => {
-    if (!activeConversation || !user) return;
-    const lastModelIndex = activeConversation.messages.findLastIndex(m => m.role === 'model');
-    if (lastModelIndex === -1) return;
-    const historyForRegen = activeConversation.messages.slice(0, lastModelIndex);
-    const lastUserMessage = historyForRegen.at(-1);
-
-    if (!lastUserMessage || lastUserMessage.role !== 'user') {
-        toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
-        return;
-    }
-    
-    setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
-    handleSend(lastUserMessage.content);
-  };
 
   return (
-    <div className="flex h-full w-full bg-background">
+    <div className="flex h-full w-full bg-background overflow-hidden">
       <audio ref={audioRef} onEnded={() => setPlayingMessageIndex(null)} />
       
       <BuddySidebar 
@@ -242,7 +423,7 @@ export default function BuddyAIPage() {
         onNewChat={handleNewChat}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col h-full min-h-0">
         {activeConversation && activeConversation.messages.length > 0 ? (
           <MessageList 
             user={user}
@@ -255,20 +436,24 @@ export default function BuddyAIPage() {
             onSendSuggestion={handleSend}
           />
         ) : (
-          <WelcomeScreen
-            persona={activeConversation?.persona || 'buddy'}
-            onSendSuggestion={handleSend}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <WelcomeScreen
+              persona={activeConversation?.persona || 'buddy'}
+              onSendSuggestion={handleSend}
+            />
+          </div>
         )}
 
-        <BuddyInputForm 
-          input={input}
-          onInputChange={setInput}
-          onSend={handleSend}
-          isLoading={isLoading}
-          isListening={isListening}
-          onMicClick={handleMicClick}
-        />
+        <div className="flex-shrink-0 border-t bg-background">
+          <BuddyInputForm 
+            input={input}
+            onInputChange={setInput}
+            onSend={handleSend}
+            isLoading={isLoading}
+            isListening={isListening}
+            onMicClick={handleMicClick}
+          />
+        </div>
       </div>
     </div>
   );

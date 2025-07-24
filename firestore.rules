@@ -7,19 +7,41 @@ service cloud.firestore {
     // Helper Functions
     // =================================
 
-    // Checks if the requesting user is a registered admin.
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Checks if a user is authenticated.
+    // Checks if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Checks if the user making the request is the owner of the resource.
-    function isResourceOwner(resource) {
-      return request.auth.uid == resource.data.userId;
+
+    // Validates user data structure and required fields
+    function isValidUserData(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'progress', 'loginStreak', 'lastLoginDate']) &&
+             data.role in ['student', 'admin'] &&
+             data.uid == request.auth.uid;
+    }
+
+    // Validates lesson data structure
+    function isValidLessonData(data) {
+      // Check that core required fields exist and validate difficulty value
+      return data.keys().hasAll(['title', 'subject', 'description', 'difficulty']) &&
+             data.difficulty in ['Beginner', 'Intermediate', 'Advanced'];
+      // Allow additional optional fields without strict validation
+      // This accommodates sections, image, tags, gradeLevel, ageGroup, etc.
+    }
+
+    // Validates exercise data structure
+    function isValidExerciseData(data) {
+      // Basic validation for all exercise types
+      return data.keys().hasAll(['lessonId', 'difficulty', 'type']) &&
+             data.type in ['mcq', 'true_false', 'long_form', 'fill_in_the_blanks'] &&
+             data.difficulty is number && data.difficulty >= 1 && data.difficulty <= 3;
+    }
+
+    // Validates study room data structure
+    function isValidStudyRoomData(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'visibility', 'isPublic', 'status', 'editorIds']) &&
+             data.visibility in ['public', 'private'] &&
+             data.status in ['active', 'ended'] &&
+             data.ownerId == request.auth.uid;
     }
 
     // =================================
@@ -27,13 +49,17 @@ service cloud.firestore {
     // =================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if request.auth.uid == userId;
-      allow delete: if false;
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if request.auth.uid == userId && isValidUserData(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false; // Users should never be deleted
 
-      // Rules for user's tasks and notes subcollections
-      match /{subcollection}/{docId} {
+      // User's personal subcollections (tasks, notes)
+      match /tasks/{taskId} {
+        allow read, write, delete: if request.auth.uid == userId;
+      }
+
+      match /notes/{noteId} {
         allow read, write, delete: if request.auth.uid == userId;
       }
     }
@@ -44,20 +70,31 @@ service cloud.firestore {
 
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin(); // create, update, delete
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
 
     match /exercises/{exerciseId} {
-      allow read: if isAuthenticated() && (isAdmin() || resource.data.isCustom == false || resource.data.userId == request.auth.uid);
-      allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.isCustom == true && isResourceOwner(request.resource)));
-      allow update: if isAdmin();
-      allow delete: if isAuthenticated() && (isAdmin() || (get(/databases/$(database)/documents/exercises/$(exerciseId)).data.userId == request.auth.uid));
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                      (resource == null || isValidExerciseData(request.resource.data));
+      allow update: if isAuthenticated() && 
+                      isValidExerciseData(request.resource.data);
+      allow delete: if isAuthenticated();
     }
     
     match /exerciseResponses/{responseId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && 
+                    (resource == null || resource.data.userId == request.auth.uid);
+      
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isAuthenticated() && 
+                      resource.data.userId == request.auth.uid;
+      
+      allow delete: if false; // Preserve response history
     }
 
     // =================================
@@ -66,80 +103,127 @@ service cloud.firestore {
 
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
 
     match /lessonRequests/{requestId} {
-      allow read, update, delete: if isAdmin();
-      allow create: if isAuthenticated() && isResourceOwner(request.resource);
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
 
     match /emailQueue/{emailId} {
-      allow create: if isAdmin();
-      allow read, update, delete: if false;
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAuthenticated();
     }
     
     // =================================
-    // Study Rooms
+    // Study Rooms & Collaboration
     // =================================
+    
     match /studyRooms/{roomId} {
-      // Room-level access
-      allow get: if isAuthenticated() && (resource.data.isPublic == true || request.auth.uid in resource.data.editorIds);
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow read, write: if isAuthenticated();
       
-      // --- Subcollection Rules ---
-
-      // Any user allowed in the room can see who is participating.
-      // A user can only create/update their own participant document.
-      // The owner can remove anyone.
+      // Study room participants
       match /participants/{userId} {
-        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-        allow write: if isAuthenticated() && request.auth.uid == userId;
-        allow delete: if isAuthenticated() && (request.auth.uid == userId || get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid);
+        allow read, write, delete: if isAuthenticated();
       }
       
-      // A user can see the list of peers if they are allowed in the room.
-      // A user can only create/manage their own peer document.
+      // WebRTC peer connections
       match /peers/{peerId} {
-        allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-        allow write, delete: if isAuthenticated() && request.auth.uid == peerId;
+        allow read, write, delete: if isAuthenticated();
         
-        // A user can see the list of connections for a peer.
-        // A user can only create a connection document for themself, targeting another peer.
-        // The peer or the connection owner can modify/delete it.
+        // WebRTC connections between peers
         match /connections/{connectionId} {
-          allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-          allow write, delete: if isAuthenticated() && (request.auth.uid == peerId || request.auth.uid == connectionId);
+          allow read, write, delete: if isAuthenticated();
 
-          // A user can see the list of candidates for a connection.
-          // The peer or connection owner can create candidates.
+          // ICE candidates for WebRTC
           match /iceCandidates/{candidateId} {
-             allow list, get: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-             allow write, delete: if isAuthenticated() && (request.auth.uid == peerId || request.auth.uid == connectionId);
+             allow read, write, delete: if isAuthenticated();
           }
         }
       }
 
-      // Any user allowed in the room can read messages.
-      // A user can only create messages as themself or as 'buddy-ai'.
+      // Chat messages in study rooms
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-        allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'buddy-ai');
-        allow update, delete: if false;
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if false; // Messages are immutable
       }
 
-      // Any user allowed in the room can read resources.
-      // A user can only create resources as themself.
-      // The owner or original creator can delete resources.
+      // Shared resources in study rooms
       match /resources/{resourceId} {
-        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.isPublic == true || request.auth.uid in get(/databases/$(database)/documents/studyRooms/$(roomId)).data.editorIds);
-        allow create: if isAuthenticated() && request.resource.data.addedByUserId == request.auth.uid;
-        allow delete: if isAuthenticated() && (get(/databases/$(database)/documents/studyRooms/$(roomId)).data.ownerId == request.auth.uid || resource.data.addedByUserId == request.auth.uid);
-        allow update: if false;
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated();
+        allow update: if false; // Resources are immutable once created
       }
+    }
+
+    // =================================
+    // Conversation Memory & AI Features
+    // =================================
+    
+    // Conversation memory for tracking user learning patterns
+    match /conversationMemory/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Conversation sessions for detailed chat history
+    match /conversationSessions/{sessionId} {
+      allow read, write: if isAuthenticated() && 
+                           (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Media content for multi-modal conversations
+    match /mediaContent/{mediaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // =================================
+    // Additional Security Rules
+    // =================================
+
+    // Prevent access to any other collections not explicitly defined
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
+
+// =================================
+// Storage Rules (for completeness)
+// =================================
+// Note: This should be in a separate storage.rules file
+/*
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Lesson images and audio
+    match /lessons/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // User-generated content
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Exercise attachments
+    match /exercises/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
+*/

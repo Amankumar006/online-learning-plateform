@@ -1,4 +1,3 @@
-
 // src/lib/types.ts
 import { Timestamp } from 'firebase/firestore';
 import { GradeMathSolutionOutput } from '@/ai/flows/grade-math-solution';
@@ -101,7 +100,6 @@ export interface BaseExercise {
     id: string;
     lessonId: string;
     difficulty: number;
-    question: string;
     explanation?: string;
     hint?: string;
     category?: 'code' | 'math' | 'general';
@@ -113,23 +111,27 @@ export interface BaseExercise {
 
 export interface McqExercise extends BaseExercise {
     type: 'mcq';
+    question: string;
     options: string[];
     correctAnswer: string;
 }
 
 export interface TrueFalseExercise extends BaseExercise {
     type: 'true_false';
+    question: string;
     correctAnswer: boolean;
 }
 
 export interface LongFormExercise extends BaseExercise {
     type: 'long_form';
+    question: string;
     language?: string;
     evaluationCriteria: string;
 }
 
-export interface FillInTheBlanksExercise extends Omit<BaseExercise, 'question'> {
+export interface FillInTheBlanksExercise extends BaseExercise {
     type: 'fill_in_the_blanks';
+    question?: string; // Optional for compatibility, can be derived from questionParts
     questionParts: string[];
     correctAnswers: string[];
 }
@@ -166,7 +168,29 @@ export interface LessonRequest {
     createdAt: Timestamp;
 }
 
-export interface ExerciseWithLessonTitle extends Exercise {
+export interface ExerciseWithLessonTitle {
+    id: string;
+    lessonId: string;
+    difficulty: number;
+    explanation?: string;
+    hint?: string;
+    category?: 'code' | 'math' | 'general';
+    isCustom?: boolean;
+    userId?: string | null;
+    tags?: string[];
+    createdAt?: number;
+    type: 'mcq' | 'true_false' | 'long_form' | 'fill_in_the_blanks';
+    
+    // Fields that vary by type
+    question?: string; // For mcq, true_false, long_form
+    questionParts?: string[]; // For fill_in_the_blanks
+    options?: string[]; // For mcq
+    correctAnswer?: string | boolean; // For mcq and true_false
+    correctAnswers?: string[]; // For fill_in_the_blanks
+    language?: string; // For long_form
+    evaluationCriteria?: string; // For long_form
+    
+    // Added field
     lessonTitle: string;
 }
 
@@ -229,4 +253,89 @@ export interface Note {
     content: string;
     isPinned: boolean;
     createdAt: Timestamp;
+}
+
+// --- Conversation Memory Types ---
+export interface ConversationPattern {
+    topicFrequency: { [topic: string]: number };
+    difficultyPreference: 'beginner' | 'intermediate' | 'advanced' | 'mixed';
+    preferredExplanationStyle: 'visual' | 'textual' | 'examples' | 'step-by-step' | 'mixed';
+    toolUsagePreference: {
+        createExercise: number;
+        visualDiagrams: number;
+        webSearch: number;
+        codeAnalysis: number;
+    };
+    commonQuestionPatterns: string[];
+    learningVelocity: number; // concepts per session
+    sessionDuration: number; // average minutes per session
+    lastUpdated: Timestamp;
+}
+
+export interface ConversationMemory {
+    userId: string;
+    totalSessions: number;
+    totalMessages: number;
+    patterns: ConversationPattern;
+    recentTopics: Array<{
+        topic: string;
+        timestamp: Timestamp;
+        understanding: 'struggling' | 'learning' | 'mastered';
+    }>;
+    personalizedPrompts: string[];
+    contextCarryover: {
+        lastDiscussedConcept?: string;
+        openQuestions: string[];
+        suggestedNextTopics: string[];
+    };
+}
+
+export interface MediaContent {
+    id: string;
+    type: 'image' | 'audio' | 'video';
+    url: string;
+    dataUri?: string;
+    description?: string;
+    generatedBy: 'ai' | 'user';
+    associatedText?: string;
+    metadata?: {
+        duration?: number; // for audio/video
+        dimensions?: { width: number; height: number }; // for images
+        fileSize?: number;
+    };
+    createdAt: Timestamp;
+}
+
+export interface EnhancedMessage {
+    id: string;
+    role: 'user' | 'model';
+    content: string;
+    timestamp: Timestamp;
+    mediaContent?: MediaContent[];
+    context?: {
+        lessonId?: string;
+        topicTags?: string[];
+        difficulty?: number;
+        toolsUsed?: string[];
+    };
+    userFeedback?: {
+        helpful: boolean;
+        rating?: number;
+        notes?: string;
+    };
+}
+
+export interface ConversationSession {
+    id: string;
+    userId: string;
+    persona: 'buddy' | 'mentor';
+    title: string;
+    messages: EnhancedMessage[];
+    startTime: Timestamp;
+    endTime?: Timestamp;
+    duration?: number; // in seconds
+    topicsCovered: string[];
+    toolsUsed: string[];
+    learningOutcomes?: string[];
+    sessionSummary?: string;
 }

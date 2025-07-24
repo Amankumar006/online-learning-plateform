@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -6,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { chatWithAIBuddy } from '@/ai/flows/chat-with-ai-buddy';
+import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Bot, User, Loader2, SendHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -17,6 +18,7 @@ interface Message {
 }
 
 export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
+  const [user] = useAuthState(auth);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hello! I'm your AI study buddy. Ask me anything about this lesson, or ask me to summarize it for you!" }
   ]);
@@ -44,15 +46,30 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
     setError(null);
 
     try {
-      const result = await chatWithAIBuddy({ lessonContent, userMessage: input });
-      const assistantMessage: Message = { role: 'assistant', content: result.response };
+      const result = await buddyChatStream({ 
+        userMessage: input, 
+        lessonContext: lessonContent,
+        history: messages.map(msg => ({ 
+          role: msg.role === 'assistant' ? 'model' : 'user', 
+          content: msg.content 
+        })),
+        userId: user?.uid || 'anonymous',
+        persona: 'buddy'
+      });
+      
+      const assistantMessage: Message = { 
+        role: 'assistant', 
+        content: result.content 
+      };
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { role: 'assistant', content: "Sorry, I ran into an error. Please check the console and try again." };
+      const errorMessage: Message = { 
+        role: 'assistant', 
+        content: `Sorry, I encountered an error: ${e.message || 'Unknown error'}. Please try again.` 
+      };
       setMessages(prev => [...prev, errorMessage]);
       setError('An error occurred while communicating with the AI.');
-
     } finally {
       setIsLoading(false);
     }
