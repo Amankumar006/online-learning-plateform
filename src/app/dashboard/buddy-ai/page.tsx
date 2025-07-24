@@ -411,7 +411,7 @@ export default function BuddyAIPage() {
   }, [conversations, user]);
 
   return (
-    <div className="flex h-full w-full bg-background overflow-hidden">
+    <div className="fixed inset-0 flex h-screen w-screen bg-background overflow-hidden">
       <audio ref={audioRef} onEnded={() => setPlayingMessageIndex(null)} />
       
       <BuddySidebar 
@@ -423,7 +423,7 @@ export default function BuddyAIPage() {
         onNewChat={handleNewChat}
       />
 
-      <div className="flex flex-1 flex-col h-full min-h-0">
+      <div className="flex flex-1 flex-col h-screen">
         {activeConversation && activeConversation.messages.length > 0 ? (
           <MessageList 
             user={user}
@@ -436,7 +436,7 @@ export default function BuddyAIPage() {
             onSendSuggestion={handleSend}
           />
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <WelcomeScreen
               persona={activeConversation?.persona || 'buddy'}
               onSendSuggestion={handleSend}
@@ -444,7 +444,7 @@ export default function BuddyAIPage() {
           </div>
         )}
 
-        <div className="flex-shrink-0 border-t bg-background">
+        <div className="flex-shrink-0 border-t bg-background/95 backdrop-blur-sm">
           <BuddyInputForm 
             input={input}
             onInputChange={setInput}

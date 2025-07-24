@@ -319,15 +319,71 @@ const generateImageForExplanationTool = ai.defineTool(
     },
     async ({ concept, description }) => {
         try {
-            // For now, return a placeholder since we don't have image generation set up
-            return `I would create a visual diagram for "${concept}" that shows: ${description}. 
+            // TODO: Implement actual image generation
+            // const imageResult = await generateLessonImage({ 
+            //     prompt: `Create an educational diagram showing ${description} for the concept: ${concept}` 
+            // });
+            // return `I've created a visual diagram for "${concept}": ![${concept} diagram](${imageResult.imageUrl})`;
+            
+            // Temporary enhanced response until image generation is implemented
+            return `I would create a detailed visual diagram for **${concept}** that includes:
 
-*[Image generation is not currently available, but I can provide detailed text explanations and suggest creating diagrams manually or finding relevant visual resources online.]*
+📊 **Visual Elements:**
+${description}
 
-Would you like me to provide a detailed text-based explanation instead?`;
+💡 **Suggested Manual Creation:**
+- Use tools like Lucidchart, Draw.io, or Canva
+- Include labeled diagrams and flowcharts
+- Add color coding for different components
+- Consider interactive elements if possible
+
+*Note: Automated image generation is being implemented. For now, I recommend creating this diagram manually using the specifications above.*`;
         } catch (error) {
             console.error('Error in generateImageForExplanationTool:', error);
-            return 'Sorry, I cannot generate images at the moment. Let me provide a detailed text explanation instead.';
+            return `I apologize, but I cannot generate visual diagrams at the moment. However, I can provide detailed text-based explanations and suggest resources for creating diagrams manually.
+
+For **${concept}**, you would want to visualize: ${description}`;
+        }
+    }
+);
+
+const processImageTool = ai.defineTool(
+    {
+        name: 'processImageInput',
+        description: 'Processes and analyzes images uploaded by users, such as handwritten notes, diagrams, or code screenshots.',
+        inputSchema: z.object({ 
+            imageUrl: z.string().describe("The URL or data URI of the image to analyze"),
+            analysisType: z.enum(['handwriting', 'diagram', 'code', 'math', 'general']).describe("The type of analysis to perform")
+        }),
+        outputSchema: z.string(),
+    },
+    async ({ imageUrl, analysisType }) => {
+        try {
+            // TODO: Implement actual image analysis using Google Vision API or similar
+            // For now, provide structured fallback
+            
+            const analysisPrompts = {
+                handwriting: "I can see handwritten content in your image. While I can't process images yet, I can help you if you type out the text you'd like me to review.",
+                diagram: "I notice you've shared a diagram. I'd love to analyze it for you! For now, could you describe what the diagram shows?",
+                code: "I can see code in your image. Please type out the code so I can help you debug, review, or explain it.",
+                math: "I see mathematical content. Type out the equations or problems and I'll help solve them step by step.",
+                general: "I can see your image but can't analyze it yet. Could you describe what you'd like help with?"
+            };
+            
+            return `📸 **Image Analysis Request**
+
+${analysisPrompts[analysisType]}
+
+**What I can help with once you provide the text:**
+${analysisType === 'code' ? '- Code review and debugging\n- Complexity analysis\n- Best practices suggestions' : 
+  analysisType === 'math' ? '- Step-by-step solutions\n- Concept explanations\n- Practice problems' :
+  analysisType === 'handwriting' ? '- Content review\n- Study suggestions\n- Related topics' :
+  '- Detailed explanations\n- Related resources\n- Practice exercises'}
+
+*Image processing is being implemented. Thank you for your patience!*`;
+        } catch (error) {
+            console.error('Error in processImageTool:', error);
+            return 'I apologize, but I cannot process images at the moment. Please describe what you need help with or type out any text content.';
         }
     }
 );
@@ -339,6 +395,7 @@ export async function getBuddyChatTools() {
         suggestTopicsTool,
         searchTheWebTool, 
         generateImageForExplanationTool,
-        analyzeCodeComplexityTool
+        analyzeCodeComplexityTool,
+        processImageTool
     ];
 }

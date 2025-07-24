@@ -489,38 +489,101 @@ export async function analyzeUserLearningPatterns(userId: string) {
 
         const patterns = memory.patterns;
         
-        // Analyze learning style based on patterns
+        // Enhanced learning style detection with more granular analysis
         let detectedLearningStyle: 'visual' | 'auditory' | 'reading/writing' | 'kinesthetic' = 'reading/writing';
         
-        if (patterns.toolUsagePreference.visualDiagrams > patterns.toolUsagePreference.createExercise) {
+        // Multi-factor learning style detection
+        const visualScore = patterns.toolUsagePreference.visualDiagrams * 2 + 
+                           (patterns.preferredExplanationStyle === 'visual' ? 3 : 0);
+        const practicalScore = patterns.toolUsagePreference.createExercise * 2 + 
+                              (patterns.preferredExplanationStyle === 'examples' ? 3 : 0);
+        const analyticalScore = patterns.toolUsagePreference.codeAnalysis * 2 + 
+                               (patterns.preferredExplanationStyle === 'step-by-step' ? 3 : 0);
+        
+        if (visualScore > practicalScore && visualScore > analyticalScore) {
             detectedLearningStyle = 'visual';
-        } else if (patterns.preferredExplanationStyle === 'examples') {
+        } else if (practicalScore > analyticalScore) {
             detectedLearningStyle = 'kinesthetic';
+        } else {
+            detectedLearningStyle = 'reading/writing';
         }
 
-        // Identify knowledge gaps
+        // Enhanced knowledge gap analysis with severity scoring
         const strugglingTopics = memory.recentTopics
             .filter(t => t.understanding === 'struggling')
-            .map(t => t.topic);
+            .map(t => ({
+                topic: t.topic,
+                severity: (memory.patterns.topicFrequency[t.topic] || 1) / memory.totalSessions,
+                lastSeen: t.timestamp
+            }))
+            .sort((a, b) => b.severity - a.severity);
 
-        // Suggest next learning paths
+        // Advanced mastery tracking with confidence levels
         const masteredTopics = memory.recentTopics
             .filter(t => t.understanding === 'mastered')
-            .map(t => t.topic);
+            .map(t => ({
+                topic: t.topic,
+                confidence: Math.min((memory.patterns.topicFrequency[t.topic] || 1) / 3, 1), // Normalize confidence
+                masteryDate: t.timestamp
+            }));
+
+        // Learning velocity calculation (topics mastered per session)
+        const learningVelocity = masteredTopics.length / Math.max(memory.totalSessions, 1);
+        
+        // Attention span estimation based on session duration
+        const attentionSpan = patterns.sessionDuration < 300 ? 'short' : 
+                             patterns.sessionDuration < 900 ? 'medium' : 'long';
 
         return {
             detectedLearningStyle,
-            strugglingTopics,
-            masteredTopics,
+            strugglingTopics: strugglingTopics.slice(0, 5), // Top 5 struggling areas
+            masteredTopics: masteredTopics.slice(0, 10),
             averageSessionDuration: patterns.sessionDuration,
-            learningVelocity: patterns.learningVelocity,
+            learningVelocity,
+            attentionSpan,
             preferredTools: Object.entries(patterns.toolUsagePreference)
                 .sort(([,a], [,b]) => b - a)
-                .slice(0, 2)
-                .map(([tool]) => tool),
+                .slice(0, 3)
+                .map(([tool, usage]) => ({ tool, usage })),
+            adaptationRecommendations: generateAdaptationRecommendations(
+                detectedLearningStyle, 
+                strugglingTopics, 
+                attentionSpan
+            )
         };
     } catch (error) {
         console.error("Error analyzing user learning patterns: ", error);
         return null;
     }
+}
+
+function generateAdaptationRecommendations(
+    learningStyle: string, 
+    strugglingTopics: any[], 
+    attentionSpan: string
+): string[] {
+    const recommendations: string[] = [];
+    
+    // Learning style recommendations
+    if (learningStyle === 'visual') {
+        recommendations.push("Use more visual diagrams and charts in explanations");
+        recommendations.push("Incorporate flowcharts and mind maps");
+    } else if (learningStyle === 'kinesthetic') {
+        recommendations.push("Provide more hands-on exercises and coding practice");
+        recommendations.push("Use interactive examples and simulations");
+    }
+    
+    // Attention span recommendations
+    if (attentionSpan === 'short') {
+        recommendations.push("Break down complex topics into smaller chunks");
+        recommendations.push("Use more frequent breaks and checkpoints");
+    }
+    
+    // Struggling topics recommendations
+    if (strugglingTopics.length > 0) {
+        recommendations.push(`Focus on reinforcing ${strugglingTopics[0].topic} with alternative explanations`);
+        recommendations.push("Increase practice exercises for weak areas");
+    }
+    
+    return recommendations;
 }

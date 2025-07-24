@@ -191,10 +191,14 @@ export function MessageList({
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
+    // Auto scroll to bottom when new messages arrive
     useEffect(() => {
         if (scrollAreaRef.current) {
-
-            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+            const scrollContainer = scrollAreaRef.current;
+            // Use requestAnimationFrame to ensure the DOM has updated
+            requestAnimationFrame(() => {
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            });
         }
     }, [conversation.messages.length, isLoading]);
 
@@ -222,103 +226,114 @@ export function MessageList({
     };
 
     return (
-        <div className="flex-1 overflow-y-auto py-8 px-4 space-y-8 max-w-4xl mx-auto" ref={scrollAreaRef}>
-            {conversation.messages.map((message, index) => {
-                const mediaContent = extractMediaContent(message.content);
-                
-                return (
-                    <div key={index} className="flex flex-col items-start gap-4">
-                        <div className="group flex items-start gap-4 w-full">
-                            <Avatar className="w-8 h-8 border shadow-sm shrink-0">
-                                <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                <AvatarFallback>
-                                    {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={20} /> : <Bot size={20} />)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className={cn("flex-1 pt-1 space-y-1", message.isError && "text-destructive")}>
-                                <div className="flex items-center gap-2">
-                                    <p className="font-semibold text-sm">
-                                        {message.role === 'user' ? user?.displayName || 'You' : activePersona?.name || 'Buddy AI'}
-                                    </p>
-                                    {message.role === 'model' && activePersona && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            {activePersona.name}
-                                        </Badge>
-                                    )}
-                                </div>
-                                
-                                <FormattedContent content={message.content} />
-                                
-                                {/* Render media content */}
-                                {mediaContent.map((media) => (
-                                    <MediaContentRenderer key={media.id} media={media} />
-                                ))}
-                                
-                                {message.role === 'model' && !isLoading && index === conversation.messages.length - 1 && (
-                                    <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {!message.isError && (
-                                            <>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPlayAudio(message.content, index)}>
-                                                    {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}>
-                                                    <Copy className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "Thank you for helping improve our AI!"})}>
-                                                    <ThumbsUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "We'll use this to improve future responses."})}>
-                                                    <ThumbsDown className="h-4 w-4" />
-                                                </Button>
-                                            </>
+        <div 
+            className="flex-1 overflow-y-auto overflow-x-hidden" 
+            ref={scrollAreaRef}
+            style={{ 
+                scrollbarGutter: 'stable',
+                WebkitOverflowScrolling: 'touch'
+            }}
+        >
+            <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
+                {conversation.messages.map((message, index) => {
+                    const mediaContent = extractMediaContent(message.content);
+                    
+                    return (
+                        <div key={index} className="flex flex-col items-start gap-4">
+                            <div className="group flex items-start gap-4 w-full">
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                    <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
+                                    <AvatarFallback>
+                                        {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={20} /> : <Bot size={20} />)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className={cn("flex-1 pt-1 space-y-1 min-w-0 word-wrap break-words", message.isError && "text-destructive")}>
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-sm">
+                                            {message.role === 'user' ? user?.displayName || 'You' : activePersona?.name || 'Buddy AI'}
+                                        </p>
+                                        {message.role === 'model' && activePersona && (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {activePersona.name}
+                                            </Badge>
                                         )}
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRegenerate} title="Regenerate response">
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
                                     </div>
-                                )}
-                                {message.isError && (
-                                    <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                                        <p className="text-xs text-destructive/80 mb-2">Something went wrong. You can:</p>
-                                        <div className="flex gap-2">
-                                            <Button variant="outline" size="sm" onClick={onRegenerate}>
-                                                <RefreshCw className="h-3 w-3 mr-1" />
-                                                Try Again
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={() => onSendSuggestion("Can you help me with something else?")}>
-                                                Ask Something Else
+                                    
+                                    <div className="overflow-hidden">
+                                        <FormattedContent content={message.content} />
+                                    </div>
+                                    
+                                    {/* Render media content */}
+                                    {mediaContent.map((media) => (
+                                        <MediaContentRenderer key={media.id} media={media} />
+                                    ))}
+                                    
+                                    {message.role === 'model' && !isLoading && index === conversation.messages.length - 1 && (
+                                        <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {!message.isError && (
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPlayAudio(message.content, index)}>
+                                                        {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}>
+                                                        <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "Thank you for helping improve our AI!"})}>
+                                                        <ThumbsUp className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "We'll use this to improve future responses."})}>
+                                                        <ThumbsDown className="h-4 w-4" />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRegenerate} title="Regenerate response">
+                                                <RefreshCw className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        {message.role === 'model' && message.suggestions && message.suggestions.length > 0 && !isLoading && (
-                            <div className="pl-12 w-full">
-                                <div className="flex flex-wrap gap-2 pt-2">
-                                    {message.suggestions.map((suggestion, i) => (
-                                        <Button
-                                            key={i}
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-auto py-1.5 px-3 text-xs"
-                                            onClick={() => onSendSuggestion(suggestion)}
-                                        >
-                                            {suggestion}
-                                        </Button>
-                                    ))}
+                                    )}
+                                    {message.isError && (
+                                        <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                                            <p className="text-xs text-destructive/80 mb-2">Something went wrong. You can:</p>
+                                            <div className="flex gap-2">
+                                                <Button variant="outline" size="sm" onClick={onRegenerate}>
+                                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                                    Try Again
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={() => onSendSuggestion("Can you help me with something else?")}>
+                                                    Ask Something Else
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        )}
+                            {message.role === 'model' && message.suggestions && message.suggestions.length > 0 && !isLoading && (
+                                <div className="pl-12 w-full">
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        {message.suggestions.map((suggestion, i) => (
+                                            <Button
+                                                key={i}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-auto py-1.5 px-3 text-xs"
+                                                onClick={() => onSendSuggestion(suggestion)}
+                                            >
+                                                {suggestion}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                {isLoading && (
+                    <div className="flex items-start gap-4">
+                        <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
+                        <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                     </div>
-                );
-            })}
-            {isLoading && (
-                <div className="flex items-start gap-4">
-                    <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                    <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

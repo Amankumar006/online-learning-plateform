@@ -128,18 +128,40 @@ Please respond helpfully and appropriately based on the context and conversation
             },
         });
         
+        // Enhanced tool usage tracking through response analysis
+        const trackToolUsage = (responseText: string, tools: any[]): string[] => {
+            const usedTools: string[] = [];
+            
+            // Check for tool-specific patterns in the response
+            if (responseText.includes('Exercise Created Successfully') || responseText.includes('practice exercise')) {
+                usedTools.push('createCustomExercise');
+            }
+            if (responseText.includes('study suggestions') || responseText.includes('Based on your progress')) {
+                usedTools.push('suggestStudyTopics');
+            }
+            if (responseText.includes('web search') || responseText.includes('search results')) {
+                usedTools.push('searchTheWeb');
+            }
+            if (responseText.includes('Time Complexity') || responseText.includes('Space Complexity')) {
+                usedTools.push('analyzeCodeComplexity');
+            }
+            if (responseText.includes('visual diagram') || responseText.includes('📊 **Visual Elements:**')) {
+                usedTools.push('generateImageForExplanation');
+            }
+            
+            return usedTools;
+        };
+
         const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
+        const actualToolsUsed = trackToolUsage(aiResponseText, tools);
 
         // Extract topics from the conversation
         const topics = extractTopicsFromConversation(input.userMessage, aiResponseText);
         
-        // Track tool usage
-        if (response.toolInvocations) {
-            response.toolInvocations.forEach(tool => {
-                toolsUsed.push(tool.toolName);
-            });
-        }
-
+        // Note: Tool usage tracking is handled differently in this Genkit version
+        // Tool invocations are not exposed in the response object
+        // We'll track tools based on response content analysis or other methods
+        
         // Generate contextual follow-up suggestions
         const followUpResult = await generateFollowUpSuggestions({
             lastUserMessage: input.userMessage,
@@ -150,15 +172,32 @@ Please respond helpfully and appropriately based on the context and conversation
             response: aiResponseText,
             suggestions: followUpResult.suggestions.slice(0, 3),
             topics,
-            toolsUsed,
+            toolsUsed: actualToolsUsed,
         };
 
     } catch (e: any) {
         console.error("Error in buddyChatFlow:", e);
         
+        // Enhanced error categorization and user-friendly messages
+        let userMessage = "I apologize, but I encountered an issue while processing your request.";
+        let suggestions: string[] = [];
+        
+        if (e.message?.includes('API')) {
+            userMessage = "I'm having trouble connecting to my knowledge services right now.";
+            suggestions = ["Try again in a moment", "Ask a simpler question", "Check your internet connection"];
+        } else if (e.message?.includes('timeout')) {
+            userMessage = "Your request is taking longer than expected to process.";
+            suggestions = ["Try breaking your question into smaller parts", "Ask about a more specific topic"];
+        } else if (e.message?.includes('context')) {
+            userMessage = "I need more context to properly answer your question.";
+            suggestions = ["Provide more details about what you're trying to learn", "Ask about a specific concept"];
+        } else {
+            suggestions = ["Try rephrasing your question", "Ask about a different topic", "Start a new conversation"];
+        }
+        
         return {
-            response: `I apologize, but I encountered an error while processing your request. Error: ${e.message || 'Unknown error occurred'}. Please try rephrasing your message.`,
-            suggestions: [],
+            response: `${userMessage}\n\n**Error Details:** ${e.message || 'Unknown error occurred'}\n\n**Suggestions:**\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
+            suggestions,
             topics: [],
             toolsUsed: [],
         };
