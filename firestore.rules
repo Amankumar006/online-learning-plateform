@@ -36,14 +36,6 @@ service cloud.firestore {
              data.difficulty is number && data.difficulty >= 1 && data.difficulty <= 3;
     }
 
-    // Validates study room data structure
-    function isValidStudyRoomData(data) {
-      return data.keys().hasAll(['ownerId', 'name', 'visibility', 'isPublic', 'status', 'editorIds']) &&
-             data.visibility in ['public', 'private'] &&
-             data.status in ['active', 'ended'] &&
-             data.ownerId == request.auth.uid;
-    }
-
     // =================================
     // User Management
     // =================================
@@ -120,49 +112,6 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated();
     }
     
-    // =================================
-    // Study Rooms & Collaboration
-    // =================================
-    
-    match /studyRooms/{roomId} {
-      allow read, write: if isAuthenticated();
-      
-      // Study room participants
-      match /participants/{userId} {
-        allow read, write, delete: if isAuthenticated();
-      }
-      
-      // WebRTC peer connections
-      match /peers/{peerId} {
-        allow read, write, delete: if isAuthenticated();
-        
-        // WebRTC connections between peers
-        match /connections/{connectionId} {
-          allow read, write, delete: if isAuthenticated();
-
-          // ICE candidates for WebRTC
-          match /iceCandidates/{candidateId} {
-             allow read, write, delete: if isAuthenticated();
-          }
-        }
-      }
-
-      // Chat messages in study rooms
-      match /messages/{messageId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
-        allow update, delete: if false; // Messages are immutable
-      }
-
-      // Shared resources in study rooms
-      match /resources/{resourceId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
-        allow delete: if isAuthenticated();
-        allow update: if false; // Resources are immutable once created
-      }
-    }
-
     // =================================
     // Conversation Memory & AI Features
     // =================================

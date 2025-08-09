@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -318,14 +317,6 @@ export default function DashboardPage() {
                         <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Practice Exercises</h3>
                         <p className="text-muted-foreground mt-2 mb-4">Hone your skills with adaptive problems.</p>
                         <Button asChild><Link href="/dashboard/practice">Start Practice</Link></Button>
-                    </div>
-                     <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
-                        <div className="p-4 bg-accent/10 rounded-full mb-4">
-                            <Users className="w-8 h-8 text-accent" />
-                        </div>
-                        <h3 className="text-xl font-bold tracking-tight font-headline text-foreground">Study Rooms</h3>
-                        <p className="text-muted-foreground mt-2 mb-4">Collaborate with others in real-time.</p>
-                        <Button asChild><Link href="/dashboard/study-room">Join a Room</Link></Button>
                     </div>
                  </div>
 

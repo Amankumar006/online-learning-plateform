@@ -39,16 +39,16 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, [router]);
 
-  const noNavPaths = [
+const noSidebarPaths = [
     /^\/dashboard\/lessons\/[^/]+$/,
-    /^\/dashboard\/study-room\/[^/]+$/,
-  ];
-
-  const fullHeightPaths = [
+    /^\/dashboard\/practice\/[^/]+$/,
+    // Removed study room path after module removal
+    /^\/dashboard\/buddy-ai$/,
+];  const fullHeightPaths = [
     /^\/dashboard\/buddy-ai$/,
   ];
 
-  const hideNav = noNavPaths.some(path => path.test(pathname));
+  const hideNav = noSidebarPaths.some(path => path.test(pathname));
   const isFullHeight = fullHeightPaths.some(path => path.test(pathname));
 
   if (hideNav) {

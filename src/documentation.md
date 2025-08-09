@@ -32,7 +32,7 @@ The project is organized into several key modules, reflected in the file structu
     -   `flows`: Contains individual Genkit flows, each responsible for a specific AI task (e.g., `generate-lesson-content.ts`, `buddy-chat.ts`).
     -   `tools`: Defines custom tools that AI flows can use, such as searching the web or creating a practice exercise.
     -   `schemas`: Contains Zod schemas for defining the input and output structures of AI flows and tools.
--   **/src/hooks**: Custom React hooks for encapsulating complex client-side logic (e.g., `use-study-room.ts`, `use-speech-recognition.ts`, `use-utility-sidebar.tsx`).
+-   **/src/hooks**: Custom React hooks for encapsulating complex client-side logic (e.g., `use-speech-recognition.ts`, `use-utility-sidebar.tsx`).
 -   **/src/app/admin**: Contains pages and components for the admin dashboard.
 -   **/src/app/dashboard**: Contains pages and components for the student-facing dashboard.
 
@@ -43,7 +43,7 @@ Component interaction occurs at several levels:
 -   **Client to Server (Server Actions):** Client components (e.g., a form in a page) invoke `async` functions exported from `src/lib/actions.ts`. Next.js automatically handles the RPC-like call to the server, where the action executes. This is the primary method for data mutation and backend logic.
 -   **Client to Firebase (SDK):** For real-time updates and authentication, the client uses the Firebase JS SDK.
     -   `onAuthStateChanged` is used in layouts to protect routes and fetch user profiles.
-    -   Firestore's `onSnapshot` is used in features like the Study Room to listen for real-time changes to participants and chat messages.
+    -   Firestore's `onSnapshot` is used in real-time features to listen for changes to documents and collections.
 -   **Server Action to Data Layer:** Server Actions in `actions.ts` call functions from `data.ts` to interact with Firestore, keeping the actions clean and focused on orchestration.
 -   **Server Action to AI Module:** Server Actions call Genkit flows defined in `/src/ai/flows` to perform AI tasks. For example, when an admin generates a lesson, the server action calls the `generateLessonContent` flow.
 -   **Components within Frontend:** Standard React patterns are used:
@@ -61,7 +61,7 @@ Component interaction occurs at several levels:
 -   **Genkit:** A Google-built framework for AI applications. It standardizes the process of defining AI workflows (flows) with typed inputs/outputs (using Zod), chaining model calls, and creating custom tools for the AI to use. This makes the AI logic more structured, testable, and maintainable.
 -   **Tailwind CSS & Shadcn/ui:** A powerful combination for rapid UI development. Tailwind provides low-level utility classes, while Shadcn/ui offers a collection of beautifully crafted, accessible, and customizable components, greatly accelerating the creation of a polished user interface.
 -   **TypeScript:** Used across the entire stack. It ensures type safety between the client, server actions, and database models, significantly reducing runtime errors and improving code quality and developer productivity.
--   **tldraw:** A library for creating infinite canvas applications, used as the core of the collaborative Study Room feature.
+-   **Modular Design:** Each major feature is isolated into its own module with clean interfaces.
 
 ## 5. Key Features and Workflows
 
@@ -70,7 +70,7 @@ Component interaction occurs at several levels:
 -   **Unified Content Generation (Admin):** Admins use a unified page (`/admin/exercises/new`) to generate exercises. They can either generate a set based on an existing lesson's content or create a single, custom exercise from a detailed prompt. This is powered by the `generate-exercise.ts` and `generate-custom-exercise.ts` flows.
 -   **Code Execution Simulation:** In practice exercises, students can write code in a Monaco-based editor (`/components/lessons/code-editor.tsx`). The `simulate-code-execution.ts` flow analyzes this code, predicting its output, errors, and computational complexity without actually executing it on the server.
 -   **Long Form & Math Answer Grading:** For open-ended questions, the `grade-long-form-answer.ts` flow uses AI to evaluate the student's text and/or handwritten image uploads. The `grade-math-solution.ts` flow is specialized for grading step-by-step mathematical solutions.
--   **Collaborative Study Rooms:** A real-time collaborative space built with **tldraw** and Firebase. The `useStudyRoom` hook manages the connection to a specific room, synchronizing the whiteboard state (via a throttled listener in `data.ts`), chat messages, and participant lists using Firestore's `onSnapshot` listener.
+-   **Real-time AI Conversations:** Interactive chat system with Buddy AI providing contextual help and learning support.
 
 ## 6. Data Flow
 
@@ -85,7 +85,7 @@ Component interaction occurs at several levels:
     5.  The model's response is parsed (often into a Zod schema) and returned up the call stack to the client.
 -   **Real-time Updates:**
     1.  A user's action (e.g., sending a chat message) writes data to Firestore.
-    2.  The `onSnapshot` listener in another user's `useStudyRoom` hook is triggered by the change.
+    2.  The system updates the UI and any relevant listeners are triggered to refresh the interface.
     3.  The hook updates the component's state (`setMessages`), and the UI re-renders with the new message.
 
 ## 7. Security Considerations

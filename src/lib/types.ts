@@ -205,40 +205,6 @@ export interface Announcement {
     createdAt: Timestamp;
 }
 
-// --- Study Room Types ---
-export interface StudyRoom {
-    id: string;
-    ownerId: string;
-    name: string;
-    visibility: 'public' | 'private';
-    isPublic: boolean;
-    lessonId?: string | null;
-    lessonTitle?: string | null;
-    ownerName?: string;
-    ownerPhotoURL?: string | null;
-    createdAt: Timestamp;
-    expiresAt: Timestamp;
-    roomState?: string;
-    status: 'active' | 'ended';
-    editorIds: string[];
-}
-
-export interface ChatMessage {
-    id: string;
-    userId: string;
-    userName: string;
-    content: string;
-    createdAt: Timestamp;
-}
-
-export interface StudyRoomResource {
-    id: string;
-    url: string;
-    addedByUserId: string;
-    addedByUserName: string;
-    createdAt: Timestamp;
-}
-
 // --- Utility Panel Types ---
 export interface Task {
     id: string;

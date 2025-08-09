@@ -411,7 +411,7 @@ export default function BuddyAIPage() {
   }, [conversations, user]);
 
   return (
-    <div className="fixed inset-0 flex h-screen w-screen bg-background overflow-hidden">
+    <div className="flex h-full w-full bg-background overflow-hidden">
       <audio ref={audioRef} onEnded={() => setPlayingMessageIndex(null)} />
       
       <BuddySidebar 
@@ -423,7 +423,7 @@ export default function BuddyAIPage() {
         onNewChat={handleNewChat}
       />
 
-      <div className="flex flex-1 flex-col h-screen">
+      <div className="flex flex-1 flex-col h-full">
         {activeConversation && activeConversation.messages.length > 0 ? (
           <MessageList 
             user={user}

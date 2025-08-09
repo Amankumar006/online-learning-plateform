@@ -4,5 +4,4 @@ export * from './user';
 export * from './lessons';
 export * from './exercises';
 export * from './announcements';
-export * from './study-room';
 export * from './utility-panel';
