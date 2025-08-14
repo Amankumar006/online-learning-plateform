@@ -10,8 +10,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
-import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy-tools';
-import { getSystemPrompt } from '@/ai/prompts/buddy-prompts';
+import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy';
+import { getSystemPrompt } from '@/ai/prompts';
 import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
 
 const MessageSchema = z.object({

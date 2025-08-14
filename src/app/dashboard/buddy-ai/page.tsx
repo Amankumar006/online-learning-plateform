@@ -18,18 +18,18 @@ import { WelcomeScreen } from '@/components/buddy-ai/WelcomeScreen';
 import { BuddyInputForm } from '@/components/buddy-ai/BuddyInputForm';
 
 export interface Message {
-    role: 'user' | 'model';
-    content: string;
-    suggestions?: string[];
-    isError?: boolean;
+  role: 'user' | 'model';
+  content: string;
+  suggestions?: string[];
+  isError?: boolean;
 }
 
 export interface Conversation {
-    id: string;
-    title: string;
-    messages: Message[];
-    createdAt: number;
-    persona: Persona;
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: number;
+  persona: Persona;
 }
 
 export default function BuddyAIPage() {
@@ -38,16 +38,16 @@ export default function BuddyAIPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Add state for user progress and lessons data
   const [userProgress, setUserProgress] = useState<any>(null);
   const [availableLessons, setAvailableLessons] = useState<any[]>([]);
-  
+
   // Add session tracking state
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [sessionTopics, setSessionTopics] = useState<string[]>([]);
   const [sessionToolsUsed, setSessionToolsUsed] = useState<string[]>([]);
-  
+
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -71,7 +71,7 @@ export default function BuddyAIPage() {
 
     const endTime = new Date();
     const duration = Math.floor((endTime.getTime() - sessionStartTime.getTime()) / 1000);
-    
+
     // Only save sessions longer than 30 seconds
     if (duration < 30) return;
 
@@ -115,19 +115,19 @@ export default function BuddyAIPage() {
   const extractTopicsFromResponse = useCallback((content: string): string[] => {
     const topics: string[] = [];
     const commonTopics = [
-      'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics', 
+      'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics',
       'chemistry', 'biology', 'history', 'english', 'programming', 'algorithms',
       'data structures', 'machine learning', 'artificial intelligence', 'databases',
       'web development', 'mobile development', 'science', 'literature'
     ];
-    
+
     const text = content.toLowerCase();
     commonTopics.forEach(topic => {
       if (text.includes(topic)) {
         topics.push(topic);
       }
     });
-    
+
     return topics;
   }, []);
 
@@ -142,64 +142,64 @@ export default function BuddyAIPage() {
     }
 
     const userMessage: Message = { role: 'user', content: messageToSend };
-    
+
     setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-            const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
-            const isNewChat = c.messages.length === 0;
-            const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-            return { ...c, title: newTitle, messages: [...newMessages, userMessage], createdAt: Date.now() };
-        }
-        return c;
-    }).sort((a,b) => b.createdAt - a.createdAt));
+      if (c.id === activeConversationId) {
+        const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
+        const isNewChat = c.messages.length === 0;
+        const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
+        return { ...c, title: newTitle, messages: [...newMessages, userMessage], createdAt: Date.now() };
+      }
+      return c;
+    }).sort((a, b) => b.createdAt - a.createdAt));
 
     setInput('');
     setIsLoading(true);
 
     try {
-        const result = await buddyChatStream({
-            userMessage: messageToSend,
-            history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
-            userId: user.uid,
-            persona: activeConversation.persona,
-            userProgress: userProgress,
-            availableLessons: availableLessons
-        });
-        
-        const isError = result.type === 'error';
-        const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
+      const result = await buddyChatStream({
+        userMessage: messageToSend,
+        history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
+        userId: user.uid,
+        persona: activeConversation.persona,
+        userProgress: userProgress,
+        availableLessons: availableLessons
+      });
 
-        setConversations(prev => prev.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, assistantMessage] };
-            }
-            return c;
-        }));
+      const isError = result.type === 'error';
+      const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
 
-        // Track topics and tools from the AI response
-        if (result.type === 'response') {
-          // Extract topics from the response (you can enhance this with better NLP)
-          const detectedTopics = extractTopicsFromResponse(result.content);
-          setSessionTopics(prev => [...new Set([...prev, ...detectedTopics])]);
-
-          // Track tool usage if available
-          if (result.suggestions) {
-            setSessionToolsUsed(prev => [...new Set([...prev, 'generateFollowUpSuggestions'])]);
-          }
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages: [...c.messages, assistantMessage] };
         }
+        return c;
+      }));
+
+      // Track topics and tools from the AI response
+      if (result.type === 'response') {
+        // Extract topics from the response (you can enhance this with better NLP)
+        const detectedTopics = extractTopicsFromResponse(result.content);
+        setSessionTopics(prev => [...new Set([...prev, ...detectedTopics])]);
+
+        // Track tool usage if available
+        if (result.suggestions) {
+          setSessionToolsUsed(prev => [...new Set([...prev, 'generateFollowUpSuggestions'])]);
+        }
+      }
 
     } catch (e: any) {
-        console.error(e);
-        const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
-        const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
-        setConversations(prev => prev.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, errorMessage] };
-            }
-            return c;
-        }));
+      console.error(e);
+      const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
+      const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages: [...c.messages, errorMessage] };
+        }
+        return c;
+      }));
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }, [input, user, activeConversation, sessionStartTime, startNewSession, activeConversationId, userProgress, availableLessons, extractTopicsFromResponse]);
 
@@ -232,13 +232,13 @@ export default function BuddyAIPage() {
     setInput('');
     startNewSession();
   }, [sessionStartTime, endSession, startNewSession]);
-  
+
   const handleDeleteConversation = useCallback((convoId: string) => {
     const newConversations = conversations.filter(c => c.id !== convoId);
     setConversations(newConversations);
     if (activeConversationId === convoId) {
-        if (newConversations.length > 0) setActiveConversationId(newConversations[0].id);
-        else handleNewChat('buddy');
+      if (newConversations.length > 0) setActiveConversationId(newConversations[0].id);
+      else handleNewChat('buddy');
     }
   }, [conversations, activeConversationId, handleNewChat]);
 
@@ -250,58 +250,58 @@ export default function BuddyAIPage() {
     const lastUserMessage = historyForRegen.at(-1);
 
     if (!lastUserMessage || lastUserMessage.role !== 'user') {
-        toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
-        return;
+      toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
+      return;
     }
-    
+
     // Remove the last AI response from the conversation
     setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
-    
+
     // Start loading and regenerate response without adding user message again
     setIsLoading(true);
 
     try {
-        const result = await buddyChatStream({
-            userMessage: lastUserMessage.content,
-            history: historyForRegen.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content })), // Exclude the last user message from history
-            userId: user.uid,
-            persona: activeConversation.persona,
-            userProgress: userProgress,
-            availableLessons: availableLessons
-        });
-        
-        const isError = result.type === 'error';
-        const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
+      const result = await buddyChatStream({
+        userMessage: lastUserMessage.content,
+        history: historyForRegen.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content })), // Exclude the last user message from history
+        userId: user.uid,
+        persona: activeConversation.persona,
+        userProgress: userProgress,
+        availableLessons: availableLessons
+      });
 
-        setConversations(prev => prev.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, assistantMessage] };
-            }
-            return c;
-        }));
+      const isError = result.type === 'error';
+      const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
+
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages: [...c.messages, assistantMessage] };
+        }
+        return c;
+      }));
     } catch (e: any) {
-        console.error(e);
-        const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
-        const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
-        setConversations(prev => prev.map(c => {
-            if (c.id === activeConversationId) {
-                return { ...c, messages: [...c.messages, errorMessage] };
-            }
-            return c;
-        }));
+      console.error(e);
+      const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
+      const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages: [...c.messages, errorMessage] };
+        }
+        return c;
+      }));
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }, [activeConversation, user, activeConversationId, userProgress, availableLessons, toast]);
 
   const handleProactiveSuggestion = useCallback((suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
     const newId = `convo_${Date.now()}_${Math.random()}`;
     const proactiveConversation: Conversation = {
-        id: newId,
-        title: `Help with ${suggestion.topic}`,
-        messages: [{ role: 'model', content: suggestion.message }],
-        createdAt: Date.now(),
-        persona: 'buddy'
+      id: newId,
+      title: `Help with ${suggestion.topic}`,
+      messages: [{ role: 'model', content: suggestion.message }],
+      createdAt: Date.now(),
+      persona: 'buddy'
     };
     const updatedConversations = [proactiveConversation, ...newConversations];
     setConversations(updatedConversations);
@@ -309,35 +309,35 @@ export default function BuddyAIPage() {
     startNewSession();
   }, [startNewSession]);
 
-  const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({ onSpeechEnd: () => { if (transcript) handleSend(transcript); }});
-  
+  const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({ onSpeechEnd: () => { if (transcript) handleSend(transcript); } });
+
   useEffect(() => { if (transcript) setInput(transcript); }, [transcript]);
-  
+
   const handleMicClick = () => { isListening ? stopListening() : startListening(); };
-  
+
   const handlePlayAudio = async (text: string, index: number) => {
     if (playingMessageIndex === index) {
-        audioRef.current?.pause();
-        setPlayingMessageIndex(null);
-        return;
+      audioRef.current?.pause();
+      setPlayingMessageIndex(null);
+      return;
     }
 
     setIsGeneratingAudio(index);
     setPlayingMessageIndex(index);
     try {
-        const { audioDataUri } = await generateAudioFromText({ sectionTitle: '', sectionContent: text });
-        if (audioRef.current) {
-            audioRef.current.src = audioDataUri;
-            audioRef.current.play();
-        }
+      const { audioDataUri } = await generateAudioFromText({ sectionTitle: '', sectionContent: text });
+      if (audioRef.current) {
+        audioRef.current.src = audioDataUri;
+        audioRef.current.play();
+      }
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Audio Error', description: e.message });
-        setPlayingMessageIndex(null);
+      toast({ variant: 'destructive', title: 'Audio Error', description: e.message });
+      setPlayingMessageIndex(null);
     } finally {
-        setIsGeneratingAudio(null);
+      setIsGeneratingAudio(null);
     }
   };
-  
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -345,13 +345,13 @@ export default function BuddyAIPage() {
     audio.addEventListener('ended', onEnded);
     return () => audio.removeEventListener('ended', onEnded);
   }, []);
-  
+
   // Load user data and conversation memory
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        
+
         try {
           // Load user progress and lessons data
           const [userProfile, lessonsData, savedConvos] = await Promise.all([
@@ -381,7 +381,7 @@ export default function BuddyAIPage() {
               localStorage.removeItem(`conversations_${currentUser.uid}`);
             }
           }
-          
+
           if (userProfile?.proactiveSuggestion) {
             handleProactiveSuggestion(userProfile.proactiveSuggestion, parsedConvos);
             clearProactiveSuggestion(currentUser.uid).catch(console.error);
@@ -406,46 +406,58 @@ export default function BuddyAIPage() {
   // Save conversations to localStorage
   useEffect(() => {
     if (user && conversations.length > 0) {
-        localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
+      localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
     }
   }, [conversations, user]);
 
+  // Prevent body scroll when component mounts
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <div className="flex h-full w-full bg-background overflow-hidden">
+    <div className="absolute inset-0 flex bg-background">
       <audio ref={audioRef} onEnded={() => setPlayingMessageIndex(null)} />
-      
-      <BuddySidebar 
+
+      <BuddySidebar
         user={user}
-        conversations={conversations} 
-        activeConversationId={activeConversationId} 
+        conversations={conversations}
+        activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
         onNewChat={handleNewChat}
       />
 
-      <div className="flex flex-1 flex-col h-full">
-        {activeConversation && activeConversation.messages.length > 0 ? (
-          <MessageList 
-            user={user}
-            conversation={activeConversation}
-            isLoading={isLoading}
-            playingMessageIndex={playingMessageIndex}
-            isGeneratingAudio={isGeneratingAudio}
-            onPlayAudio={handlePlayAudio}
-            onRegenerate={handleRegenerate}
-            onSendSuggestion={handleSend}
-          />
-        ) : (
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <WelcomeScreen
-              persona={activeConversation?.persona || 'buddy'}
+      <div className="flex-1 flex flex-col relative">
+        {/* Messages Area */}
+        <div className="flex-1 relative">
+          {activeConversation && activeConversation.messages.length > 0 ? (
+            <MessageList
+              user={user}
+              conversation={activeConversation}
+              isLoading={isLoading}
+              playingMessageIndex={playingMessageIndex}
+              isGeneratingAudio={isGeneratingAudio}
+              onPlayAudio={handlePlayAudio}
+              onRegenerate={handleRegenerate}
               onSendSuggestion={handleSend}
             />
-          </div>
-        )}
+          ) : (
+            <div className="absolute inset-0 overflow-y-auto">
+              <WelcomeScreen
+                persona={activeConversation?.persona || 'buddy'}
+                onSendSuggestion={handleSend}
+              />
+            </div>
+          )}
+        </div>
 
-        <div className="flex-shrink-0 border-t bg-background/95 backdrop-blur-sm">
-          <BuddyInputForm 
+        {/* Input Area - Fixed at bottom */}
+        <div className="border-t bg-background/95 backdrop-blur-sm z-10">
+          <BuddyInputForm
             input={input}
             onInputChange={setInput}
             onSend={handleSend}

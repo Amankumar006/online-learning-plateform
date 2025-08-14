@@ -197,7 +197,10 @@ export function MessageList({
             const scrollContainer = scrollAreaRef.current;
             // Use requestAnimationFrame to ensure the DOM has updated
             requestAnimationFrame(() => {
-                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                scrollContainer.scrollTo({
+                    top: scrollContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
             });
         }
     }, [conversation.messages.length, isLoading]);
@@ -227,14 +230,15 @@ export function MessageList({
 
     return (
         <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden" 
+            className="absolute inset-0 overflow-y-auto overflow-x-hidden" 
             ref={scrollAreaRef}
             style={{ 
                 scrollbarGutter: 'stable',
-                WebkitOverflowScrolling: 'touch'
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehavior: 'contain'
             }}
         >
-            <div className="py-8 px-4 space-y-8 max-w-4xl mx-auto">
+            <div className="py-8 px-4 pb-32 space-y-8 max-w-4xl mx-auto">
                 {conversation.messages.map((message, index) => {
                     const mediaContent = extractMediaContent(message.content);
                     

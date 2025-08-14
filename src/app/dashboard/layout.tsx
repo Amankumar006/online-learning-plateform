@@ -43,7 +43,6 @@ const noSidebarPaths = [
     /^\/dashboard\/lessons\/[^/]+$/,
     /^\/dashboard\/practice\/[^/]+$/,
     // Removed study room path after module removal
-    /^\/dashboard\/buddy-ai$/,
 ];  const fullHeightPaths = [
     /^\/dashboard\/buddy-ai$/,
   ];
@@ -58,13 +57,30 @@ const noSidebarPaths = [
   if (isLoading) {
     return <DashboardLoader />;
   }
+
+  // Special handling for buddy-ai page
+  if (isFullHeight) {
+    return (
+      <UtilitySidebarProvider>
+        <div className="h-screen w-full font-body relative">
+          <DashboardNav />
+          <div className="absolute inset-x-0 top-16 bottom-0 flex">
+            <main className="flex-1 relative">
+              {children}
+            </main>
+            <UtilitySidebar />
+          </div>
+        </div>
+      </UtilitySidebarProvider>
+    );
+  }
   
   return (
     <UtilitySidebarProvider>
         <div className="flex h-screen w-full flex-col font-body">
           <DashboardNav />
           <div className="flex flex-1 overflow-hidden">
-             <main className={`flex-1 flex flex-col ${isFullHeight ? 'overflow-hidden' : 'overflow-y-auto p-4 md:p-6 lg:p-8'}`}>
+             <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6 lg:p-8">
                 {children}
             </main>
             <UtilitySidebar />
