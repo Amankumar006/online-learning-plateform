@@ -50,6 +50,12 @@ export default function BuddyAIPage() {
 
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('buddy-ai-web-search') === 'true';
+    }
+    return false;
+  });
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const { toast } = useToast();
@@ -163,7 +169,8 @@ export default function BuddyAIPage() {
         userId: user.uid,
         persona: activeConversation.persona,
         userProgress: userProgress,
-        availableLessons: availableLessons
+        availableLessons: availableLessons,
+        webSearchEnabled: webSearchEnabled
       });
 
       const isError = result.type === 'error';
@@ -267,7 +274,8 @@ export default function BuddyAIPage() {
         userId: user.uid,
         persona: activeConversation.persona,
         userProgress: userProgress,
-        availableLessons: availableLessons
+        availableLessons: availableLessons,
+        webSearchEnabled: webSearchEnabled
       });
 
       const isError = result.type === 'error';
@@ -314,6 +322,14 @@ export default function BuddyAIPage() {
   useEffect(() => { if (transcript) setInput(transcript); }, [transcript]);
 
   const handleMicClick = () => { isListening ? stopListening() : startListening(); };
+  
+  const handleWebSearchToggle = () => {
+    setWebSearchEnabled(prev => {
+      const newValue = !prev;
+      localStorage.setItem('buddy-ai-web-search', newValue.toString());
+      return newValue;
+    });
+  };
 
   const handlePlayAudio = async (text: string, index: number) => {
     if (playingMessageIndex === index) {
@@ -464,6 +480,8 @@ export default function BuddyAIPage() {
             isLoading={isLoading}
             isListening={isListening}
             onMicClick={handleMicClick}
+            webSearchEnabled={webSearchEnabled}
+            onWebSearchToggle={handleWebSearchToggle}
           />
         </div>
       </div>

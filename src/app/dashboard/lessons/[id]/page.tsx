@@ -80,7 +80,8 @@ const AIBuddyPopover = ({ user, lesson }: { user: FirebaseUser, lesson: Lesson }
           lessonContext: lessonContent,
           history: messages.map(msg => ({ role: msg.role, content: msg.content })),
           userId: user.uid,
-          persona: 'buddy'
+          persona: 'buddy',
+          webSearchEnabled: true
       });
       const assistantMessage: Message = { role: 'model', content: result.content, isError: result.type === 'error' };
       setMessages(prev => [...prev, assistantMessage]);

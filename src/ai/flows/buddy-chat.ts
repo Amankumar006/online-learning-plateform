@@ -13,6 +13,7 @@ import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
 import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy';
 import { getSystemPrompt } from '@/ai/prompts';
 import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
+import { webSearchDetectionService } from '@/ai/services/web-search-detection';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -36,7 +37,8 @@ const BuddyChatInputSchema = z.object({
     id: z.string(),
     title: z.string(),
     subject: z.string().optional()
-  })).optional().describe('Available lessons passed from client to avoid server-side Firebase access')
+  })).optional().describe('Available lessons passed from client to avoid server-side Firebase access'),
+  webSearchEnabled: z.boolean().optional().default(false).describe('Whether web search functionality is enabled for this conversation')
 });
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
@@ -97,13 +99,28 @@ const buddyChatFlow = ai.defineFlow(
         // Generate system prompt without conversation memory for now
         let systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
         
+        // Add web search context if enabled
+        if (input.webSearchEnabled) {
+            systemPrompt += `\n\n**WEB SEARCH TOOL AVAILABLE**
+You have access to the searchTheWeb tool for current information. Use it when users ask about:
+- Current rankings or "top X" lists (e.g., "top AI coding tools", "best code editors")
+- Latest versions or updates
+- Recent developments or trends
+- Any question where you need current, up-to-date information
+
+Example: If someone asks "What are the top AI coding tools?", use searchTheWeb with query "top AI coding tools 2024" to get current information.`;
+        }
+        
         // Add basic user context if available
         if (input.userProgress) {
             const completedLessons = input.userProgress.completedLessonIds?.length || 0;
             systemPrompt += `\n\n**USER CONTEXT:**\nUser has completed ${completedLessons} lessons.`;
         }
 
-        const tools = await getBuddyChatTools();
+        const tools = await getBuddyChatTools(input.webSearchEnabled);
+        // Debug logging can be enabled if needed
+        // console.log('🛠️ Tools loaded:', tools.map(t => t.name || 'unnamed'));
+        // console.log('🌐 Web search enabled:', input.webSearchEnabled);
         const toolsUsed: string[] = [];
         
         // Use ai.generate with tools normally for all requests
@@ -115,6 +132,9 @@ ${input.lessonContext ? `**LESSON CONTEXT:**\n---\n${input.lessonContext}\n---\n
 ${input.history && input.history.length > 0 ? `**CONVERSATION HISTORY:**\n${input.history.map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`).join('\n')}\n\n` : ''}
 
 **USER MESSAGE:** ${input.userMessage}
+
+${input.webSearchEnabled && (input.userMessage.toLowerCase().includes('top') || input.userMessage.toLowerCase().includes('best') || input.userMessage.toLowerCase().includes('current') || input.userMessage.toLowerCase().includes('latest')) ? 
+'**INSTRUCTION:** This question appears to require current information. Use the searchTheWeb tool to get up-to-date data before responding.' : ''}
 
 Please respond helpfully and appropriately based on the context and conversation history.`,
             tools,
@@ -139,7 +159,12 @@ Please respond helpfully and appropriately based on the context and conversation
             if (responseText.includes('study suggestions') || responseText.includes('Based on your progress')) {
                 usedTools.push('suggestStudyTopics');
             }
-            if (responseText.includes('web search') || responseText.includes('search results')) {
+            if (responseText.includes('🌐 **Live Web Search Results**') || 
+                responseText.includes('Sources & References') || 
+                responseText.includes('Retrieved:') ||
+                responseText.includes('Search Query:') ||
+                responseText.includes('web search') || 
+                responseText.includes('search results')) {
                 usedTools.push('searchTheWeb');
             }
             if (responseText.includes('Time Complexity') || responseText.includes('Space Complexity')) {
@@ -147,6 +172,20 @@ Please respond helpfully and appropriately based on the context and conversation
             }
             if (responseText.includes('visual diagram') || responseText.includes('📊 **Visual Elements:**')) {
                 usedTools.push('generateImageForExplanation');
+            }
+            // Semantic search tool patterns
+            if (responseText.includes('🧠 **Semantic Search Results**') || 
+                responseText.includes('semantically similar content') ||
+                responseText.includes('Vector Store Status')) {
+                usedTools.push('semanticSearch');
+            }
+            if (responseText.includes('**Content Indexed Successfully**') || 
+                responseText.includes('Updated Vector Store')) {
+                usedTools.push('indexContent');
+            }
+            if (responseText.includes('🔗 **Similar Content Found**') || 
+                responseText.includes('Similar Content Search')) {
+                usedTools.push('findSimilarContent');
             }
             
             return usedTools;

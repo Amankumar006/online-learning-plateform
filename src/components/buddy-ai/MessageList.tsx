@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Bot, Copy, RefreshCw, ThumbsUp, ThumbsDown, Volume2, Square, AlertTriangle, Image as ImageIcon, Play, Pause, Download, Maximize2 } from 'lucide-react';
+import { Loader2, Bot, Copy, RefreshCw, ThumbsUp, ThumbsDown, Volume2, Square, AlertTriangle, Image as ImageIcon, Play, Pause, Download, Maximize2, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import FormattedContent from '@/components/common/FormattedContent';
@@ -259,6 +259,12 @@ export function MessageList({
                                         {message.role === 'model' && activePersona && (
                                             <Badge variant="secondary" className="text-xs">
                                                 {activePersona.name}
+                                            </Badge>
+                                        )}
+                                        {message.role === 'model' && message.content.includes('🌐 **Live Web Search Results**') && (
+                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                                <Globe className="w-3 h-3 mr-1" />
+                                                Web Search
                                             </Badge>
                                         )}
                                     </div>

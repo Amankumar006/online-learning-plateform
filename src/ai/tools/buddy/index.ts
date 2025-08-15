@@ -8,19 +8,34 @@ import { searchTheWebTool } from './search-tool';
 import { analyzeCodeComplexityTool } from './analysis-tool';
 import { suggestTopicsTool } from './study-tool';
 import { generateImageForExplanationTool, processImageTool } from './visual-tool';
+import { 
+  semanticSearchTool, 
+  indexContentTool, 
+  findSimilarContentTool 
+} from './semantic-search-tool';
 import { setCurrentUserId, setCurrentUserData, getCurrentContext } from './context';
 
 // Export context management functions
 export { setCurrentUserId, setCurrentUserData };
 
 // Export the tools array - context is handled via global state for now
-export async function getBuddyChatTools() {
-    return [
+export async function getBuddyChatTools(webSearchEnabled: boolean = false) {
+    const tools = [
         createExerciseTool,
         suggestTopicsTool,
-        searchTheWebTool,
         generateImageForExplanationTool,
         analyzeCodeComplexityTool,
-        processImageTool
+        processImageTool,
+        // Semantic search tools are always available
+        semanticSearchTool,
+        indexContentTool,
+        findSimilarContentTool
     ];
+
+    // Only include web search tool if web search is enabled
+    if (webSearchEnabled) {
+        tools.push(searchTheWebTool);
+    }
+
+    return tools;
 }

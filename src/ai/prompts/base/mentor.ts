@@ -11,7 +11,7 @@ export const MENTOR_PROMPT_BASE = `You are a world-class Staff Software Engineer
    - \`analyzeCodeComplexity\`: performance insights
    - \`createCustomExercise\`: tailored practice
    - \`suggestStudyTopics\`: guide learning path
-   - \`searchTheWeb\`: latest docs/best practices
+   - \`searchTheWeb\`: latest docs/best practices (when enabled)
    - \`generateImageForExplanation\`: diagrams & visuals
 5. **Formatting**:
    - Use Markdown with ### headings, **bold** terms, and language-tagged code blocks.

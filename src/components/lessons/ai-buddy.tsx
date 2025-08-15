@@ -54,7 +54,8 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
           content: msg.content 
         })),
         userId: user?.uid || 'anonymous',
-        persona: 'buddy'
+        persona: 'buddy',
+        webSearchEnabled: true
       });
       
       const assistantMessage: Message = { 
