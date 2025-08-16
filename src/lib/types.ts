@@ -98,6 +98,9 @@ export interface User {
   loginStreak: number;
   lastLoginDate: string; // YYYY-MM-DD
   handRaised?: boolean;
+  // Adaptive learning integration
+  adaptiveLearningEnabled?: boolean;
+  lastAdaptiveAnalysis?: Timestamp;
 }
 
 // New Exercise Data Structure

@@ -20,6 +20,7 @@ import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAdaptiveLearning } from "@/hooks/use-adaptive-learning";
 
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
@@ -142,7 +143,11 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
   const [activeOutputTab, setActiveOutputTab] = useState("console");
   const [isHintVisible, setIsHintVisible] = useState(false);
+  const [exerciseStartTime, setExerciseStartTime] = useState<number>(Date.now());
   const { toast } = useToast();
+
+  // Adaptive learning integration
+  const { trackInteraction, currentPath, getCognitiveLoadStatus } = useAdaptiveLearning();
 
   const lessonId = exercises.length > 0 ? exercises[0].lessonId : null;
   const totalExercises = exercises.length;
@@ -196,6 +201,21 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     if (isLoading || !currentExercise) return;
 
     resetForNewQuestion();
+    setExerciseStartTime(Date.now());
+    
+    // Track exercise start
+    trackInteraction({
+      eventType: 'exercise_attempt',
+      exerciseId: currentExercise.id,
+      lessonId: currentExercise.lessonId,
+      duration: 0,
+      success: false, // Will be updated on completion
+      metadata: { 
+        exerciseType: currentExercise.type,
+        difficulty: currentExercise.difficulty,
+        startTime: Date.now()
+      }
+    });
     
     const previousResponse = userResponses.get(currentExercise.id);
     if (previousResponse) {
@@ -219,7 +239,7 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentExerciseIndex, isLoading, userResponses, currentExercise]);
+  }, [currentExerciseIndex, isLoading, userResponses, currentExercise, trackInteraction]);
 
   const handleFibAnswerChange = (index: number, value: string) => {
     const newAnswers = [...fibAnswers];
@@ -316,6 +336,25 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
     setIsAnswered(true);
     setIsCorrect(correct);
     
+    // Track exercise completion
+    const completionTime = Date.now();
+    const duration = completionTime - exerciseStartTime;
+    
+    trackInteraction({
+      eventType: 'exercise_attempt',
+      exerciseId: currentExercise.id,
+      lessonId: currentExercise.lessonId,
+      duration,
+      success: correct,
+      metadata: { 
+        exerciseType: currentExercise.type,
+        difficulty: currentExercise.difficulty,
+        score,
+        attempts: (userResponses.get(currentExercise.id)?.attempts || 0) + 1,
+        responseTime: duration
+      }
+    });
+    
     try {
         await saveExerciseAttempt(
             userId,
@@ -401,6 +440,16 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
   
   const showHint = () => {
     setIsHintVisible(prev => !prev);
+    
+    // Track hint request
+    trackInteraction({
+      eventType: 'hint_request',
+      exerciseId: currentExercise?.id,
+      lessonId: currentExercise?.lessonId,
+      duration: Date.now() - exerciseStartTime,
+      success: false,
+      metadata: { hintShown: !isHintVisible }
+    });
   }
   
   const renderExercise = () => {
