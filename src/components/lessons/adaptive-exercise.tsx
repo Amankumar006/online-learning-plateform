@@ -23,7 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
-    loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+    loading: () => <Skeleton className="w-full h-[300px] md:h-[400px] lg:h-[450px] rounded-md" />,
 });
 
 const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
@@ -31,7 +31,7 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
   const hasError = result?.stderr && result.stderr.length > 0;
 
   return (
-    <div className="p-4 bg-muted/50 font-mono text-sm min-h-[200px] whitespace-pre-wrap text-foreground">
+    <div className="p-3 md:p-4 bg-muted/50 font-mono text-xs md:text-sm min-h-[150px] md:min-h-[200px] whitespace-pre-wrap text-foreground overflow-x-auto">
       {isLoading ? (
         <div className="flex items-center gap-2">
           <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
@@ -54,16 +54,16 @@ const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOut
 const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean, onApplySuggestion: (code: string) => void }) => {
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <p>Analyzing your code...</p>
+            <div className="flex items-center justify-center p-4 md:p-8 text-muted-foreground min-h-[150px] md:min-h-[200px]">
+                <Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />
+                <p className="text-sm md:text-base">Analyzing your code...</p>
             </div>
         )
     }
     
     if (result) {
          return (
-            <div className="space-y-4 p-4 bg-muted/50 min-h-[200px]">
+            <div className="space-y-3 md:space-y-4 p-3 md:p-4 bg-muted/50 min-h-[150px] md:min-h-[200px]">
                 <Card className="bg-background/50 border-border/50">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Complexity Analysis</CardTitle>
@@ -119,8 +119,8 @@ const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: Si
     }
 
     return (
-        <div className="text-center text-muted-foreground p-8 min-h-[200px] flex items-center justify-center">
-            <p>Click "Run & Analyze" to get AI feedback on your code.</p>
+        <div className="text-center text-muted-foreground p-4 md:p-8 min-h-[150px] md:min-h-[200px] flex items-center justify-center">
+            <p className="text-sm md:text-base">Click "Run & Analyze" to get AI feedback on your code.</p>
         </div>
     )
 }
@@ -445,15 +445,15 @@ export default function AdaptiveExercise({ exercises, userId, lessonTitle }: { e
                         />
                         <div className="rounded-lg border bg-background overflow-hidden">
                             <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
-                                <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
-                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
-                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
-                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 px-3 md:px-4 bg-muted border-b gap-2 sm:gap-0">
+                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto w-full sm:w-auto">
+                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-7 md:h-8">Console</TabsTrigger>
+                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-7 md:h-8">AI Analysis</TabsTrigger>
                                     </TabsList>
                                     {!isAnswered && (
-                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()}>
-                                            {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                                            Run & Analyze
+                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()} className="w-full sm:w-auto">
+                                            {isSimulating ? <Loader2 className="mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin" /> : <Play className="mr-2 h-3 w-3 md:h-4 md:w-4" />}
+                                            <span className="text-xs md:text-sm">Run & Analyze</span>
                                         </Button>
                                     )}
                                 </div>

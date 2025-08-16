@@ -34,20 +34,20 @@ export function BuddyInputForm({
     };
 
     return (
-        <div className="shrink-0 p-4 bg-background/95 backdrop-blur-sm border-t">
+        <div className="shrink-0 p-3 md:p-4 bg-background/95 backdrop-blur-sm border-t">
             <div className="relative mx-auto max-w-3xl">
                 <Input
                     value={input}
                     onChange={(e) => onInputChange(e.target.value)}
                     placeholder={isListening ? 'Listening...' : webSearchEnabled ? 'Ask me anything - I can search the web!' : 'What\'s on your mind?...'}
                     className={cn(
-                        "rounded-full py-6 pl-6 shadow-lg border-2 focus-visible:ring-primary/50",
-                        onWebSearchToggle ? "pr-36" : "pr-24"
+                        "rounded-full py-4 md:py-6 pl-4 md:pl-6 shadow-lg border-2 focus-visible:ring-primary/50 text-sm md:text-base",
+                        onWebSearchToggle ? "pr-28 md:pr-36" : "pr-20 md:pr-24"
                     )}
                     onKeyDown={handleKeyDown}
                     disabled={isLoading}
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <div className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 md:gap-1">
                     {/* Web Search Toggle Icon */}
                     {onWebSearchToggle && (
                         <Button
@@ -55,7 +55,7 @@ export function BuddyInputForm({
                             size="icon"
                             variant="ghost"
                             className={cn(
-                                "rounded-full h-10 w-10 transition-all",
+                                "rounded-full h-8 w-8 md:h-10 md:w-10 transition-all",
                                 webSearchEnabled 
                                     ? "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50" 
                                     : "text-muted-foreground hover:text-foreground"
@@ -64,9 +64,9 @@ export function BuddyInputForm({
                             title={webSearchEnabled ? "Web search enabled - Click to disable" : "Web search disabled - Click to enable"}
                         >
                             {webSearchEnabled ? (
-                                <Globe className="w-4 h-4" />
+                                <Globe className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             ) : (
-                                <Search className="w-4 h-4" />
+                                <Search className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             )}
                         </Button>
                     )}
@@ -75,19 +75,19 @@ export function BuddyInputForm({
                         onClick={onMicClick}
                         size="icon"
                         variant="ghost"
-                        className={cn("rounded-full h-10 w-10", isListening && "bg-destructive/20 text-destructive animate-pulse")}
+                        className={cn("rounded-full h-8 w-8 md:h-10 md:w-10", isListening && "bg-destructive/20 text-destructive animate-pulse")}
                         aria-label={isListening ? "Stop listening" : "Start listening"}
                     >
-                        <Mic className="w-4 h-4" />
+                        <Mic className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     </Button>
                     <Button
                         onClick={() => onSend(input)}
                         disabled={isLoading || !input.trim()}
                         size="icon"
-                        className="rounded-full w-10 h-10"
+                        className="rounded-full w-8 h-8 md:w-10 md:h-10"
                         aria-label="Send message"
                     >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {isLoading ? <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                     </Button>
                 </div>
             </div>
@@ -97,7 +97,8 @@ export function BuddyInputForm({
                 <div className="flex items-center justify-center mt-2">
                     <span className="text-xs text-green-600 font-medium flex items-center">
                         <Globe className="w-3 h-3 mr-1" />
-                        Web search enabled
+                        <span className="hidden sm:inline">Web search enabled</span>
+                        <span className="sm:hidden">Web search on</span>
                     </span>
                 </div>
             )}

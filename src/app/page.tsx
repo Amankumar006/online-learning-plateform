@@ -7,17 +7,28 @@ import { BookOpenCheck, ArrowRight, Lightbulb, Bot, BrainCircuit, Wand2, Volume2
 import { ThemeToggle } from "@/components/theme-toggle";
 
 // Floating Animation Component
-const FloatingElement = ({ children, delay = 0, duration = 3 }: { children: React.ReactNode, delay?: number, duration?: number }) => (
-  <div 
-    className="absolute animate-bounce opacity-20 pointer-events-none"
-    style={{ 
-      animationDelay: `${delay}s`,
-      animationDuration: `${duration}s`
-    }}
-  >
-    {children}
-  </div>
-);
+const FloatingElement = ({ children, delay = 0, duration = 3 }: { children: React.ReactNode, delay?: number, duration?: number }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <div 
+      className="absolute animate-bounce opacity-20 pointer-events-none"
+      style={{ 
+        animationDelay: `${delay}s`,
+        animationDuration: `${duration}s`
+      }}
+      suppressHydrationWarning={true}
+    >
+      {children}
+    </div>
+  );
+};
 
 // Stats Component
 const StatsSection = () => (

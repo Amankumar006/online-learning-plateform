@@ -80,14 +80,14 @@ const MediaContentRenderer = ({ media }: { media: MediaContentDisplay }) => {
                                 <img 
                                     src={media.dataUri || media.url} 
                                     alt={media.description || "Generated image"}
-                                    className="max-w-sm rounded-lg border shadow-sm hover:shadow-md transition-shadow"
+                                    className="max-w-full sm:max-w-sm rounded-lg border shadow-sm hover:shadow-md transition-shadow"
                                 />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors flex items-center justify-center">
-                                    <Maximize2 className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <Maximize2 className="h-5 w-5 md:h-6 md:w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </div>
                         </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh]">
+                        <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] p-2 md:p-6">
                             <img 
                                 src={media.dataUri || media.url} 
                                 alt={media.description || "Generated image"}
@@ -106,18 +106,18 @@ const MediaContentRenderer = ({ media }: { media: MediaContentDisplay }) => {
 
         case 'audio':
             return (
-                <div className="mt-2 p-3 bg-muted/50 rounded-lg border">
-                    <div className="flex items-center gap-3">
+                <div className="mt-2 p-2.5 md:p-3 bg-muted/50 rounded-lg border max-w-full sm:max-w-sm">
+                    <div className="flex items-center gap-2 md:gap-3">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={handlePlayPause}
-                            className="h-8 w-8"
+                            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
                         >
-                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            {isPlaying ? <Pause className="h-3.5 w-3.5 md:h-4 md:w-4" /> : <Play className="h-3.5 w-3.5 md:h-4 md:w-4" />}
                         </Button>
                         
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                                 <span>{formatTime(currentTime)}</span>
                                 <span>{formatTime(duration)}</span>
@@ -133,7 +133,7 @@ const MediaContentRenderer = ({ media }: { media: MediaContentDisplay }) => {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 md:h-8 md:w-8 shrink-0"
                             onClick={() => {
                                 const a = document.createElement('a');
                                 a.href = media.dataUri || media.url;
@@ -141,7 +141,7 @@ const MediaContentRenderer = ({ media }: { media: MediaContentDisplay }) => {
                                 a.click();
                             }}
                         >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-3.5 w-3.5 md:h-4 md:w-4" />
                         </Button>
                     </div>
 
@@ -163,7 +163,7 @@ const MediaContentRenderer = ({ media }: { media: MediaContentDisplay }) => {
                         ref={mediaRef as React.RefObject<HTMLVideoElement>}
                         src={media.dataUri || media.url}
                         controls
-                        className="max-w-sm rounded-lg border shadow-sm"
+                        className="max-w-full sm:max-w-sm rounded-lg border shadow-sm"
                         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
                         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
                     />
@@ -238,38 +238,39 @@ export function MessageList({
                 overscrollBehavior: 'contain'
             }}
         >
-            <div className="py-8 px-4 pb-32 space-y-8 max-w-4xl mx-auto">
+            <div className="py-4 md:py-8 px-3 md:px-4 pb-24 md:pb-32 space-y-4 md:space-y-8 max-w-4xl mx-auto">
                 {conversation.messages.map((message, index) => {
                     const mediaContent = extractMediaContent(message.content);
                     
                     return (
-                        <div key={index} className="flex flex-col items-start gap-4">
-                            <div className="group flex items-start gap-4 w-full">
-                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                        <div key={index} className="flex flex-col items-start gap-2 md:gap-4">
+                            <div className="group flex items-start gap-2 md:gap-4 w-full">
+                                <Avatar className="w-7 h-7 md:w-8 md:h-8 border shadow-sm shrink-0">
                                     <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                    <AvatarFallback>
-                                        {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={20} /> : <Bot size={20} />)}
+                                    <AvatarFallback className="text-xs">
+                                        {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={16} /> : <Bot size={16} />)}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className={cn("flex-1 pt-1 space-y-1 min-w-0 word-wrap break-words", message.isError && "text-destructive")}>
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-semibold text-sm">
+                                    <div className="flex items-center gap-1 md:gap-2 flex-wrap">
+                                        <p className="font-semibold text-xs md:text-sm">
                                             {message.role === 'user' ? user?.displayName || 'You' : activePersona?.name || 'Buddy AI'}
                                         </p>
                                         {message.role === 'model' && activePersona && (
-                                            <Badge variant="secondary" className="text-xs">
+                                            <Badge variant="secondary" className="text-xs hidden sm:inline-flex">
                                                 {activePersona.name}
                                             </Badge>
                                         )}
                                         {message.role === 'model' && message.content.includes('🌐 **Live Web Search Results**') && (
                                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                                                 <Globe className="w-3 h-3 mr-1" />
-                                                Web Search
+                                                <span className="hidden sm:inline">Web Search</span>
+                                                <span className="sm:hidden">Web</span>
                                             </Badge>
                                         )}
                                     </div>
                                     
-                                    <div className="overflow-hidden">
+                                    <div className="overflow-hidden text-sm md:text-base">
                                         <FormattedContent content={message.content} />
                                     </div>
                                     
@@ -279,37 +280,37 @@ export function MessageList({
                                     ))}
                                     
                                     {message.role === 'model' && !isLoading && index === conversation.messages.length - 1 && (
-                                        <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-0.5 md:gap-1 text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             {!message.isError && (
                                                 <>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPlayAudio(message.content, index)}>
-                                                        {isGeneratingAudio === index ? <Loader2 className="h-4 w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />)}
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => onPlayAudio(message.content, index)}>
+                                                        {isGeneratingAudio === index ? <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin"/> : (playingMessageIndex === index ? <Square className="h-3 w-3 md:h-4 md:w-4" /> : <Volume2 className="h-3 w-3 md:h-4 md:w-4" />)}
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}>
-                                                        <Copy className="h-4 w-4" />
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => { copyToClipboard(message.content); toast({title: "Copied to clipboard!"})}}>
+                                                        <Copy className="h-3 w-3 md:h-4 md:w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "Thank you for helping improve our AI!"})}>
-                                                        <ThumbsUp className="h-4 w-4" />
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7 hidden sm:flex" onClick={() => toast({title: "Feedback received!", description: "Thank you for helping improve our AI!"})}>
+                                                        <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Feedback received!", description: "We'll use this to improve future responses."})}>
-                                                        <ThumbsDown className="h-4 w-4" />
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7 hidden sm:flex" onClick={() => toast({title: "Feedback received!", description: "We'll use this to improve future responses."})}>
+                                                        <ThumbsDown className="h-3 w-3 md:h-4 md:w-4" />
                                                     </Button>
                                                 </>
                                             )}
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRegenerate} title="Regenerate response">
-                                                <RefreshCw className="h-4 w-4" />
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={onRegenerate} title="Regenerate response">
+                                                <RefreshCw className="h-3 w-3 md:h-4 md:w-4" />
                                             </Button>
                                         </div>
                                     )}
                                     {message.isError && (
-                                        <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                                        <div className="mt-2 p-2.5 md:p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                                             <p className="text-xs text-destructive/80 mb-2">Something went wrong. You can:</p>
-                                            <div className="flex gap-2">
-                                                <Button variant="outline" size="sm" onClick={onRegenerate}>
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <Button variant="outline" size="sm" onClick={onRegenerate} className="text-xs">
                                                     <RefreshCw className="h-3 w-3 mr-1" />
                                                     Try Again
                                                 </Button>
-                                                <Button variant="outline" size="sm" onClick={() => onSendSuggestion("Can you help me with something else?")}>
+                                                <Button variant="outline" size="sm" onClick={() => onSendSuggestion("Can you help me with something else?")} className="text-xs">
                                                     Ask Something Else
                                                 </Button>
                                             </div>
@@ -318,14 +319,14 @@ export function MessageList({
                                 </div>
                             </div>
                             {message.role === 'model' && message.suggestions && message.suggestions.length > 0 && !isLoading && (
-                                <div className="pl-12 w-full">
-                                    <div className="flex flex-wrap gap-2 pt-2">
+                                <div className="pl-9 md:pl-12 w-full">
+                                    <div className="flex flex-wrap gap-1.5 md:gap-2 pt-2">
                                         {message.suggestions.map((suggestion, i) => (
                                             <Button
                                                 key={i}
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-auto py-1.5 px-3 text-xs"
+                                                className="h-auto py-1 md:py-1.5 px-2 md:px-3 text-xs leading-tight"
                                                 onClick={() => onSendSuggestion(suggestion)}
                                             >
                                                 {suggestion}
@@ -338,9 +339,9 @@ export function MessageList({
                     );
                 })}
                 {isLoading && (
-                    <div className="flex items-start gap-4">
-                        <Avatar className="w-8 h-8 border shadow-sm shrink-0"><AvatarFallback><Bot size={20} /></AvatarFallback></Avatar>
-                        <div className="flex-1 pt-1"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                    <div className="flex items-start gap-2 md:gap-4">
+                        <Avatar className="w-7 h-7 md:w-8 md:h-8 border shadow-sm shrink-0"><AvatarFallback className="text-xs"><Bot size={16} /></AvatarFallback></Avatar>
+                        <div className="flex-1 pt-1"><Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin text-muted-foreground" /></div>
                     </div>
                 )}
             </div>

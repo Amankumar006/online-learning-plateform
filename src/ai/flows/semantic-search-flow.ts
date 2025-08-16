@@ -11,7 +11,6 @@ import { z } from 'genkit';
 import {
     semanticSearchService,
     type SemanticSearchRequest,
-    type SimilarContentRequest,
     type BatchIndexRequest
 } from '@/ai/services/semantic-search';
 
@@ -82,6 +81,7 @@ export const semanticSearchFlow = ai.defineFlow(
     },
     async (input) => {
         try {
+            const startTime = Date.now();
             const request: SemanticSearchRequest = {
                 query: input.query,
                 options: {

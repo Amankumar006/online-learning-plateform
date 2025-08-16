@@ -17,11 +17,19 @@ interface CodeEditorProps {
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled, placeholder, language = 'javascript' }) => {
     const { resolvedTheme } = useTheme();
+    const [isMobile, setIsMobile] = React.useState(false);
+
+    React.useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const handleEditorChange: OnChange = (value) => {
         onValueChange(value || '');
     };
-    
+
     // Fetches the DOM library type definitions and adds them to the editor
     // to enable full IntelliSense for browser APIs.
     const handleBeforeMount = async (monaco: Monaco) => {
@@ -50,7 +58,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
 
     return (
         <div className={cn(
-            "relative w-full rounded-md border h-[400px]",
+            "relative w-full rounded-md border h-[300px] md:h-[400px] lg:h-[450px]",
             "bg-white dark:bg-[#1e1e1e]",
             "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
             disabled && "cursor-not-allowed opacity-50"
@@ -65,23 +73,34 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onValueChange, disabled,
                 loading={<Loader2 className="animate-spin" />}
                 options={{
                     readOnly: disabled,
-                    minimap: { enabled: true },
-                    fontSize: 14,
+                    minimap: { enabled: !isMobile }, // Disable minimap on mobile
+                    fontSize: isMobile ? 12 : 14, // Smaller font on mobile
                     wordWrap: 'on',
                     scrollBeyondLastLine: false,
                     padding: {
-                        top: 16,
-                        bottom: 16
+                        top: isMobile ? 12 : 16,
+                        bottom: isMobile ? 12 : 16
                     },
                     automaticLayout: true,
                     matchBrackets: 'always',
                     autoClosingBrackets: 'languageDefined',
                     autoClosingQuotes: 'languageDefined',
                     autoSurround: 'languageDefined',
+                    // Mobile-specific optimizations
+                    quickSuggestions: !isMobile,
+                    suggestOnTriggerCharacters: !isMobile,
+                    acceptSuggestionOnEnter: isMobile ? 'off' : 'on',
+                    // Better mobile experience
+                    contextmenu: !isMobile,
+                    folding: !isMobile,
+                    lineNumbers: isMobile ? 'off' : 'on',
+                    glyphMargin: !isMobile,
+                    lineDecorationsWidth: isMobile ? 0 : 10,
+                    lineNumbersMinChars: isMobile ? 0 : 3,
                 }}
             />
-             {placeholder && !value && !disabled && (
-                <div className="absolute top-4 left-[52px] text-muted-foreground pointer-events-none">
+            {placeholder && !value && !disabled && (
+                <div className="absolute top-3 md:top-4 left-[52px] text-muted-foreground pointer-events-none text-sm md:text-base">
                     {placeholder}
                 </div>
             )}
