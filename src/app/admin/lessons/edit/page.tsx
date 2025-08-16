@@ -226,14 +226,16 @@ export default function EditLessonPage() {
   }
   
   const handleCreateFollowUp = (topic: string) => {
-      const query = new URLSearchParams({
-          topic,
-          subject,
-          gradeLevel,
-          ageGroup,
-          curriculumBoard,
-          topicDepth,
-      });
+      const queryParams: Record<string, string> = { topic };
+      
+      // Only add non-empty values to avoid undefined/empty string issues
+      if (subject) queryParams.subject = subject;
+      if (gradeLevel) queryParams.gradeLevel = gradeLevel;
+      if (ageGroup) queryParams.ageGroup = ageGroup;
+      if (curriculumBoard) queryParams.curriculumBoard = curriculumBoard;
+      if (topicDepth) queryParams.topicDepth = topicDepth;
+      
+      const query = new URLSearchParams(queryParams);
       router.push(`/admin/lessons/new?${query.toString()}`);
   }
 

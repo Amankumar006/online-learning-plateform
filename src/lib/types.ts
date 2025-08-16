@@ -39,6 +39,11 @@ export interface Lesson {
   ageGroup?: string;
   curriculumBoard?: string;
   topicDepth?: string;
+  // Audio generation tracking
+  audioGenerationStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+  audioGenerationStarted?: number;
+  audioGenerationCompleted?: number;
+  audioGenerationError?: string | null;
 }
 
 export interface ProactiveSuggestion {
