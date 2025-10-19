@@ -18,18 +18,25 @@ const CodeBlockDisplay = ({ language, code }: { language: string, code: string }
 
     return (
         <div className="my-4 not-prose">
-            <div className="flex justify-between items-center bg-muted rounded-t-lg px-4 py-2">
+            <div className="bg-blue-500 text-white rounded-t-lg px-4 py-2 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                     <Code className="h-5 w-5" />
-                     <span className="text-sm font-semibold">{language || 'code'}</span>
+                     <Code className="h-4 w-4" />
+                     <span className="text-sm font-medium">{language || 'code'}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleCopy}>
-                    {copied ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleCopy}
+                    className="h-7 w-7 text-white hover:bg-white/20"
+                >
+                    {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     <span className="sr-only">Copy code</span>
                 </Button>
             </div>
-            <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
-                <pre><code>{code}</code></pre>
+            <div className="bg-gray-900 text-gray-100 rounded-b-lg p-4 overflow-x-auto border-x border-b border-gray-700">
+                <pre className="text-sm leading-relaxed">
+                    <code className="font-mono">{code}</code>
+                </pre>
             </div>
         </div>
     );

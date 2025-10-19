@@ -1,0 +1,27 @@
+{
+  "migrationDate": "2025-10-19T07:16:36.890Z",
+  "version": "2.0.0",
+  "features": {
+    "persistentVectorStore": true,
+    "enhancedImageGeneration": true,
+    "comprehensiveCodeAnalysis": true,
+    "improvedSemanticSearch": true
+  },
+  "services": {
+    "vectorStore": true,
+    "imageGeneration": true,
+    "codeAnalysis": true,
+    "googleAI": false,
+    "openAI": false
+  },
+  "configuration": {
+    "valid": false,
+    "issues": [
+      "OpenAI API key required for image generation but not configured"
+    ]
+  },
+  "directories": {
+    "data": true,
+    "backup": true
+  }
+}

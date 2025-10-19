@@ -14,14 +14,29 @@ import { Timestamp } from 'firebase/firestore';
 
 import { BuddySidebar, Personas } from '@/components/buddy-ai/BuddySidebar';
 import { MessageList } from '@/components/buddy-ai/MessageList';
+import { EnhancedMessageList } from '@/components/buddy-ai/EnhancedMessageList';
 import { WelcomeScreen } from '@/components/buddy-ai/WelcomeScreen';
+import { EnhancedWelcomeScreen } from '@/components/buddy-ai/EnhancedWelcomeScreen';
 import { BuddyInputForm } from '@/components/buddy-ai/BuddyInputForm';
+import { FileUploadInputForm } from '@/components/buddy-ai/FileUploadInputForm';
+import { AdvancedInputForm } from '@/components/buddy-ai/AdvancedInputForm';
 
 export interface Message {
   role: 'user' | 'model';
   content: string;
   suggestions?: string[];
   isError?: boolean;
+  files?: UploadedFile[];
+}
+
+export interface UploadedFile {
+  id: string;
+  file: File;
+  type: 'image' | 'pdf' | 'document' | 'other';
+  preview?: string;
+  content?: string;
+  status: 'uploading' | 'processing' | 'ready' | 'error';
+  error?: string;
 }
 
 export interface Conversation {
@@ -55,6 +70,12 @@ export default function BuddyAIPage() {
       return localStorage.getItem('buddy-ai-web-search') === 'true';
     }
     return false;
+  });
+  const [useEnhancedUI, setUseEnhancedUI] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('buddy-ai-enhanced-ui') !== 'false';
+    }
+    return true;
   });
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -137,17 +158,21 @@ export default function BuddyAIPage() {
     return topics;
   }, []);
 
-  // Enhanced handleSend with session tracking
-  const handleSend = useCallback(async (prompt?: string) => {
+  // Enhanced handleSend with session tracking and file support
+  const handleSend = useCallback(async (prompt?: string, files?: UploadedFile[]) => {
     const messageToSend = prompt || input;
-    if (!messageToSend.trim() || !user || !activeConversation) return;
+    if ((!messageToSend.trim() && (!files || files.length === 0)) || !user || !activeConversation) return;
 
     // Start session if not already started
     if (!sessionStartTime) {
       startNewSession();
     }
 
-    const userMessage: Message = { role: 'user', content: messageToSend };
+    const userMessage: Message = { 
+      role: 'user', 
+      content: messageToSend,
+      files: files 
+    };
 
     setConversations(prev => prev.map(c => {
       if (c.id === activeConversationId) {
@@ -163,6 +188,27 @@ export default function BuddyAIPage() {
     setIsLoading(true);
 
     try {
+      // Convert uploaded files to the format expected by the AI flow
+      const processedFiles = files?.map(file => ({
+        id: file.id,
+        name: file.file.name,
+        type: file.type,
+        content: file.content,
+        preview: file.preview,
+        size: file.file.size
+      }));
+
+      console.log('Processing files for AI:', processedFiles?.length || 0);
+      if (processedFiles && processedFiles.length > 0) {
+        console.log('File details for AI:', processedFiles.map(f => ({ 
+          name: f.name, 
+          type: f.type, 
+          hasPreview: !!f.preview,
+          hasContent: !!f.content,
+          size: f.size 
+        })));
+      }
+
       const result = await buddyChatStream({
         userMessage: messageToSend,
         history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
@@ -170,7 +216,8 @@ export default function BuddyAIPage() {
         persona: activeConversation.persona,
         userProgress: userProgress,
         availableLessons: availableLessons,
-        webSearchEnabled: webSearchEnabled
+        webSearchEnabled: webSearchEnabled,
+        uploadedFiles: processedFiles
       });
 
       const isError = result.type === 'error';
@@ -451,7 +498,7 @@ export default function BuddyAIPage() {
         {/* Messages Area */}
         <div className="flex-1 relative min-h-0">
           {activeConversation && activeConversation.messages.length > 0 ? (
-            <MessageList
+            <EnhancedMessageList
               user={user}
               conversation={activeConversation}
               isLoading={isLoading}
@@ -466,14 +513,15 @@ export default function BuddyAIPage() {
               <WelcomeScreen
                 persona={activeConversation?.persona || 'buddy'}
                 onSendSuggestion={handleSend}
+                onNewChat={handleNewChat}
               />
             </div>
           )}
         </div>
 
         {/* Input Area - Fixed at bottom */}
-        <div className="border-t bg-background/95 backdrop-blur-sm z-10 shrink-0">
-          <BuddyInputForm
+        <div className="bg-background z-10 shrink-0">
+          <FileUploadInputForm
             input={input}
             onInputChange={setInput}
             onSend={handleSend}
