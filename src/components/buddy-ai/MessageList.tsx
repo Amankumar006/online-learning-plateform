@@ -243,35 +243,75 @@ export function MessageList({
                     const mediaContent = extractMediaContent(message.content);
                     
                     return (
-                        <div key={index} className="flex flex-col items-start gap-2 md:gap-4">
-                            <div className="group flex items-start gap-2 md:gap-4 w-full">
-                                <Avatar className="w-7 h-7 md:w-8 md:h-8 border shadow-sm shrink-0">
-                                    <AvatarImage src={message.role === 'user' ? user?.photoURL || '' : ''} />
-                                    <AvatarFallback className="text-xs">
-                                        {message.role === 'user' ? getInitials(user?.displayName) : (message.isError ? <AlertTriangle className="text-destructive" size={16} /> : <Bot size={16} />)}
+                        <div key={index} className={cn(
+                            "flex gap-3 md:gap-4 mb-6 md:mb-8",
+                            message.role === 'user' ? "flex-row-reverse" : "flex-row"
+                        )}>
+                            {/* Avatar - only show for AI messages or when not consecutive user messages */}
+                            {message.role === 'model' && (
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                    <AvatarImage src="" />
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                        {message.isError ? <AlertTriangle size={16} /> : (activePersona?.id === 'mentor' ? 'CM' : 'SB')}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className={cn("flex-1 pt-1 space-y-1 min-w-0 word-wrap break-words", message.isError && "text-destructive")}>
-                                    <div className="flex items-center gap-1 md:gap-2 flex-wrap">
-                                        <p className="font-semibold text-xs md:text-sm">
-                                            {message.role === 'user' ? user?.displayName || 'You' : activePersona?.name || 'Buddy AI'}
+                            )}
+                            
+                            {/* User avatar for user messages */}
+                            {message.role === 'user' && (
+                                <Avatar className="w-8 h-8 border shadow-sm shrink-0">
+                                    <AvatarImage src={user?.photoURL || ''} />
+                                    <AvatarFallback className="text-xs">{getInitials(user?.displayName)}</AvatarFallback>
+                                </Avatar>
+                            )}
+
+                            <div className={cn(
+                                "flex-1 space-y-2 min-w-0 max-w-[85%]",
+                                message.isError && "text-destructive",
+                                message.role === 'user' && "flex flex-col items-end"
+                            )}>
+                                {/* Message header - only for AI messages */}
+                                {message.role === 'model' && (
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <p className="font-semibold text-sm">
+                                            {activePersona?.name || 'Buddy AI'}
                                         </p>
-                                        {message.role === 'model' && activePersona && (
-                                            <Badge variant="secondary" className="text-xs hidden sm:inline-flex">
+                                        {activePersona && (
+                                            <Badge variant="secondary" className="text-xs">
                                                 {activePersona.name}
                                             </Badge>
                                         )}
-                                        {message.role === 'model' && message.content.includes('🌐 **Live Web Search Results**') && (
+                                        {message.content.includes('🌐 **Live Web Search Results**') && (
                                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                                                 <Globe className="w-3 h-3 mr-1" />
-                                                <span className="hidden sm:inline">Web Search</span>
-                                                <span className="sm:hidden">Web</span>
+                                                Web Search
                                             </Badge>
                                         )}
                                     </div>
+                                )}
+                                
+                                {/* User name for user messages */}
+                                {message.role === 'user' && (
+                                    <div className="flex items-center gap-2 justify-end mb-1">
+                                        <p className="font-semibold text-sm text-muted-foreground">
+                                            {user?.displayName || 'You'}
+                                        </p>
+                                    </div>
+                                )}
                                     
                                     <div className="overflow-hidden text-sm md:text-base">
-                                        <FormattedContent content={message.content} />
+                                        {/* Enhanced message display with chat bubble styling */}
+                                        {message.role === 'user' ? (
+                                            <div className="flex justify-end">
+                                                <div className="bg-blue-500 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] break-words">
+                                                    <p className="text-white m-0 text-sm leading-relaxed">{message.content}</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-foreground">
+                                                <FormattedContent content={message.content} />
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {/* Render media content */}

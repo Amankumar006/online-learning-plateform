@@ -13,6 +13,12 @@ import {
   indexContentTool, 
   findSimilarContentTool 
 } from './semantic-search-tool';
+import {
+  extractTopicsTool,
+  analyzeContentTool,
+  classifyIntentTool
+} from './topic-extraction-tool';
+import { analyzeUploadedFilesTool } from './file-analysis-tool';
 import { setCurrentUserId, setCurrentUserData, getCurrentContext } from './context';
 
 // Export context management functions
@@ -26,10 +32,16 @@ export async function getBuddyChatTools(webSearchEnabled: boolean = false) {
         generateImageForExplanationTool,
         analyzeCodeComplexityTool,
         processImageTool,
+        // File analysis tool for uploaded documents
+        analyzeUploadedFilesTool,
         // Semantic search tools are always available
         semanticSearchTool,
         indexContentTool,
-        findSimilarContentTool
+        findSimilarContentTool,
+        // Advanced NLP tools for better understanding
+        extractTopicsTool,
+        analyzeContentTool,
+        classifyIntentTool
     ];
 
     // Only include web search tool if web search is enabled

@@ -7,38 +7,45 @@
  * - StreamedOutput - The output type for the function's stream.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
 import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy';
 import { getSystemPrompt } from '@/ai/prompts';
 import { generateFollowUpSuggestions } from './generate-follow-up-suggestions';
-import { webSearchDetectionService } from '@/ai/services/web-search-detection';
 
 const MessageSchema = z.object({
-  role: z.enum(['user', 'model']),
-  content: z.string(),
+    role: z.enum(['user', 'model']),
+    content: z.string(),
 });
 
 const BuddyChatInputSchema = z.object({
-  userMessage: z.string().describe('The message sent by the user.'),
-  userId: z.string().describe("The ID of the current user, used for context-aware actions."),
-  history: z.array(MessageSchema).optional().describe('The conversation history.'),
-  persona: PersonaSchema.optional().default('buddy').describe("The AI's persona, which determines its personality and expertise."),
-  lessonContext: z.string().optional().describe('The content of a lesson the user is currently viewing, if any. This should be used as the primary source of truth for lesson-specific questions.'),
-  userProgress: z.object({
-    completedLessonIds: z.array(z.string()).optional(),
-    subjectsMastery: z.array(z.object({
-      subject: z.string(),
-      mastery: z.number()
-    })).optional()
-  }).optional().describe('User progress data passed from client to avoid server-side Firebase access'),
-  availableLessons: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    subject: z.string().optional()
-  })).optional().describe('Available lessons passed from client to avoid server-side Firebase access'),
-  webSearchEnabled: z.boolean().optional().default(false).describe('Whether web search functionality is enabled for this conversation')
+    userMessage: z.string().describe('The message sent by the user.'),
+    userId: z.string().describe("The ID of the current user, used for context-aware actions."),
+    history: z.array(MessageSchema).optional().describe('The conversation history.'),
+    persona: PersonaSchema.optional().default('buddy').describe("The AI's persona, which determines its personality and expertise."),
+    lessonContext: z.string().optional().describe('The content of a lesson the user is currently viewing, if any. This should be used as the primary source of truth for lesson-specific questions.'),
+    userProgress: z.object({
+        completedLessonIds: z.array(z.string()).optional(),
+        subjectsMastery: z.array(z.object({
+            subject: z.string(),
+            mastery: z.number()
+        })).optional()
+    }).optional().describe('User progress data passed from client to avoid server-side Firebase access'),
+    availableLessons: z.array(z.object({
+        id: z.string(),
+        title: z.string(),
+        subject: z.string().optional()
+    })).optional().describe('Available lessons passed from client to avoid server-side Firebase access'),
+    webSearchEnabled: z.boolean().optional().default(false).describe('Whether web search functionality is enabled for this conversation'),
+    uploadedFiles: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['image', 'pdf', 'document', 'other']),
+        content: z.string().optional(),
+        preview: z.string().optional(),
+        size: z.number()
+    })).optional().describe('Files uploaded by the user for analysis')
 });
 export type BuddyChatInput = z.infer<typeof BuddyChatInputSchema>;
 
@@ -49,83 +56,130 @@ const StreamedOutputSchema = z.object({
 });
 export type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
 
-
-const buddyChatPrompt = ai.definePrompt({
-  name: 'buddyChatPrompt',
-  input: { schema: BuddyChatInputSchema },
-  output: { schema: z.object({ response: z.string(), suggestions: z.array(z.string()).optional() }) },
-  prompt: `{{systemPrompt}}
-
-{{#if lessonContext}}
-**LESSON CONTEXT:**
----
-{{lessonContext}}
----
-{{/if}}
-
-{{#if history}}
-**CONVERSATION HISTORY:**
-{{#each history}}
-{{#if (eq role "user")}}Human: {{content}}{{/if}}
-{{#if (eq role "model")}}Assistant: {{content}}{{/if}}
-{{/each}}
-{{/if}}
-
-**USER MESSAGE:** {{userMessage}}
-
-Please respond helpfully and appropriately based on the context and conversation history.`,
-});
-
 const buddyChatFlow = ai.defineFlow(
-  {
-    name: 'buddyChatFlow',
-    inputSchema: BuddyChatInputSchema,
-    outputSchema: z.object({
-        response: z.string(),
-        suggestions: z.array(z.string()).optional(),
-        topics: z.array(z.string()).optional(),
-        toolsUsed: z.array(z.string()).optional(),
-    }),
-  },
-  async (input) => {
-    try {
-        // Set the user ID and data for tools to access
-        await setCurrentUserId(input.userId);
-        await setCurrentUserData(input.userProgress, input.availableLessons);
-        
-        // Skip conversation memory operations in the AI flow to avoid permission errors
-        // These will be handled on the client side instead
-        
-        // Generate system prompt without conversation memory for now
-        let systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
-        
-        // Add web search context if enabled
-        if (input.webSearchEnabled) {
-            systemPrompt += `\n\n**WEB SEARCH TOOL AVAILABLE**
+    {
+        name: 'buddyChatFlow',
+        inputSchema: BuddyChatInputSchema,
+        outputSchema: z.object({
+            response: z.string(),
+            suggestions: z.array(z.string()).optional(),
+            topics: z.array(z.string()).optional(),
+            toolsUsed: z.array(z.string()).optional(),
+            intent: z.object({
+                category: z.string(),
+                confidence: z.number(),
+                parameters: z.record(z.any())
+            }).optional(),
+            complexity: z.object({
+                level: z.string(),
+                score: z.number()
+            }).optional(),
+        }),
+    },
+    async (input) => {
+        try {
+            // Set the user ID and data for tools to access
+            await setCurrentUserId(input.userId);
+            await setCurrentUserData(input.userProgress, input.availableLessons);
+
+            // Generate system prompt
+            let systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
+
+            // Add file context if files are uploaded
+            if (input.uploadedFiles && input.uploadedFiles.length > 0) {
+                console.log('Files uploaded:', input.uploadedFiles.length);
+                console.log('File details:', input.uploadedFiles.map(f => ({ name: f.name, type: f.type, hasPreview: !!f.preview })));
+
+                systemPrompt += `\n\n**UPLOADED FILES CONTEXT:**
+The user has uploaded ${input.uploadedFiles.length} file(s):
+${input.uploadedFiles.map(file => `- ${file.name} (${file.type}, ${formatFileSize(file.size)})`).join('\n')}
+
+CRITICAL INSTRUCTION: You MUST immediately use the analyzeUploadedFiles tool with these exact parameters:
+- files: The uploaded files array
+- query: The user's message/question
+- analysisType: "general"
+
+Do NOT provide any response until you have used this tool. The tool will analyze the files and provide detailed insights that you must include in your response.`;
+            }
+
+            // Add web search context if enabled
+            if (input.webSearchEnabled) {
+                systemPrompt += `\n\n**WEB SEARCH TOOL AVAILABLE**
 You have access to the searchTheWeb tool for current information. Use it when users ask about:
 - Current rankings or "top X" lists (e.g., "top AI coding tools", "best code editors")
 - Latest versions or updates
 - Recent developments or trends
-- Any question where you need current, up-to-date information
+- Any question where you need current, up-to-date information`;
+            }
 
-Example: If someone asks "What are the top AI coding tools?", use searchTheWeb with query "top AI coding tools 2024" to get current information.`;
-        }
-        
-        // Add basic user context if available
-        if (input.userProgress) {
-            const completedLessons = input.userProgress.completedLessonIds?.length || 0;
-            systemPrompt += `\n\n**USER CONTEXT:**\nUser has completed ${completedLessons} lessons.`;
-        }
+            const tools = await getBuddyChatTools(input.webSearchEnabled);
 
-        const tools = await getBuddyChatTools(input.webSearchEnabled);
-        // Debug logging can be enabled if needed
-        // console.log('🛠️ Tools loaded:', tools.map(t => t.name || 'unnamed'));
-        // console.log('🌐 Web search enabled:', input.webSearchEnabled);
-        const toolsUsed: string[] = [];
-        
-        // Use ai.generate with tools normally for all requests
-        const response = await ai.generate({
-            prompt: `${systemPrompt}
+            console.log('Starting AI generation with tools...');
+            console.log('Available tools:', tools.map(t => t.name));
+
+            // Special handling for image uploads - try direct vision analysis first
+            if (input.uploadedFiles && input.uploadedFiles.length > 0) {
+                const imageFiles = input.uploadedFiles.filter(f => f.type === 'image' && f.preview);
+
+                if (imageFiles.length > 0) {
+                    console.log('🖼️ Direct image analysis for', imageFiles.length, 'images');
+
+                    try {
+                        // Try direct vision analysis without tools
+                        const imageFile = imageFiles[0]; // Start with first image
+
+                        const visionPrompt = `You are analyzing an image uploaded by a student. 
+
+User's question: "${input.userMessage}"
+
+Please analyze the image and provide a detailed, helpful response. Describe what you see and answer their question directly.
+
+If you see:
+- Math equations: Solve them step by step
+- Diagrams: Explain what they show
+- Text: Read and explain it
+- Charts/graphs: Interpret the data
+- Educational content: Teach the concepts
+
+Be thorough and educational in your response.`;
+
+                        const visionResponse = await ai.generate([
+                            { text: visionPrompt },
+                            { media: { url: imageFile.preview! } }
+                        ]);
+
+                        if (visionResponse.text) {
+                            console.log('✅ Direct vision analysis successful');
+
+                            // Generate follow-up suggestions
+                            const followUpResult = await generateFollowUpSuggestions({
+                                lastUserMessage: input.userMessage,
+                                aiResponse: visionResponse.text,
+                            });
+
+                            return {
+                                response: visionResponse.text,
+                                suggestions: followUpResult.suggestions.slice(0, 3),
+                                topics: [],
+                                toolsUsed: ['direct-vision-analysis'],
+                                intent: {
+                                    category: 'image-analysis',
+                                    confidence: 0.9,
+                                    parameters: { imageCount: imageFiles.length }
+                                },
+                                complexity: { level: 'intermediate', score: 60 }
+                            };
+                        }
+                    } catch (visionError) {
+                        console.error('❌ Direct vision analysis failed:', visionError);
+                        // Fall back to tool-based approach
+                    }
+                }
+            }
+
+            // Use ai.generate with tools (fallback or non-image content)
+            const response = await ai.generate({
+                prompt: `${systemPrompt}
 
 ${input.lessonContext ? `**LESSON CONTEXT:**\n---\n${input.lessonContext}\n---\n\n` : ''}
 
@@ -133,179 +187,94 @@ ${input.history && input.history.length > 0 ? `**CONVERSATION HISTORY:**\n${inpu
 
 **USER MESSAGE:** ${input.userMessage}
 
-${input.webSearchEnabled && (input.userMessage.toLowerCase().includes('top') || input.userMessage.toLowerCase().includes('best') || input.userMessage.toLowerCase().includes('current') || input.userMessage.toLowerCase().includes('latest')) ? 
-'**INSTRUCTION:** This question appears to require current information. Use the searchTheWeb tool to get up-to-date data before responding.' : ''}
+${input.uploadedFiles && input.uploadedFiles.length > 0 ? `
+
+**UPLOADED FILES:** The user has uploaded ${input.uploadedFiles.length} file(s). Please use the analyzeUploadedFiles tool to analyze them and provide detailed insights.` : ''}
 
 Please respond helpfully and appropriately based on the context and conversation history.`,
-            tools,
-            config: {
-                safetySettings: [
-                  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                tools,
+                config: {
+                    safetySettings: [
+                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+                    ],
+                },
+            });
+
+            console.log('AI generation completed');
+            console.log('Response text length:', response.text?.length || 0);
+
+            const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
+
+            // Generate follow-up suggestions
+            const followUpResult = await generateFollowUpSuggestions({
+                lastUserMessage: input.userMessage,
+                aiResponse: aiResponseText,
+            });
+
+            return {
+                response: aiResponseText,
+                suggestions: followUpResult.suggestions.slice(0, 3),
+                topics: [],
+                toolsUsed: [],
+                intent: {
+                    category: 'question',
+                    confidence: 0.8,
+                    parameters: {}
+                },
+                complexity: { level: 'intermediate', score: 50 }
+            };
+
+        } catch (e: any) {
+            console.error("❌ Error in buddyChatFlow:", e);
+            console.error("Error stack:", e.stack);
+            console.error("Error details:", {
+                message: e.message,
+                name: e.name,
+                cause: e.cause
+            });
+
+            // Check if it's a specific API error
+            let errorMessage = `I apologize, but I encountered an issue while processing your request.`;
+
+            if (e.message?.includes('vision') || e.message?.includes('image')) {
+                errorMessage += `\n\n**Image Analysis Issue:** There was a problem analyzing your image. You can still get help by describing what you see in the image, and I'll explain it for you!`;
+            } else if (e.message?.includes('tool')) {
+                errorMessage += `\n\n**Tool Error:** There was an issue with the analysis tools. Please try again or describe your question in more detail.`;
+            } else if (e.message?.includes('API') || e.message?.includes('quota') || e.message?.includes('limit')) {
+                errorMessage += `\n\n**API Issue:** There might be a temporary service issue. Please try again in a moment.`;
+            }
+
+            errorMessage += `\n\n**Debug Info:** ${e.message || 'Unknown error occurred'}`;
+
+            return {
+                response: errorMessage,
+                suggestions: [
+                    "Describe what you see in the image and I'll help explain it",
+                    "Try uploading the image again",
+                    "Ask your question in a different way"
                 ],
-            },
-        });
-        
-        // Enhanced tool usage tracking through response analysis
-        const trackToolUsage = (responseText: string, tools: any[]): string[] => {
-            const usedTools: string[] = [];
-            
-            // Check for tool-specific patterns in the response
-            if (responseText.includes('Exercise Created Successfully') || responseText.includes('practice exercise')) {
-                usedTools.push('createCustomExercise');
-            }
-            if (responseText.includes('study suggestions') || responseText.includes('Based on your progress')) {
-                usedTools.push('suggestStudyTopics');
-            }
-            if (responseText.includes('🌐 **Live Web Search Results**') || 
-                responseText.includes('Sources & References') || 
-                responseText.includes('Retrieved:') ||
-                responseText.includes('Search Query:') ||
-                responseText.includes('web search') || 
-                responseText.includes('search results')) {
-                usedTools.push('searchTheWeb');
-            }
-            if (responseText.includes('Time Complexity') || responseText.includes('Space Complexity')) {
-                usedTools.push('analyzeCodeComplexity');
-            }
-            if (responseText.includes('visual diagram') || responseText.includes('📊 **Visual Elements:**')) {
-                usedTools.push('generateImageForExplanation');
-            }
-            // Semantic search tool patterns
-            if (responseText.includes('🧠 **Semantic Search Results**') || 
-                responseText.includes('semantically similar content') ||
-                responseText.includes('Vector Store Status')) {
-                usedTools.push('semanticSearch');
-            }
-            if (responseText.includes('**Content Indexed Successfully**') || 
-                responseText.includes('Updated Vector Store')) {
-                usedTools.push('indexContent');
-            }
-            if (responseText.includes('🔗 **Similar Content Found**') || 
-                responseText.includes('Similar Content Search')) {
-                usedTools.push('findSimilarContent');
-            }
-            
-            return usedTools;
-        };
-
-        const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
-        const actualToolsUsed = trackToolUsage(aiResponseText, tools);
-
-        // Extract topics from the conversation
-        const topics = extractTopicsFromConversation(input.userMessage, aiResponseText);
-        
-        // Note: Tool usage tracking is handled differently in this Genkit version
-        // Tool invocations are not exposed in the response object
-        // We'll track tools based on response content analysis or other methods
-        
-        // Generate contextual follow-up suggestions
-        const followUpResult = await generateFollowUpSuggestions({
-            lastUserMessage: input.userMessage,
-            aiResponse: aiResponseText,
-        });
-        
-        return {
-            response: aiResponseText,
-            suggestions: followUpResult.suggestions.slice(0, 3),
-            topics,
-            toolsUsed: actualToolsUsed,
-        };
-
-    } catch (e: any) {
-        console.error("Error in buddyChatFlow:", e);
-        
-        // Enhanced error categorization and user-friendly messages
-        let userMessage = "I apologize, but I encountered an issue while processing your request.";
-        let suggestions: string[] = [];
-        
-        if (e.message?.includes('API')) {
-            userMessage = "I'm having trouble connecting to my knowledge services right now.";
-            suggestions = ["Try again in a moment", "Ask a simpler question", "Check your internet connection"];
-        } else if (e.message?.includes('timeout')) {
-            userMessage = "Your request is taking longer than expected to process.";
-            suggestions = ["Try breaking your question into smaller parts", "Ask about a more specific topic"];
-        } else if (e.message?.includes('context')) {
-            userMessage = "I need more context to properly answer your question.";
-            suggestions = ["Provide more details about what you're trying to learn", "Ask about a specific concept"];
-        } else {
-            suggestions = ["Try rephrasing your question", "Ask about a different topic", "Start a new conversation"];
+                topics: [],
+                toolsUsed: [],
+            };
+        } finally {
+            // Clear the user ID and data after processing
+            await setCurrentUserId(null);
+            await setCurrentUserData(null, null);
         }
-        
-        return {
-            response: `${userMessage}\n\n**Error Details:** ${e.message || 'Unknown error occurred'}\n\n**Suggestions:**\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
-            suggestions,
-            topics: [],
-            toolsUsed: [],
-        };
-    } finally {
-        // Clear the user ID and data after processing
-        await setCurrentUserId(null);
-        await setCurrentUserData(null, null);
     }
-  }
 );
 
-// Helper functions for extracting information from conversations
-function extractTopicsFromConversation(userMessage: string, aiResponse: string): string[] {
-    const topics: string[] = [];
-    const commonTopics = [
-        'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics', 
-        'chemistry', 'biology', 'history', 'english', 'programming', 'algorithms',
-        'data structures', 'machine learning', 'artificial intelligence', 'databases',
-        'web development', 'mobile development', 'science', 'literature'
-    ];
-    
-    const text = (userMessage + ' ' + aiResponse).toLowerCase();
-    
-    commonTopics.forEach(topic => {
-        if (text.includes(topic)) {
-            topics.push(topic);
-        }
-    });
-    
-    return [...new Set(topics)]; // Remove duplicates
+// Helper function for file size formatting
+function formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
-
-function extractOpenQuestions(text: string): string[] {
-    const questions: string[] = [];
-    const questionMarkers = ['?', 'What do you think', 'How would you', 'Can you explain', 'Would you like'];
-    
-    questionMarkers.forEach(marker => {
-        if (text.includes(marker)) {
-            const sentences = text.split(/[.!?]+/);
-            sentences.forEach(sentence => {
-                if (sentence.includes(marker) && sentence.length < 100) {
-                    questions.push(sentence.trim());
-                }
-            });
-        }
-    });
-    
-    return questions.slice(0, 3); // Limit to 3 questions
-}
-
-function extractSuggestedTopics(text: string): string[] {
-    const suggestions: string[] = [];
-    const suggestionMarkers = ['next', 'should learn', 'try studying', 'explore', 'dive into'];
-    
-    suggestionMarkers.forEach(marker => {
-        if (text.includes(marker)) {
-            // Simple extraction - in a real implementation, you might use NLP
-            const words = text.split(/\s+/);
-            const markerIndex = words.findIndex(word => word.includes(marker));
-            if (markerIndex !== -1 && markerIndex < words.length - 2) {
-                const nextWords = words.slice(markerIndex + 1, markerIndex + 4).join(' ');
-                suggestions.push(nextWords);
-            }
-        }
-    });
-    
-    return suggestions.slice(0, 3);
-}
-
 
 export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOutput> {
     try {
@@ -322,4 +291,3 @@ export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOu
         };
     }
 }
-

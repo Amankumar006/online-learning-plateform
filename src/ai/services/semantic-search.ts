@@ -12,6 +12,7 @@ import {
   type QualityLevel,
   type VectorStoreStats
 } from '@/ai/core/vector-store';
+import { persistentVectorStore } from '@/ai/core/persistent-vector-store';
 
 export interface IndexContentRequest {
   content: string;
@@ -47,6 +48,16 @@ export interface BatchIndexResult {
 }
 
 export class SemanticSearchService {
+  private usePeristentStore: boolean;
+
+  constructor(usePersistentStore = true) {
+    this.usePeristentStore = usePersistentStore;
+  }
+
+  private get store() {
+    return this.usePeristentStore ? persistentVectorStore : vectorStore;
+  }
+
   /**
    * Index content for semantic search
    */
@@ -66,7 +77,7 @@ export class SemanticSearchService {
     // Auto-extract tags if not provided
     const finalTags = tags || VectorUtils.extractTags(content, title);
 
-    const vectorId = await vectorStore.addVector(content, {
+    const vectorId = await this.store.addVector(content, {
       title,
       url,
       contentType,
@@ -82,7 +93,7 @@ export class SemanticSearchService {
    */
   async search(request: SemanticSearchRequest): Promise<SearchResult[]> {
     const { query, options = {} } = request;
-    return await vectorStore.search(query, options);
+    return await this.store.search(query, options);
   }
 
   /**
@@ -99,7 +110,7 @@ export class SemanticSearchService {
       excludeId = undefined; // Would need to implement URL lookup
     }
 
-    return await vectorStore.findSimilar(content, {
+    return await this.store.findSimilar(content, {
       excludeId,
       limit,
       minSimilarity
@@ -175,21 +186,69 @@ export class SemanticSearchService {
    * Get vector store statistics
    */
   getStats(): VectorStoreStats {
-    return vectorStore.getStats();
+    return this.store.getStats();
   }
 
   /**
    * Clear all vectors
    */
   clear(): void {
-    vectorStore.clear();
+    this.store.clear();
   }
 
   /**
    * Remove specific vector
    */
   removeVector(id: string): boolean {
-    return vectorStore.removeVector(id);
+    return this.store.removeVector(id);
+  }
+
+  /**
+   * Batch operations for better performance
+   */
+  async batchIndexContent(requests: IndexContentRequest[]): Promise<string[]> {
+    if ('batchAdd' in this.store) {
+      const vectors = requests.map(request => ({
+        content: request.content,
+        metadata: {
+          title: request.title,
+          url: request.url,
+          contentType: request.contentType || 'document',
+          quality: request.quality || VectorUtils.assessContentQuality(request.content),
+          tags: request.tags || VectorUtils.extractTags(request.content, request.title)
+        }
+      }));
+      
+      return await (this.store as any).batchAdd(vectors);
+    } else {
+      // Fallback to individual additions
+      const ids: string[] = [];
+      for (const request of requests) {
+        const id = await this.indexContent(request);
+        ids.push(id);
+      }
+      return ids;
+    }
+  }
+
+  /**
+   * Export vector data for backup/migration
+   */
+  async exportVectors(): Promise<any[]> {
+    if ('exportToJSON' in this.store) {
+      return await (this.store as any).exportToJSON();
+    }
+    throw new Error('Export not supported by current vector store');
+  }
+
+  /**
+   * Import vector data from backup/migration
+   */
+  async importVectors(data: any[]): Promise<void> {
+    if ('importFromJSON' in this.store) {
+      return await (this.store as any).importFromJSON(data);
+    }
+    throw new Error('Import not supported by current vector store');
   }
 
   /**
@@ -355,5 +414,5 @@ export class SemanticSearchService {
   }
 }
 
-// Singleton instance
-export const semanticSearchService = new SemanticSearchService();
+// Singleton instance with persistent storage
+export const semanticSearchService = new SemanticSearchService(true);

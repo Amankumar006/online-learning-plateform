@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
-import { BookOpen, Briefcase, Ellipsis, Menu, Trash2 } from 'lucide-react';
+import { BookOpen, Ellipsis, Menu, Trash2, Plus, MessageSquare, Code2, Settings, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type Conversation } from '@/app/dashboard/buddy-ai/page';
 import type { Persona } from '@/ai/schemas/buddy-schemas';
@@ -40,17 +40,17 @@ export const Personas: { id: Persona; name: string; description: string; icon: R
     { 
         id: 'buddy', 
         name: 'Study Buddy', 
-        description: 'Friendly and encouraging learning companion.', 
-        icon: <BookOpen className="w-5 h-5" />,
+        description: 'Assisting with your academic questions', 
+        icon: <BookOpen className="w-4 h-4" />,
         color: 'text-blue-500',
         specialties: ['General Learning', 'Study Tips', 'Motivation', 'Explanations']
     },
     { 
         id: 'mentor', 
         name: 'Code Mentor', 
-        description: 'Expert guidance for technical questions.', 
-        icon: <Briefcase className="w-5 h-5" />,
-        color: 'text-purple-500',
+        description: 'Get help with coding, debugging, and more', 
+        icon: <Code2 className="w-4 h-4" />,
+        color: 'text-green-500',
         specialties: ['Programming', 'Code Review', 'Algorithms', 'Best Practices']
     },
 ];
@@ -79,121 +79,212 @@ const groupConversationsByDate = (convos: Conversation[]) => {
     return groups;
 };
 
-
-const SidebarContent = ({ conversations, activeConversationId, onSelectConversation, onDeleteConversation, onNewChat }: BuddySidebarProps) => {
+const SidebarContent = ({ user, conversations, activeConversationId, onSelectConversation, onDeleteConversation, onNewChat }: BuddySidebarProps) => {
   const groupedConversations = groupConversationsByDate(conversations);
 
   return (
-    <>
-      <div className="p-4 border-b space-y-2">
-        <h3 className="font-semibold text-sm px-2 text-muted-foreground">Start a New Chat</h3>
-        {Personas.map(p => (
-            <button
-                key={p.id}
-                className="flex w-full items-start gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                onClick={() => onNewChat(p.id)}
-            >
-                <div className="shrink-0 rounded-md border bg-background p-2 shadow-sm">
-                    {p.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.description}</p>
-                </div>
-            </button>
-        ))}
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="p-4 border-b bg-muted/30">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-sm">Chat</h2>
+            <p className="text-xs text-muted-foreground">AdaptEd AI</p>
+          </div>
+        </div>
+        
+        {/* New Chat Button */}
+        <Button 
+          onClick={() => onNewChat('buddy')} 
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors duration-300"
+          size="sm"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          New Chat
+        </Button>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-2 space-y-1">
-            {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
-              <div key={groupTitle}>
-                    <h3 className="text-xs font-semibold text-muted-foreground px-2 my-2">{groupTitle}</h3>
-                    <div className="space-y-1">
-                      {convos.map(c => (
-                          <div key={c.id} className="relative group">
-                              <button
-                                  onClick={() => onSelectConversation(c.id)}
-                                  className={cn(
-                                    "w-full justify-start truncate rounded-md pr-10 text-left p-2 flex items-center gap-2 text-sm transition-colors",
-                                    c.id === activeConversationId ? 'bg-secondary text-secondary-foreground font-semibold' : 'hover:bg-black/5 dark:hover:bg-white/5'
-                                  )}
-                              >
-                                  {c.persona === 'mentor' ? <Briefcase className="mr-2 h-4 w-4 shrink-0" /> : <BookOpen className="mr-2 h-4 w-4 shrink-0" />}
-                                  <span className="truncate">{c.title}</span>
-                              </button>
-                                <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <AlertDialog>
-                                        <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
-                                                <Ellipsis className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                                </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                        </DropdownMenuContent>
-                                        </DropdownMenu>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-                                                <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => onDeleteConversation(c.id)}>Delete</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                              </div>
-                          </div>
-                      ))}
-                    </div>
+
+      {/* Personas Section */}
+      <div className="p-4 border-b">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">PERSONAS</h3>
+        <div className="space-y-1">
+          {Personas.map(p => (
+            <button
+              key={p.id}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-all hover:bg-muted/50",
+                p.id === 'buddy' ? "bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30" : ""
+              )}
+              onClick={() => onNewChat(p.id)}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-300",
+                p.id === 'buddy' 
+                  ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary" 
+                  : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+              )}>
+                {p.icon}
               </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm">{p.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{p.description}</p>
+              </div>
+            </button>
           ))}
         </div>
       </div>
-    </>
+
+      {/* Conversations History */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">HISTORY</h3>
+          </div>
+          
+          {Object.keys(groupedConversations).length === 0 ? (
+            <div className="text-center py-8">
+              <MessageSquare className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No conversations yet</p>
+              <p className="text-xs text-muted-foreground">Start a new chat to begin</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(groupedConversations).map(([groupTitle, convos]) => (
+                <div key={groupTitle}>
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2">{groupTitle}</h4>
+                  <div className="space-y-1">
+                    {convos.map(c => (
+                      <div key={c.id} className="relative group">
+                        <button
+                          onClick={() => onSelectConversation(c.id)}
+                          className={cn(
+                            "w-full text-left p-2.5 rounded-lg transition-all flex items-start gap-3 hover:bg-muted/50",
+                            c.id === activeConversationId 
+                              ? 'bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30' 
+                              : ''
+                          )}
+                        >
+                          <div className={cn(
+                            "w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-300",
+                            c.persona === 'mentor' 
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                              : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                          )}>
+                            {c.persona === 'mentor' ? <Code2 className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{c.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {c.persona === 'mentor' ? 'Code Mentor' : 'Study Buddy'}
+                            </p>
+                          </div>
+                        </button>
+                        
+                        {/* Delete button */}
+                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <AlertDialog>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md">
+                                  <Ellipsis className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                    <Trash2 className="mr-2 h-3 w-3"/> Delete
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently delete "{c.title}".</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDeleteConversation(c.id)}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
 export function BuddySidebar(props: BuddySidebarProps) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const activePersona = Personas.find(p => p.id === props.conversations.find(c => c.id === props.activeConversationId)?.persona)?.name || 'Buddy AI';
+    const activeConversation = props.conversations.find(c => c.id === props.activeConversationId);
+    const activePersona = Personas.find(p => p.id === activeConversation?.persona);
 
     return (
         <>
             {/* Desktop Sidebar */}
-            <div className="hidden md:flex flex-col w-[280px] bg-muted/50 border-r shrink-0">
+            <div className="hidden md:flex flex-col w-[280px] border-r shrink-0">
                 <SidebarContent {...props} />
             </div>
 
-            {/* Mobile Sidebar (Sheet) */}
-            <header className="md:hidden flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm shrink-0">
+            {/* Mobile Header */}
+            <header className="md:hidden flex h-14 items-center justify-between border-b bg-background px-4 shrink-0">
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Menu className="h-6 w-6" />
-                            <span className="sr-only">Open conversations</span>
+                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                            <Menu className="h-5 w-5" />
+                            <span className="sr-only">Open menu</span>
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="p-0 flex flex-col w-full max-w-[300px]" onInteractOutside={() => setIsSheetOpen(false)}>
+                    <SheetContent side="left" className="p-0 w-[280px]">
                         <SheetHeader className="sr-only">
-                            <SheetTitle>Conversations and Personas</SheetTitle>
-                            <SheetDescription>
-                                A list of your past conversations and options to start a new chat with a different AI persona.
-                            </SheetDescription>
+                            <SheetTitle>Navigation</SheetTitle>
+                            <SheetDescription>Chat history and persona selection</SheetDescription>
                         </SheetHeader>
-                        <SidebarContent {...props} onSelectConversation={(id) => { props.onSelectConversation(id); setIsSheetOpen(false); }} onNewChat={(p) => { props.onNewChat(p); setIsSheetOpen(false); }} />
+                        <SidebarContent 
+                          {...props} 
+                          onSelectConversation={(id) => { 
+                            props.onSelectConversation(id); 
+                            setIsSheetOpen(false); 
+                          }} 
+                          onNewChat={(p) => { 
+                            props.onNewChat(p); 
+                            setIsSheetOpen(false); 
+                          }} 
+                        />
                     </SheetContent>
                 </Sheet>
-                <div className="font-semibold">{activePersona}</div>
-                 <Avatar className="w-8 h-8">
+                
+                <div className="flex items-center gap-2">
+                  {activePersona && (
+                    <div className={cn(
+                      "w-6 h-6 rounded-md flex items-center justify-center transition-colors duration-300",
+                      activePersona.id === 'buddy' 
+                        ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary" 
+                        : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                    )}>
+                      {activePersona.icon}
+                    </div>
+                  )}
+                  <span className="font-medium text-sm">
+                    {activePersona?.name || 'AdaptEd AI'}
+                  </span>
+                </div>
+                
+                <Avatar className="w-8 h-8">
                     <AvatarImage src={props.user?.photoURL || ''} />
-                    <AvatarFallback>{getInitials(props.user?.displayName)}</AvatarFallback>
+                    <AvatarFallback className="text-xs">{getInitials(props.user?.displayName)}</AvatarFallback>
                 </Avatar>
             </header>
         </>

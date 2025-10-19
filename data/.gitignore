@@ -1,0 +1,5 @@
+# AI Services Data
+*.json
+*.tmp
+*.log
+!.gitkeep
