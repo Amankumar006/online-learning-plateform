@@ -23,7 +23,6 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased" suppressHydrationWarning>
         <ThemeProvider
-          attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange

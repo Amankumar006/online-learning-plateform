@@ -20,6 +20,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUser } from "@/lib/data";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { UtilitySidebarProvider } from "@/hooks/use-utility-sidebar";
+import UtilitySidebar from "@/components/dashboard/UtilitySidebar";
 
 
 function LessonLayoutLoader() {
@@ -31,8 +33,8 @@ function LessonLayoutLoader() {
 }
 
 const getInitials = (name?: string) => {
-    if (!name) return "U";
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase();
+  if (!name) return "U";
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase();
 };
 
 export default function LessonLayout({
@@ -62,42 +64,49 @@ export default function LessonLayout({
   if (isLoading) {
     return <LessonLayoutLoader />;
   }
-  
+
   return (
-    <div className="flex min-h-screen w-full flex-col font-body">
-      <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
-        <Button variant="outline" size="sm" asChild>
+    <UtilitySidebarProvider>
+      <div className="min-h-screen w-full flex flex-col font-body">
+        <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-4 md:px-6">
+          <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/lessons"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Lessons</Link>
-        </Button>
-        <div className="flex items-center gap-2">
+          </Button>
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8">
                     <AvatarImage
-                    src={userProfile?.photoURL || undefined}
-                    alt={userProfile?.name || "User"}
+                      src={userProfile?.photoURL || undefined}
+                      alt={userProfile?.name || "User"}
                     />
                     <AvatarFallback>{getInitials(userProfile?.name)}</AvatarFallback>
-                </Avatar>
+                  </Avatar>
                 </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{userProfile?.name || "My Account"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
-                Profile Settings
+                  Profile Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <LogoutButton />
-            </DropdownMenuContent>
+              </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+        </header>
+        <div className="flex flex-1">
+          <main className="flex-1">
+            {children}
+          </main>
+          <div className="fixed right-0 top-16 h-[calc(100vh-4rem)] z-40">
+            <UtilitySidebar />
+          </div>
         </div>
-      </header>
-      <main className="flex-1 flex flex-col">
-        {children}
-      </main>
-    </div>
+      </div>
+    </UtilitySidebarProvider>
   );
 }

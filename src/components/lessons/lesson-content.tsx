@@ -4,58 +4,125 @@
 import * as React from "react";
 import { Lesson, Block } from "@/lib/data";
 import Image from "next/image";
-import { CheckCircle, Lightbulb, HelpCircle, Code, Copy } from "lucide-react";
+import { CheckCircle, Lightbulb, HelpCircle, Code, Copy, Play, Loader2 } from "lucide-react";
 import { BlockMath, InlineMath } from 'react-katex';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "../ui/button";
+import { codeExecutionClient } from "@/lib/sandbox/client";
 
 const CodeBlockDisplay = ({ language, code }: { language: string, code: string }) => {
-    const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [isExecuting, setIsExecuting] = React.useState(false);
+  const [output, setOutput] = React.useState<string>('');
+  const [showOutput, setShowOutput] = React.useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(code);
-        setCopied(true);
-        setTimeout(() => {
-            setCopied(false);
-        }, 2000);
-    };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  };
 
-    return (
-        <div className="my-6">
-            <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
-                <div className="flex items-center gap-2">
-                     <Code className="h-5 w-5" />
-                     <span className="text-sm font-semibold">{language || 'code'}</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleCopy}>
-                    {copied ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                    <span className="sr-only">Copy code</span>
-                </Button>
-            </div>
-            <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
-                <pre><code className={`language-${language}`}>{code}</code></pre>
-            </div>
+  const handleRunCode = async () => {
+    if (!code.trim()) return;
+    
+    setIsExecuting(true);
+    setShowOutput(true);
+    setOutput('Running code...');
+    
+    try {
+      const result = await codeExecutionClient.executeCode({ code, language });
+      
+      if (result.stdout || result.stderr) {
+        setOutput(result.stdout || result.stderr || 'Code executed successfully (no output)');
+      } else if (result.error) {
+        setOutput(`Error: ${result.error}`);
+      } else {
+        setOutput('Code executed successfully (no output)');
+      }
+    } catch (error) {
+      setOutput(`Execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Check if language is executable
+  const isExecutable = ['javascript', 'python', 'java', 'cpp', 'c'].includes(language?.toLowerCase() || '');
+
+  return (
+    <div className="my-6">
+      <div className="flex justify-between items-center bg-secondary rounded-t-lg px-4 py-2">
+        <div className="flex items-center gap-2">
+          <Code className="h-5 w-5" />
+          <span className="text-sm font-semibold">{language || 'code'}</span>
         </div>
-    );
+        <div className="flex items-center gap-2">
+          {isExecutable && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRunCode}
+              disabled={isExecuting}
+              className="text-xs"
+            >
+              {isExecuting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Play className="h-4 w-4 mr-1" />
+              )}
+              Run
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={handleCopy}>
+            {copied ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            <span className="sr-only">Copy code</span>
+          </Button>
+        </div>
+      </div>
+      <div className="bg-background border rounded-b-lg p-4 overflow-x-auto">
+        <pre><code className={`language-${language}`}>{code}</code></pre>
+      </div>
+      {showOutput && (
+        <div className="bg-muted border-t p-4 rounded-b-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-medium">Output:</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowOutput(false)}
+              className="text-xs ml-auto"
+            >
+              Hide
+            </Button>
+          </div>
+          <pre className="text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
+            {output}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const FormattedText = ({ text }: { text: string }) => {
-    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\$\$.*?\$\$|\$.*?\$)/g);
-    return <>{parts.filter(Boolean).map((part, index) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={index}>{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith('`') && part.endsWith('`')) {
-            return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
-        }
-        if (part.startsWith('$$') && part.endsWith('$$')) {
-            return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>
-        }
-        if (part.startsWith('$') && part.endsWith('$')) {
-            return <InlineMath key={index}>{part.slice(1, -1)}</InlineMath>;
-        }
-        return <React.Fragment key={index}>{part}</React.Fragment>;
-    })}</>;
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`|\$\$.*?\$\$|\$.*?\$)/g);
+  return <>{parts.filter(Boolean).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
+    }
+    if (part.startsWith('$$') && part.endsWith('$$')) {
+      return <div key={index} className="my-2"><BlockMath math={part.slice(2, -2)} /></div>
+    }
+    if (part.startsWith('$') && part.endsWith('$')) {
+      return <InlineMath key={index}>{part.slice(1, -1)}</InlineMath>;
+    }
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  })}</>;
 };
 
 
@@ -84,7 +151,7 @@ const TextContentRenderer = ({ text }: { text: string }) => {
             <CardTitle className="text-lg font-headline">{title}</CardTitle>
           </CardHeader>
           <CardContent className="pt-2 text-sm md:text-base prose-p:my-2">
-             <TextContentRenderer text={content} />
+            <TextContentRenderer text={content} />
           </CardContent>
         </Card>
       );
@@ -144,14 +211,46 @@ const TextContentRenderer = ({ text }: { text: string }) => {
 };
 
 const BlockRenderer = ({ block }: { block: Block }) => {
-    switch (block.type) {
-        case 'text':
-            return <TextContentRenderer text={block.content} />;
-        case 'code':
-            return <CodeBlockDisplay language={block.language} code={block.code} />;
-        default:
-            return null;
-    }
+  switch (block.type) {
+    case 'text':
+      return <TextContentRenderer text={block.content} />;
+    case 'image':
+      return (
+        <div className="my-6">
+          <Image
+            src={block.url}
+            alt={block.alt || 'Lesson image'}
+            width={800}
+            height={450}
+            className="rounded-lg object-cover w-full max-h-96"
+          />
+          {block.caption && (
+            <p className="text-sm text-muted-foreground text-center mt-2 italic">
+              {block.caption}
+            </p>
+          )}
+        </div>
+      );
+    case 'code':
+      return <CodeBlockDisplay language={block.language} code={block.code} />;
+    case 'video':
+      return (
+        <div className="my-6">
+          <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+            <a
+              href={block.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Watch Video: {block.url}
+            </a>
+          </div>
+        </div>
+      );
+    default:
+      return null;
+  }
 };
 
 interface LessonContentProps {
@@ -159,49 +258,49 @@ interface LessonContentProps {
 }
 
 export default function LessonContent({ lesson }: LessonContentProps) {
-  
+
   const sections = lesson.sections || [];
 
   const renderContent = () => {
     if (sections.length > 0) {
-        return sections.map((section, sIndex) => (
-            <section key={sIndex} id={`section-${sIndex}`} className="mb-8 p-4 rounded-lg transition-all">
-                <h2 className="text-2xl font-bold font-headline mt-8 mb-4 border-b pb-2">{section.title}</h2>
-                <div>
-                    {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
-                </div>
-            </section>
-        ));
+      return sections.map((section, sIndex) => (
+        <section key={sIndex} id={`section-${sIndex}`} className="mb-6">
+          <h2 className="text-2xl font-bold font-headline mb-4 border-b pb-2">{section.title}</h2>
+          <div>
+            {section.blocks.map((block, bIndex) => <BlockRenderer key={bIndex} block={block} />)}
+          </div>
+        </section>
+      ));
     }
 
     if (typeof lesson.content === 'string') return <TextContentRenderer text={lesson.content} />;
-    
+
     if (Array.isArray(lesson.content)) {
-        return lesson.content.map((block, index) => {
-            if (block.type === 'paragraph') return <TextContentRenderer key={index} text={block.value} />;
-            return null;
-        });
+      return lesson.content.map((block, index) => {
+        if (block.type === 'paragraph') return <TextContentRenderer key={index} text={block.value} />;
+        return null;
+      });
     }
-    
+
     return <p>No content available for this lesson.</p>;
   };
 
   return (
     <div>
-        {lesson.image && (
-            <div className="mb-6">
-            <Image
-                src={lesson.image}
-                alt={lesson.title}
-                width={800}
-                height={450}
-                className="rounded-lg object-cover w-full aspect-video"
-            />
-            </div>
-        )}
-        <div className="prose dark:prose-invert prose-lg max-w-none mb-8">
-            {renderContent()}
+      {lesson.image && (
+        <div className="mb-6">
+          <Image
+            src={lesson.image}
+            alt={lesson.title}
+            width={800}
+            height={450}
+            className="rounded-lg object-cover w-full aspect-video"
+          />
         </div>
+      )}
+      <div className="prose dark:prose-invert prose-lg max-w-none">
+        {renderContent()}
+      </div>
     </div>
   );
 }

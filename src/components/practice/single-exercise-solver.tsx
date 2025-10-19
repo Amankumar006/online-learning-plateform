@@ -10,21 +10,28 @@ import { saveExerciseAttempt } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
-import { simulateCodeExecution, SimulateCodeExecutionOutput } from "@/ai/flows/simulate-code-execution";
-import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Terminal, Play } from "lucide-react";
+import { codeExecutionClient } from "@/lib/sandbox/client";
+import { ExecutionResult, ExecutionStatus } from "@/lib/sandbox/types";
+
+import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Play, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "../ui/input";
 
 const CodeEditor = dynamic(() => import('@/components/lessons/code-editor'), {
     ssr: false,
     loading: () => <Skeleton className="w-full h-[400px] rounded-md" />,
+});
+
+const ExecutionPanel = dynamic(() => import('@/components/sandbox/ExecutionPanel'), {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[200px] rounded-md" />,
 });
 
 interface SingleExerciseSolverProps {
@@ -56,7 +63,13 @@ const difficultyToText = (level: number) => {
 
 const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
     <div className="space-y-6">
-        <FormattedQuestion text={exercise.type !== 'fill_in_the_blanks' ? exercise.question : (exercise as FillInTheBlanksExercise).questionParts.join(' ___ ')} />
+        <FormattedQuestion text={
+            exercise.type === 'fill_in_the_blanks' 
+                ? (exercise as FillInTheBlanksExercise).questionParts.join(' ___ ')
+                : exercise.type === 'code'
+                    ? (exercise as any).description || (exercise as any).title
+                    : (exercise as any).question
+        } />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <Card>
@@ -105,104 +118,9 @@ const ExerciseDetails = ({ exercise }: { exercise: Exercise }) => (
     </div>
 );
 
-const ConsoleOutput = ({ result, isLoading }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean }) => {
-  const hasOutput = result?.stdout && result.stdout.length > 0;
-  const hasError = result?.stderr && result.stderr.length > 0;
 
-  return (
-    <div className="p-4 bg-muted/50 font-mono text-sm min-h-[200px] whitespace-pre-wrap text-foreground">
-      {isLoading ? (
-        <div className="flex items-center gap-2">
-          <Loader2 className="animate-spin h-4 w-4" /> Running simulation...
-        </div>
-      ) : result ? (
-        <>
-          {hasOutput && <pre>{result.stdout}</pre>}
-          {hasError && <pre className="text-red-500">{result.stderr}</pre>}
-          {!hasOutput && !hasError && (
-            <p className="text-muted-foreground">Execution finished with no output.</p>
-          )}
-        </>
-      ) : (
-        <div className="text-muted-foreground">Click "Run & Analyze" to see the output here.</div>
-      )}
-    </div>
-  );
-};
 
-const AiAnalysisOutput = ({ result, isLoading, onApplySuggestion }: { result: SimulateCodeExecutionOutput | null, isLoading: boolean, onApplySuggestion: (code: string) => void }) => {
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center p-8 text-muted-foreground min-h-[200px]">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <p>Analyzing your code...</p>
-            </div>
-        )
-    }
-    
-    if (result) {
-         return (
-            <div className="space-y-4 p-4 bg-muted/50 min-h-[200px]">
-                <Card className="bg-background/50 border-border/50">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Complexity Analysis</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex gap-8">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Time</p>
-                            <p className="font-mono text-lg font-bold">{result.complexity.time}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Space</p>
-                            <p className="font-mono text-lg font-bold">{result.complexity.space}</p>
-                        </div>
-                    </CardContent>
-                </Card>
 
-                <Card className="bg-background/50 border-border/50">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Code Analysis Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm whitespace-pre-wrap">{result.analysis.summary}</p>
-                    </CardContent>
-                </Card>
-
-                {result.analysis.suggestions && result.analysis.suggestions.length > 0 && (
-                     <Card className="bg-background/50 border-border/50">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base">Suggestions</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {result.analysis.suggestions.map((suggestion, index) => (
-                                <div key={index} className="border-t pt-4 first:border-t-0 first:pt-0">
-                                    <p className="text-sm font-semibold">{suggestion.suggestion} (Line {suggestion.lineNumber})</p>
-                                    <div className="my-2 not-prose">
-                                        <div className="flex justify-between items-center bg-muted rounded-t-lg px-4 py-1">
-                                            <span className="text-xs font-semibold">Suggested Code</span>
-                                            <Button variant="ghost" size="sm" className="h-7" onClick={() => onApplySuggestion(suggestion.code)}>
-                                                Apply
-                                            </Button>
-                                        </div>
-                                        <div className="bg-background border rounded-b-lg p-2 overflow-x-auto font-mono text-xs">
-                                            <pre><code>{suggestion.code}</code></pre>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-        )
-    }
-
-    return (
-        <div className="text-center text-muted-foreground p-8 min-h-[200px] flex items-center justify-center">
-            <p>Click "Run & Analyze" to get AI feedback on your code.</p>
-        </div>
-    )
-}
 
 
 export default function SingleExerciseSolver({ exercise, userId, onSolved, lessonTitle, initialResponse = null }: SingleExerciseSolverProps) {
@@ -215,10 +133,116 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isGrading, setIsGrading] = useState(false);
   const [feedback, setFeedback] = useState<GradeLongFormAnswerOutput | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<SimulateCodeExecutionOutput | null>(null);
-  const [activeOutputTab, setActiveOutputTab] = useState("console");
+  
+  // Code execution states
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [showExecutionPanel, setShowExecutionPanel] = useState(false);
+  const [programInput, setProgramInput] = useState<string>("");
+  const [showInputField, setShowInputField] = useState(false);
+
   const { toast } = useToast();
+
+  // Smart input detection - check if code needs input
+  const needsInput = (code: string, language: string) => {
+    const inputPatterns = {
+      c: /scanf|gets|getchar|fgets/i,
+      cpp: /cin\s*>>|scanf|gets|getchar/i,
+      java: /Scanner|BufferedReader|System\.in/i,
+      python: /input\(|raw_input\(/i,
+      javascript: /prompt\(|readline/i
+    };
+    
+    const pattern = inputPatterns[language.toLowerCase() as keyof typeof inputPatterns];
+    return pattern ? pattern.test(code) : false;
+  };
+
+  const handleRunCode = async () => {
+    if (!longFormAnswer.trim()) {
+      toast({ 
+        variant: "destructive", 
+        title: "No Code to Run", 
+        description: "Please write some code before running." 
+      });
+      return;
+    }
+
+    const lfExercise = exercise as LongFormExercise;
+    
+    // Check if code needs input and show input field if needed
+    if (needsInput(longFormAnswer, lfExercise.language || 'javascript') && !showInputField) {
+      setShowInputField(true);
+      toast({ 
+        title: "Input Required", 
+        description: "Your program needs input. Please provide it below and run again." 
+      });
+      return;
+    }
+    setIsExecuting(true);
+    setShowExecutionPanel(true);
+    setExecutionResult(null); // Clear previous results
+    
+    // Show immediate feedback
+    toast({ 
+      title: "Running Code...", 
+      description: `Executing your ${lfExercise.language} code in a secure sandbox.` 
+    });
+    
+    try {
+      const result = await codeExecutionClient.executeCode({
+        code: longFormAnswer,
+        language: lfExercise.language,
+        input: programInput || undefined, // Provide input if available
+        userId: userId
+      });
+      
+      setExecutionResult(result);
+      
+      // Enhanced feedback based on execution result
+      if (result.status === ExecutionStatus.SUCCESS) {
+        toast({ 
+          title: "✅ Code Executed Successfully", 
+          description: result.stdout ? "Your code ran without errors!" : "Code completed (no output)",
+          variant: "default"
+        });
+      } else if (result.status === ExecutionStatus.COMPILATION_ERROR) {
+        toast({ 
+          variant: "destructive",
+          title: "❌ Compilation Error", 
+          description: "There are syntax errors in your code. Check the error panel for details." 
+        });
+      } else if (result.status === ExecutionStatus.RUNTIME_ERROR) {
+        toast({ 
+          variant: "destructive",
+          title: "⚠️ Runtime Error", 
+          description: "Your code encountered an error while running." 
+        });
+      } else if (result.status === ExecutionStatus.TIME_LIMIT_EXCEEDED) {
+        toast({ 
+          variant: "destructive",
+          title: "⏱️ Time Limit Exceeded", 
+          description: "Your code took too long to execute. Try optimizing your algorithm." 
+        });
+      }
+    } catch (error) {
+      toast({ 
+        variant: "destructive", 
+        title: "🚫 Execution Failed", 
+        description: error instanceof Error ? error.message : "Network or server error occurred" 
+      });
+      setExecutionResult({
+        stdout: '',
+        stderr: error instanceof Error ? error.message : 'Unknown error occurred',
+        exitCode: 1,
+        executionTime: 0,
+        memoryUsed: 0,
+        status: ExecutionStatus.INTERNAL_ERROR,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
 
   useEffect(() => {
     setSelectedAnswer(null);
@@ -227,8 +251,7 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     setIsAnswered(false);
     setIsCorrect(null);
     setFeedback(null);
-    setSimulationResult(null);
-    setActiveOutputTab("console");
+
 
     if (exercise.type === 'fill_in_the_blanks') {
         setFibAnswers(Array(exercise.correctAnswers.length).fill(''));
@@ -324,30 +347,9 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
     }
   };
 
-  const handleRunCode = async () => {
-    const codeExercise = exercise as LongFormExercise;
-    if (exercise.type !== 'long_form' || !codeExercise.language) return;
 
-    setIsSimulating(true);
-    setSimulationResult(null);
-    try {
-      const result = await simulateCodeExecution({ code: longFormAnswer, language: codeExercise.language });
-      setSimulationResult(result);
-      toast({ title: "Analysis Complete", description: "The AI has simulated and analyzed your code." });
-      setActiveOutputTab("analysis");
-    } catch (e) {
-      console.error(e);
-      toast({ variant: 'destructive', title: 'Simulation Failed', description: 'The AI could not simulate the code execution.' });
-      setActiveOutputTab("console");
-    } finally {
-      setIsSimulating(false);
-    }
-  };
 
-  const handleApplySuggestion = (code: string) => {
-      setLongFormAnswer(code);
-      toast({ title: "Suggestion Applied!", description: "The code in the editor has been updated." });
-  };
+
   
   const handleFibAnswerChange = (index: number, value: string) => {
     const newAnswers = [...fibAnswers];
@@ -387,25 +389,170 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
             if (lfExercise.category === 'code') {
                 return (
                     <div className="space-y-4">
-                        <CodeEditor value={longFormAnswer} onValueChange={setLongFormAnswer} disabled={isAnswered || isGrading} language={lfExercise.language} placeholder="Write your code here..." />
-                        <div className="rounded-lg border bg-background overflow-hidden">
-                            <Tabs value={activeOutputTab} onValueChange={setActiveOutputTab}>
-                                <div className="flex items-center justify-between p-2 px-4 bg-muted border-b">
-                                    <TabsList className="grid grid-cols-2 bg-transparent p-0 h-auto">
-                                        <TabsTrigger value="console" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">Console</TabsTrigger>
-                                        <TabsTrigger value="analysis" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs h-8">AI Analysis</TabsTrigger>
-                                    </TabsList>
-                                    {!isAnswered && (
-                                        <Button onClick={handleRunCode} variant="secondary" size="sm" disabled={isSimulating || !longFormAnswer.trim()}>
-                                            {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                                            Run & Analyze
+                        <div id="single-exercise-instructions" className="sr-only">
+                            Exercise: {lfExercise.question}. Write your {lfExercise.language} code solution below.
+                        </div>
+                        
+                        {/* Enhanced code editor header */}
+                        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-t-lg border border-b-0">
+                            <div className="flex items-center gap-2">
+                                <Code className="h-4 w-4 text-primary" />
+                                <span className="text-sm font-medium capitalize">{lfExercise.language} Solution</span>
+                                <Badge variant="outline" className="text-xs">
+                                    {isAnswered ? 'Submitted' : 'Draft'}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Press Ctrl+Enter to run</span>
+                            </div>
+                        </div>
+                        
+                        <div className="border border-t-0 rounded-b-lg overflow-hidden">
+                            <CodeEditor 
+                                value={longFormAnswer} 
+                                onValueChange={setLongFormAnswer} 
+                                disabled={isAnswered || isGrading} 
+                                language={lfExercise.language} 
+                                placeholder={`// Write your ${lfExercise.language} solution here...\n// Use the Run button or Ctrl+Enter to test your code`} 
+                                aria-label={`Code editor for ${lfExercise.language} exercise`}
+                                aria-describedby="single-exercise-instructions"
+                                showRunButton={true}
+                                onRunCode={handleRunCode}
+                                isExecuting={isExecuting}
+                            />
+                        </div>
+
+                        {/* Program Input Field */}
+                        {showInputField && (
+                            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                                    <h4 className="font-medium text-blue-900 dark:text-blue-100">Program Input</h4>
+                                    <Badge variant="secondary" className="text-xs">
+                                        {(lfExercise.language || 'javascript') === 'c' ? 'stdin' : 'input()'}
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                                    Your program expects input. Provide the values your program should read:
+                                </p>
+                                <Textarea
+                                    value={programInput}
+                                    onChange={(e) => setProgramInput(e.target.value)}
+                                    placeholder={
+                                        (lfExercise.language || 'javascript') === 'c' || (lfExercise.language || 'javascript') === 'cpp' 
+                                            ? "Enter input values (e.g., for your C program: 42)"
+                                            : (lfExercise.language || 'javascript') === 'python'
+                                            ? "Enter input values (one per line if multiple inputs)"
+                                            : "Enter input values your program expects"
+                                    }
+                                    rows={3}
+                                    className="font-mono text-sm bg-white dark:bg-blue-950/30"
+                                />
+                                <div className="flex items-center justify-between">
+                                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                                        💡 For your C code, enter: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">42</code> (or any integer)
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => {
+                                            setShowInputField(false);
+                                            setProgramInput("");
+                                        }}
+                                        className="text-xs"
+                                    >
+                                        Hide Input
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Quick Actions Bar */}
+                        {!isAnswered && !isGrading && longFormAnswer.trim() && (
+                            <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        Ready to test your solution
+                                        {needsInput(longFormAnswer, lfExercise.language || 'javascript') && (
+                                            <Badge variant="outline" className="text-xs ml-2">
+                                                Needs Input
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {needsInput(longFormAnswer, lfExercise.language || 'javascript') && !showInputField && (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm"
+                                            onClick={() => setShowInputField(true)}
+                                            className="text-xs"
+                                        >
+                                            Add Input
                                         </Button>
                                     )}
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={handleRunCode}
+                                        disabled={isExecuting}
+                                        className="text-xs"
+                                    >
+                                        {isExecuting ? (
+                                            <>
+                                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                Running...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play className="h-3 w-3 mr-1" />
+                                                {needsInput(longFormAnswer, lfExercise.language || 'javascript') && programInput ? 'Run with Input' : 'Test Code'}
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
-                                <TabsContent value="console" className="mt-0"><ConsoleOutput result={simulationResult} isLoading={isSimulating} /></TabsContent>
-                                <TabsContent value="analysis" className="mt-0"><AiAnalysisOutput result={simulationResult} isLoading={isSimulating} onApplySuggestion={handleApplySuggestion} /></TabsContent>
-                            </Tabs>
-                        </div>
+                            </div>
+                        )}
+
+                        {showExecutionPanel && (
+                            <div className="mt-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                        <Play className="h-4 w-4" />
+                                        Execution Results
+                                    </h4>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={handleRunCode}
+                                            disabled={isExecuting || !longFormAnswer.trim()}
+                                            className="text-xs h-6 px-2"
+                                        >
+                                            <RefreshCw className="h-3 w-3 mr-1" />
+                                            Re-run
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setShowExecutionPanel(false)}
+                                            className="text-xs h-6 px-2"
+                                        >
+                                            Hide
+                                        </Button>
+                                    </div>
+                                </div>
+                                <ExecutionPanel 
+                                    result={executionResult}
+                                    isLoading={isExecuting}
+                                    language={lfExercise.language}
+                                    code={longFormAnswer}
+                                    className="border-l-4 border-l-primary/30 shadow-sm"
+                                />
+                            </div>
+                        )}
+
                     </div>
                  );
             }
@@ -464,16 +611,60 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
             </div>
         </ScrollArea>
         
-        <div className="flex-shrink-0 border-t p-4 flex justify-end gap-2 bg-background">
-            {initialResponse ? (
-                <Button onClick={onSolved} size="lg">Return to Practice</Button>
-            ) : !isAnswered ? (
-                <Button onClick={handleAnswerSubmit} disabled={isGrading || isSimulating || (exercise.type !== 'long_form' && !selectedAnswer && !longFormAnswer && !imageDataUri) } size="lg">
-                    {isGrading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Grading...</> : 'Submit Answer'}
-                </Button>
-            ) : (
-                <Button onClick={onSolved} size="lg">Finish & Return</Button>
-            )}
+        <div className="flex-shrink-0 border-t bg-gradient-to-r from-background to-muted/20 p-4">
+            <div className="flex items-center justify-between">
+                {/* Progress indicator for code exercises */}
+                {exercise.type === 'long_form' && (exercise as LongFormExercise).category === 'code' && !isAnswered && (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <div className={cn(
+                                "h-2 w-2 rounded-full transition-colors",
+                                longFormAnswer.trim() ? "bg-blue-500" : "bg-muted"
+                            )}></div>
+                            <span>Code written</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className={cn(
+                                "h-2 w-2 rounded-full transition-colors",
+                                executionResult ? "bg-green-500" : "bg-muted"
+                            )}></div>
+                            <span>Code tested</span>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex items-center gap-2 ml-auto">
+                    {initialResponse ? (
+                        <Button onClick={onSolved} size="lg" className="min-w-[140px]">
+                            Return to Practice
+                        </Button>
+                    ) : !isAnswered ? (
+                        <Button 
+                            onClick={handleAnswerSubmit} 
+                            disabled={isGrading || (exercise.type !== 'long_form' && !selectedAnswer && !longFormAnswer && !imageDataUri)} 
+                            size="lg"
+                            className="min-w-[140px] bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+                        >
+                            {isGrading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                                    Grading...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Submit Answer
+                                </>
+                            )}
+                        </Button>
+                    ) : (
+                        <Button onClick={onSolved} size="lg" className="min-w-[140px]">
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Finish & Return
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
     </div>
   );

@@ -10,7 +10,7 @@ import '@/ai/flows/generate-lesson-image.ts';
 import '@/ai/flows/grade-long-form-answer.ts';
 import '@/ai/tools/buddy';
 import '@/ai/flows/generate-custom-exercise.ts';
-import '@/ai/flows/simulate-code-execution.ts';
+
 import '@/ai/flows/generate-proactive-suggestion.ts';
 import '@/ai/flows/generate-audio-from-text.ts';
 import '@/ai/flows/generate-follow-up-suggestions.ts';

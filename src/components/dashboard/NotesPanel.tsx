@@ -13,7 +13,8 @@ import { Card, CardContent } from '../ui/card';
 import { format } from 'date-fns';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Note, getNotesListener, addNote, deleteNote, updateNote } from '@/lib/data';
+import { Note } from '@/lib/types';
+import { getNotesListener, addNote, deleteNote, updateNote } from '@/lib/utility-panel';
 
 export default function NotesPanel() {
   const [notes, setNotes] = useState<Note[]>([]);

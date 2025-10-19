@@ -12,6 +12,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Checks if the authenticated user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // Validates user data structure and required fields
     function isValidUserData(data) {
       return data.keys().hasAll(['uid', 'email', 'role', 'progress', 'loginStreak', 'lastLoginDate']) &&
@@ -28,12 +34,11 @@ service cloud.firestore {
       // This accommodates sections, image, tags, gradeLevel, ageGroup, etc.
     }
 
-    // Validates exercise data structure
+    // Validates exercise data structure - simplified for better compatibility
     function isValidExerciseData(data) {
-      // Basic validation for all exercise types
-      return data.keys().hasAll(['lessonId', 'difficulty', 'type']) &&
-             data.type in ['mcq', 'true_false', 'long_form', 'fill_in_the_blanks'] &&
-             data.difficulty is number && data.difficulty >= 1 && data.difficulty <= 3;
+      // Basic validation - just check essential fields exist
+      return data.keys().hasAll(['lessonId', 'type']) &&
+             data.type in ['mcq', 'true_false', 'long_form', 'fill_in_the_blanks'];
     }
 
     // =================================
@@ -41,9 +46,9 @@ service cloud.firestore {
     // =================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if request.auth.uid == userId && isValidUserData(request.resource.data);
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if false; // Users should never be deleted
 
       // User's personal subcollections (tasks, notes)

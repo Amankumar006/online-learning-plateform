@@ -65,10 +65,13 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
 
 export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promise<string> {
     try {
+        console.log("Creating exercise with data:", exerciseData);
         const docRef = await addDoc(collection(db, "exercises"), exerciseData);
+        console.log("Exercise created successfully with ID:", docRef.id);
         return docRef.id;
     } catch (error) {
         console.error("Error creating exercise: ", error);
+        console.error("Exercise data that failed:", exerciseData);
         throw new Error("Failed to create exercise");
     }
 }

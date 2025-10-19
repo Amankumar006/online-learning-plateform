@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getLesson, updateLesson, Lesson, Section, generateAndStoreLessonAudio } from "@/lib/data";
-import { Loader2, Code, Video, FileText, Sparkles, Wand2, ArrowRight, RefreshCw, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Code, Video, FileText, Image as ImageIcon, Sparkles, Wand2, ArrowRight, RefreshCw, ArrowUp, ArrowDown } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,7 +120,12 @@ export default function EditLessonPage() {
     setIsUploadingImage(false);
     try {
         const imagePrompt = `A high-quality, educational illustration or photo for a lesson titled "${title}" on the subject of ${subject}. The style should be clean, modern, and engaging.`;
-        const result = await generateLessonImage({ prompt: imagePrompt });
+        const result = await generateLessonImage({ 
+          prompt: imagePrompt,
+          style: 'educational',
+          speed: 'nano-banana',
+          context: `Lesson: ${title}, Subject: ${subject}`
+        });
         
         toast({ title: "Uploading image...", description: "Please wait while the generated image is uploaded to storage." });
         setIsUploadingImage(true);
@@ -128,7 +133,10 @@ export default function EditLessonPage() {
         const publicUrl = await uploadImageFromDataUrl(result.imageUrl, fileName);
         setImage(publicUrl);
 
-        toast({ title: "Success!", description: "New lesson image generated and uploaded." });
+        toast({ 
+          title: "🍌 Nano-Banana Success!", 
+          description: `Image generated in ${result.generationTime}ms and uploaded successfully!` 
+        });
     } catch (error: any) {
         console.error(error);
         toast({ variant: "destructive", title: "AI/Upload Error", description: error.message || "Failed to generate or upload the image." });
@@ -350,6 +358,7 @@ export default function EditLessonPage() {
                                       {section.blocks.map((block, bIndex) => (
                                           <div key={bIndex} className="p-3 bg-background rounded-md shadow-sm">
                                               {block.type === 'text' && <div className="flex items-start gap-3"><FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><p className="flex-1 text-sm">{block.content}</p></div>}
+                                              {block.type === 'image' && <div className="flex items-start gap-3"><ImageIcon className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><div className="flex-1"><img src={block.url} alt={block.alt || 'Lesson image'} className="w-full max-w-xs rounded-md" />{block.caption && <p className="text-xs text-muted-foreground mt-1">{block.caption}</p>}</div></div>}
                                               {block.type === 'code' && <div className="flex items-start gap-3"><Code className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><div className="flex-1"><span className="text-xs font-mono bg-muted px-2 py-1 rounded">{block.language}</span><pre className="text-sm bg-muted p-2 rounded-md overflow-x-auto mt-2"><code>{block.code}</code></pre></div></div>}
                                               {block.type === 'video' && <div className="flex items-start gap-3"><Video className="h-5 w-5 text-muted-foreground mt-1 shrink-0" /><a href={block.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm text-blue-600 truncate hover:underline">{block.url}</a></div>}
                                           </div>

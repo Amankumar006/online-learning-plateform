@@ -263,7 +263,7 @@ export default function ProfilePage() {
                             <Sparkles className="h-5 w-5 text-primary"/>
                             Personalization Settings
                         </CardTitle>
-                        <CardDescription>Help the AI tailor the learning experience for you. This will be used in features like the AI Canvas.</CardDescription>
+                        <CardDescription>Help the AI tailor the learning experience for you.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

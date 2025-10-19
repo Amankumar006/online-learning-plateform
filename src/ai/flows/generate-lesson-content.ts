@@ -31,9 +31,17 @@ const CodeBlockSchema = z.object({
     code: z.string().describe("The code snippet."),
 });
 
+const ImageBlockSchema = z.object({
+    type: z.enum(['image']),
+    url: z.string().describe("A placeholder URL for the image (e.g., 'https://placehold.co/600x400/png')."),
+    alt: z.string().optional().describe("Alt text for accessibility."),
+    caption: z.string().optional().describe("Optional caption for the image."),
+});
+
 const BlockSchema = z.discriminatedUnion("type", [
     TextBlockSchema,
     CodeBlockSchema,
+    ImageBlockSchema,
 ]);
 
 const SectionSchema = z.object({
@@ -84,7 +92,8 @@ The lesson MUST be tailored to the following student profile:
     - Each block must have a **type** and its corresponding data.
     - Supported block types are:
         1.  \`{ "type": "text", "content": "..." }\`: For paragraphs. Use Markdown for formatting and LaTeX for equations (e.g., $ax^2+bx+c=0$). Start a text block's content with '**Example:**' or '**Question:**' to have it be specially highlighted.
-        2.  \`{ "type": "code", "language": "...", "code": "..." }\`: For code snippets.
+        2.  \`{ "type": "image", "url": "https://placehold.co/600x400/png", "alt": "...", "caption": "..." }\`: For images with placeholder URLs, alt text, and optional captions.
+        3.  \`{ "type": "code", "language": "...", "code": "..." }\`: For code snippets.
 
 **Content Guidelines:**
 - Begin with a warm, friendly introduction.

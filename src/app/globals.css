@@ -1,10 +1,61 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Fix scrollbar issues */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+/* Hide scrollbar on containers that shouldn't scroll */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* AI Chatbot styles */
+.ai-chatbot-popover {
+  overscroll-behavior: contain;
+}
+
+.ai-chatbot-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.ai-chatbot-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-chatbot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-chatbot-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.ai-chatbot-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+
+
 @layer base {
-  :root {
+
+  :root,
+  [data-theme="light"] {
     --background: 210 20% 98%;
     --foreground: 222 84% 4.9%;
     --card: 0 0% 100%;
@@ -31,7 +82,7 @@
     --chart-5: 48 96% 53%;
   }
 
-  .dark {
+  [data-theme="dark"] {
     --background: 222 84% 4%;
     --foreground: 210 40% 98%;
     --card: 222 47% 11%;
@@ -58,8 +109,401 @@
     --chart-4: 48 96% 53%;
     --chart-5: 260 85% 66%;
   }
+
+  /* Reading Mode - Optimized for comfortable reading */
+  [data-theme="reading"] {
+    --background: 45 29% 97%;
+    --foreground: 20 14% 4%;
+    --card: 45 29% 95%;
+    --card-foreground: 20 14% 4%;
+    --popover: 45 29% 95%;
+    --popover-foreground: 20 14% 4%;
+    --primary: 25 95% 53%;
+    --primary-foreground: 45 29% 97%;
+    --secondary: 45 29% 90%;
+    --secondary-foreground: 20 14% 15%;
+    --muted: 45 29% 90%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 35 77% 49%;
+    --accent-foreground: 45 29% 97%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 45 29% 97%;
+    --border: 45 29% 85%;
+    --input: 45 29% 85%;
+    --ring: 25 95% 53%;
+    --radius: 0.75rem;
+    --chart-1: 25 95% 53%;
+    --chart-2: 35 77% 49%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 349 89% 61%;
+    --chart-5: 48 96% 53%;
+  }
+
+  /* Reading mode specific enhancements */
+  [data-theme="reading"] body {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+  }
+
+  [data-theme="reading"] h1,
+  [data-theme="reading"] h2,
+  [data-theme="reading"] h3,
+  [data-theme="reading"] h4,
+  [data-theme="reading"] h5,
+  [data-theme="reading"] h6 {
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  [data-theme="reading"] p {
+    margin-bottom: 1.2em;
+  }
+
+  /* Theme toggle animations */
+  .theme-toggle-button {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
+  .theme-toggle-icon {
+    backface-visibility: hidden;
+  }
+
+  /* Smooth theme transitions */
+  * {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, box-shadow;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+
+  /* Lesson Editor Styles */
+  .lesson-editor-dragging {
+    transform: rotate(2deg) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+  }
+
+  .lesson-editor-drop-zone {
+    background: linear-gradient(135deg, hsl(var(--primary)/0.05), hsl(var(--accent)/0.05));
+    border: 2px dashed hsl(var(--primary)/0.3);
+  }
+
+  /* Custom scrollbar for editor */
+  .lesson-editor-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .lesson-editor-scroll::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  .lesson-editor-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground)/0.3);
+    border-radius: 3px;
+  }
+
+  .lesson-editor-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground)/0.5);
+  }
+
+  /* Code Editor Accessibility Improvements */
+  .monaco-editor .monaco-editor-background {
+    transition: background-color 0.2s ease;
+  }
+
+  /* Fix Monaco Editor cursor positioning and text alignment */
+  .monaco-editor .view-lines {
+    position: relative !important;
+  }
+
+  .monaco-editor .view-line {
+    position: relative !important;
+  }
+
+  .monaco-editor .cursor {
+    position: absolute !important;
+  }
+
+  /* Ensure proper text rendering */
+  .monaco-editor .view-lines .view-line span {
+    position: relative !important;
+  }
+
+  /* Fix cursor blinking and positioning */
+  .monaco-editor .cursors-layer .cursor {
+    animation: monaco-cursor-blink 1s linear infinite !important;
+  }
+
+  @keyframes monaco-cursor-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Prevent text from starting behind cursor */
+  .monaco-editor .view-lines .view-line {
+    white-space: pre !important;
+    font-feature-settings: normal !important;
+  }
+
+  /* Fix layout issues */
+  .monaco-editor .overflow-guard {
+    position: relative !important;
+  }
+
+  .monaco-editor .monaco-scrollable-element {
+    position: relative !important;
+  }
+
+  /* Additional cursor positioning fixes */
+  .monaco-editor .cursors-layer {
+    z-index: 3 !important;
+  }
+
+  .monaco-editor .view-zones {
+    position: relative !important;
+  }
+
+  /* Ensure text doesn't overlap with cursor */
+  .monaco-editor .view-line {
+    line-height: 1.4 !important;
+  }
+
+  /* Force proper text alignment */
+  .monaco-editor .monaco-editor-background {
+    position: relative !important;
+  }
+
+  /* Fix for cursor appearing in wrong position */
+  .monaco-editor .margin {
+    position: relative !important;
+  }
+
+  /* Fix Monaco Editor gutter and text alignment */
+  .monaco-editor .margin-view-overlays {
+    position: relative !important;
+  }
+
+  .monaco-editor .view-overlays {
+    position: relative !important;
+  }
+
+  /* Ensure proper line number spacing */
+  .monaco-editor .line-numbers {
+    padding-right: 8px !important;
+    text-align: right !important;
+    min-width: 3ch !important;
+  }
+
+  /* Fix text content positioning */
+  .monaco-editor .view-lines .view-line {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  /* Ensure proper gutter width */
+  .monaco-editor .margin {
+    min-width: 60px !important;
+  }
+
+  /* Fix text starting position */
+  .monaco-editor .view-lines {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  /* Ensure line numbers don't overlap with text */
+  .monaco-editor .glyph-margin {
+    width: auto !important;
+  }
+
+  /* Critical fix for text alignment with line numbers */
+  .monaco-editor .view-lines .view-line > span {
+    position: relative !important;
+    display: inline-block !important;
+  }
+
+  /* Ensure proper margin calculation */
+  .monaco-editor .margin-view-overlays .line-numbers {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force proper text container positioning */
+  .monaco-editor .lines-content {
+    position: relative !important;
+    left: 0 !important;
+  }
+
+  /* Critical fix: Ensure Monaco text starts at correct position */
+  .monaco-editor .view-lines .view-line {
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* Ensure line content is properly positioned */
+  .monaco-editor .view-lines .view-line > span {
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
+  }
+
+  /* Fix for content area positioning */
+  .monaco-editor .monaco-scrollable-element > .scrollbar {
+    z-index: 10 !important;
+  }
+
+  /* Ensure proper content offset */
+  .monaco-editor .view-lines {
+    transform: translateX(0) !important;
+  }
+
+  /* Fix for placeholder text alignment */
+  .monaco-editor + div[aria-hidden="true"] {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace !important;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .monaco-editor {
+      border: 2px solid hsl(var(--foreground)) !important;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .monaco-editor * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Focus improvements for code editor */
+  .monaco-editor.focused {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Loading state improvements */
+  .code-editor-loading {
+    background: linear-gradient(90deg, 
+      hsl(var(--muted)) 0%, 
+      hsl(var(--muted-foreground)/0.1) 50%, 
+      hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Code execution indicators */
+  .execution-error-line {
+    background-color: hsl(var(--destructive) / 0.1) !important;
+    border-left: 3px solid hsl(var(--destructive)) !important;
+  }
+
+  .execution-success-line {
+    background-color: hsl(142 71% 45% / 0.1) !important;
+    border-left: 3px solid hsl(142 71% 45%) !important;
+  }
+
+  .execution-error-glyph::before {
+    content: "❌";
+    font-size: 12px;
+  }
+
+  .execution-success-glyph::before {
+    content: "✅";
+    font-size: 12px;
+  }
+
+  /* Mobile touch enhancements */
+  @media (hover: none) and (pointer: coarse) {
+    .monaco-editor .monaco-editor-background {
+      touch-action: pan-y;
+    }
+    
+    .monaco-editor .view-lines {
+      touch-action: manipulation;
+    }
+  }
+
+  /* Enhanced mobile toolbar */
+  .mobile-editor-toolbar {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Haptic feedback simulation */
+  @keyframes haptic-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  .haptic-feedback {
+    animation: haptic-pulse 0.1s ease-in-out;
+  }
+
+  /* Image block styles */
+  .image-block-preview {
+    transition: all 0.3s ease;
+  }
+
+  .image-block-preview:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .image-upload-zone {
+    border: 2px dashed hsl(var(--border));
+    transition: all 0.3s ease;
+  }
+
+  .image-upload-zone:hover {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary)/0.05);
+  }
+
+  /* AI Generation styles */
+  .ai-generate-button {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+  }
+
+  .ai-generate-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px hsl(var(--primary)/0.3);
+  }
+
+  .ai-generate-button:disabled {
+    opacity: 0.7;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .ai-generation-progress {
+    background: linear-gradient(90deg, 
+      hsl(var(--primary)/0.1) 0%, 
+      hsl(var(--primary)/0.3) 50%, 
+      hsl(var(--primary)/0.1) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
- 
+
 @layer base {
   * {
     @apply border-border;
@@ -67,25 +511,26 @@
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 500ms;
   }
+
   body {
     @apply bg-background text-foreground;
     background-image: radial-gradient(circle at 10% 20%, hsl(var(--primary) / 0.05), transparent 40%),
-                      radial-gradient(circle at 80% 90%, hsl(var(--accent) / 0.05), transparent 40%);
+      radial-gradient(circle at 80% 90%, hsl(var(--accent) / 0.05), transparent 40%);
     background-attachment: fixed;
   }
 }
 
 @layer components {
-    .control-bar {
-        @apply absolute bottom-4 left-1/2 -translate-x-1/2;
-        @apply flex items-center justify-between gap-6;
-        @apply p-2 rounded-2xl;
-        @apply bg-background/50 backdrop-blur-md;
-        @apply border border-white/10 shadow-2xl;
-        @apply animate-in fade-in-0 slide-in-from-bottom-5 duration-500;
-    }
+  .control-bar {
+    @apply absolute bottom-4 left-1/2 -translate-x-1/2;
+    @apply flex items-center justify-between gap-6;
+    @apply p-2 rounded-2xl;
+    @apply bg-background/50 backdrop-blur-md;
+    @apply border border-white/10 shadow-2xl;
+    @apply animate-in fade-in-0 slide-in-from-bottom-5 duration-500;
+  }
 
-    .control-bar > div {
-        @apply flex items-center gap-2;
-    }
+  .control-bar>div {
+    @apply flex items-center gap-2;
+  }
 }

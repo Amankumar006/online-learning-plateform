@@ -17,7 +17,7 @@ function DashboardSkeleton() {
   return (
     <div className="w-full h-full flex flex-col">
        {/* Main Glass Panel Skeleton */}
-       <div className="relative w-full flex-grow bg-white/20 dark:bg-black/25 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/20 flex flex-col overflow-hidden p-6">
+       <div className="relative w-full flex-grow bg-card/50 backdrop-blur-xl rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden p-6">
         <div className="relative z-10 flex flex-col h-full">
             <div className="flex-grow overflow-y-auto -mr-6 pr-6">
                 {/* Header Skeleton */}
@@ -28,7 +28,7 @@ function DashboardSkeleton() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {/* Next Lesson Skeleton */}
-                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6 flex flex-col">
                         <Skeleton className="h-5 w-24 mb-4" />
                         <div className="flex-grow flex flex-col justify-between">
                             <Skeleton className="w-full h-24 mt-2" />
@@ -40,7 +40,7 @@ function DashboardSkeleton() {
                     </div>
 
                     {/* AI Recommendation Skeleton */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
+                    <div className="rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6">
                         <Skeleton className="h-5 w-32 mb-4" />
                         <div className="space-y-3">
                             <Skeleton className="h-12 w-full" />
@@ -50,7 +50,7 @@ function DashboardSkeleton() {
                     </div>
                     
                     {/* Track Progress Skeleton */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                    <div className="rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6 flex flex-col">
                         <Skeleton className="h-5 w-24 mb-2" />
                         <div className="flex-grow flex flex-col items-center justify-center">
                             <Skeleton className="h-32 w-32 rounded-full" />
@@ -60,14 +60,14 @@ function DashboardSkeleton() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-                     <div className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
+                     <div className="h-full rounded-lg bg-card/30 backdrop-blur-lg border border-border p-4 flex flex-col items-center justify-center gap-4">
                         <Skeleton className="p-3 h-14 w-14 rounded-lg" />
                         <div className="space-y-2 flex-1 w-full">
                             <Skeleton className="h-5 w-full" />
                             <Skeleton className="h-4 w-1/2 mx-auto" />
                         </div>
                     </div>
-                     <div className="h-full rounded-lg bg-white/5 backdrop-blur-lg border border-white/5 p-4 flex flex-col items-center justify-center gap-4">
+                     <div className="h-full rounded-lg bg-card/30 backdrop-blur-lg border border-border p-4 flex flex-col items-center justify-center gap-4">
                         <Skeleton className="p-3 h-14 w-14 rounded-lg" />
                         <div className="space-y-2 flex-1 w-full">
                             <Skeleton className="h-5 w-full" />
@@ -175,7 +175,7 @@ export default function DashboardPage() {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Main Glass Panel */}
-      <div className="relative w-full flex-grow bg-white/20 dark:bg-black/25 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl shadow-black/20 flex flex-col overflow-hidden p-6">
+      <div className="relative w-full flex-grow bg-card/50 backdrop-blur-xl rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden p-6">
         
         {/* Richer SVG Background */}
         <div className="absolute inset-0 z-0 opacity-60">
@@ -236,7 +236,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     
                     {/* Your Next Lesson (Hero) */}
-                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-gradient-to-tr from-primary/5 to-accent/5 dark:from-primary/10 dark:to-accent/10 backdrop-blur-lg border border-white/10 hover:border-primary/30 transition-all duration-300 p-6 flex flex-col hover:shadow-xl hover:shadow-primary/10">
+                    <div className="lg:col-span-2 md:col-span-2 rounded-xl bg-gradient-to-tr from-primary/5 to-accent/5 backdrop-blur-lg border border-border hover:border-primary/30 transition-all duration-300 p-6 flex flex-col hover:shadow-xl hover:shadow-primary/10">
                         <h3 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2"><BookOpen className="h-4 w-4"/> Your Next Lesson</h3>
                         {nextLesson ? (
                             <Link href={`/dashboard/lessons/${nextLesson.id}`} className="block group flex-grow flex flex-col justify-between">
@@ -262,20 +262,20 @@ export default function DashboardPage() {
                     </div>
 
                     {/* AI Recommendation */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6">
+                    <div className="rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6">
                         <h3 className="font-semibold text-muted-foreground mb-4 flex items-center gap-2"><Bot className="h-4 w-4"/> AI Recommendations</h3>
                         {isGeneratingTopics ? (
                             <div className="space-y-4 py-4">
-                                <Skeleton className="h-5 w-full bg-white/10" />
-                                <Skeleton className="h-5 w-5/6 bg-white/10" />
-                                <Skeleton className="h-5 w-full bg-white/10" />
+                                <Skeleton className="h-5 w-full" />
+                                <Skeleton className="h-5 w-5/6" />
+                                <Skeleton className="h-5 w-full" />
                             </div>
                         ) : suggestedTopics.length > 1 ? (
                             <div className="space-y-3">
                                 {suggestedTopics.slice(1, 4).map((topic, index) => {
                                     const lesson = findLessonForTopic(topic);
                                     return (
-                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-3 rounded-md hover:bg-white/10 dark:hover:bg-black/20 transition-colors font-medium text-muted-foreground hover:text-foreground group">
+                                    <Link href={lesson ? `/dashboard/lessons/${lesson.id}` : '#'} key={index} className="block p-3 rounded-md hover:bg-muted/50 transition-colors font-medium text-muted-foreground hover:text-foreground group">
                                         <div className="flex items-center justify-between">
                                             <span>{topic}</span>
                                             <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                     </div>
                     
                     {/* Track Progress */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col">
+                    <div className="rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6 flex flex-col">
                         <h3 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Track Progress</h3>
                         <div className="flex-grow flex flex-col items-center justify-center">
                             <div className="relative w-36 h-36">
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                 </div>
 
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-                     <div className="rounded-xl bg-white/5 backdrop-blur-lg border border-white/5 p-6 flex flex-col items-center justify-center text-center">
+                     <div className="rounded-xl bg-card/30 backdrop-blur-lg border border-border p-6 flex flex-col items-center justify-center text-center">
                         <div className="p-4 bg-primary/10 rounded-full mb-4">
                             <BrainCircuit className="w-8 h-8 text-primary" />
                         </div>

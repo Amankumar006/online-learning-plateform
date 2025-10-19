@@ -16,8 +16,14 @@ export interface VideoBlock {
     type: 'video';
     url: string;
 }
+export interface ImageBlock {
+    type: 'image';
+    url: string;
+    alt?: string;
+    caption?: string;
+}
 
-export type Block = TextBlock | CodeBlock | VideoBlock;
+export type Block = TextBlock | CodeBlock | VideoBlock | ImageBlock;
 
 export interface Section {
     title: string;
@@ -129,6 +135,24 @@ export interface LongFormExercise extends BaseExercise {
     evaluationCriteria: string;
 }
 
+export interface CodeExercise extends BaseExercise {
+    type: 'code';
+    title: string;
+    description: string;
+    language: string;
+    starterCode?: string;
+    testCases: Array<{
+        id: string;
+        input?: string;
+        expectedOutput: string;
+        description: string;
+        points: number;
+    }>;
+    totalPoints: number;
+    timeLimit?: number;
+    memoryLimit?: number;
+}
+
 export interface FillInTheBlanksExercise extends BaseExercise {
     type: 'fill_in_the_blanks';
     question?: string; // Optional for compatibility, can be derived from questionParts
@@ -136,7 +160,7 @@ export interface FillInTheBlanksExercise extends BaseExercise {
     correctAnswers: string[];
 }
 
-export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise | FillInTheBlanksExercise;
+export type Exercise = McqExercise | TrueFalseExercise | LongFormExercise | FillInTheBlanksExercise | CodeExercise;
 
 export interface UserExerciseResponse {
   id: string; // doc id
