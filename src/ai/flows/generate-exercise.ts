@@ -8,8 +8,8 @@
  * - GeneratedExercise - The output type for a single generated exercise (imported from schemas).
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 import {
     GeneratedExercise,
     GenerateExerciseOutputSchema

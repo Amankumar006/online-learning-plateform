@@ -7,8 +7,8 @@
  * - GradeMathSolutionOutput - The output type for the function.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 
 const GradeMathSolutionInputSchema = z.object({
   problem: z.string().describe("The original math problem statement."),

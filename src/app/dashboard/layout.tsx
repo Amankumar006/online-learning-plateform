@@ -1,5 +1,8 @@
 "use client";
 
+// Force dynamic rendering to avoid build-time Firebase initialization
+export const dynamic = 'force-dynamic';
+
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";

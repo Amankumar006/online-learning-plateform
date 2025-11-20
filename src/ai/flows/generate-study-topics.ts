@@ -9,8 +9,8 @@
  * - GenerateStudyTopicsOutput - The return type for the generateStudyTopics function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 
 const GenerateStudyTopicsInputSchema = z.object({
   currentProgress: z

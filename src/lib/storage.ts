@@ -9,6 +9,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
  * @returns The public URL of the uploaded image.
  */
 export async function uploadImageFromDataUrl(dataUrl: string, fileName: string): Promise<string> {
+    if (!storage) {
+        throw new Error('Firebase Storage is not initialized. Please check your Firebase configuration.');
+    }
+
     try {
         const path = `lesson-images/${fileName}.png`;
         const storageRef = ref(storage, path);
@@ -38,6 +42,10 @@ export async function uploadImageFromDataUrl(dataUrl: string, fileName: string):
  * @returns The public URL of the uploaded audio file.
  */
 export async function uploadAudioFromDataUrl(dataUrl: string, fileName: string): Promise<string> {
+    if (!storage) {
+        throw new Error('Firebase Storage is not initialized. Please check your Firebase configuration.');
+    }
+
     try {
         const path = `lesson-audio/${fileName}.wav`;
         const storageRef = ref(storage, path);

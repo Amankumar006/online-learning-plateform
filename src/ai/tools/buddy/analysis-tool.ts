@@ -1,5 +1,5 @@
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { codeAnalysisService, type CodeAnalysisRequest } from '@/ai/services/code-analysis';
 
 export const analyzeCodeComplexityTool = ai.defineTool(

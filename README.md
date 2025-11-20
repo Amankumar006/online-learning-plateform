@@ -1,11 +1,10 @@
 # AdaptEd AI - Intelligent Learning Platform
 
-<div align="center">
   <img src="https://img.shields.io/badge/Next.js-15.3.3-black?style=for-the-badge&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Firebase-11.9.1-orange?style=for-the-badge&logo=firebase" alt="Firebase" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-3.4.1-38B2AC?style=for-the-badge&logo=tailwind-css" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Google_AI-Genkit-4285F4?style=for-the-badge&logo=google" alt="Google AI" />
+  <img src="https://img.shields.io/badge/Google_Gemini-2.0-4285F4?style=for-the-badge&logo=google" alt="Google Gemini" />
 </div>
 
 <div align="center">
@@ -29,6 +28,13 @@
 - **Web Search Integration**: Perplexity-style search with comprehensive source citations
 - **Multi-modal Support**: Text, image, and video content understanding
 
+### 🎨 **Advanced AI Analysis**
+- **Visual Problem Solving**: AI analyzes uploaded images and mathematical content
+- **Comprehensive Mathematical Analysis**: Step-by-step solutions with detailed explanations
+- **Smart Response Formatting**: Multi-section responses with formulas, calculations, and insights
+- **Educational Context**: Detailed explanations of mathematical concepts and theorems
+- **Multi-modal Support**: Text, image, and document understanding
+
 ### 📚 **Content Management System**
 - **Lesson Builder**: Create interactive lessons with text, images, and multimedia
 - **Exercise Generator**: AI-powered creation of MCQs, true/false, fill-in-the-blanks, and long-form questions
@@ -47,12 +53,15 @@
 - **Language**: TypeScript 5.0
 - **Styling**: Tailwind CSS 3.4.1 with custom design system
 - **UI Components**: Radix UI primitives with shadcn/ui
+
 - **Animations**: Framer Motion for smooth interactions
 - **Icons**: Lucide React icon library
 
 ### **Backend & AI**
-- **AI Framework**: Google Genkit 1.13.0
-- **AI Model**: Google Gemini 2.0 Flash
+- **AI Integration**: Custom Gemini API Integration (Genkit-compatible)
+- **AI Model**: Google Gemini 2.0 Flash for advanced mathematical analysis
+
+- **Visual Analysis**: SVG parsing and geometric shape recognition
 - **Embeddings**: Google AI text-embedding-004
 - **Vector Search**: Custom in-memory vector store with semantic search
 - **Authentication**: Firebase Auth
@@ -121,20 +130,40 @@
    npm run dev
    ```
 
-6. **Start AI Development Server** (Optional)
-   ```bash
-   npm run genkit:dev
-   ```
+
 
 The application will be available at `http://localhost:3000`.
+
+### Quick Start with AI Features
+
+1. **Navigate to Buddy AI**
+   ```
+   http://localhost:3000/dashboard/buddy-ai
+   ```
+
+2. **Chat with AI Tutor**
+   - Ask questions about any subject
+   - Get detailed explanations and step-by-step solutions
+   - Upload images for visual problem solving
+
+3. **Practice Exercises**
+   - Go to `/dashboard/practice` for interactive exercises
+   - Get AI-powered feedback and hints
+   - Track your progress across different subjects
+
+4. **Explore Lessons**
+   - Browse comprehensive lessons at `/dashboard/lessons`
+   - Each lesson includes AI-generated content and exercises
+   - Ask questions like "Calculate area and perimeter"
+   - Experiment with complex mathematical problems
 
 ## 📁 Project Structure
 
 ```
 src/
-├── ai/                     # AI and Genkit integration
+├── ai/                     # AI Integration (Custom Gemini Layer)
 │   ├── actions/           # AI action definitions
-│   ├── core/              # Core AI functionality
+│   ├── core/              # Core AI functionality & Provider Logic
 │   │   └── vector-store.ts # Semantic search implementation
 │   ├── flows/             # AI workflow orchestration
 │   ├── prompts/           # AI prompt templates
@@ -142,11 +171,16 @@ src/
 │   ├── services/          # AI service layer
 │   ├── tools/             # AI tools and utilities
 │   │   └── buddy/         # Buddy AI tools
-│   ├── dev.ts            # AI development server
-│   └── genkit.ts         # Genkit configuration
+│   └── ai.ts             # AI service entry point
 ├── app/                   # Next.js App Router pages
 │   ├── admin/            # Admin dashboard
+│   ├── api/              # API routes
+│   │   └── ai/           # AI analysis endpoints
+
 │   ├── dashboard/        # Student dashboard
+
+│   │   ├── lessons/      # Lesson pages
+│   │   └── practice/     # Exercise pages
 │   ├── login/            # Authentication pages
 │   ├── signup/           
 │   ├── globals.css       # Global styles
@@ -156,6 +190,7 @@ src/
 │   ├── admin/            # Admin-specific components
 │   ├── auth/             # Authentication components
 │   ├── buddy-ai/         # AI chat interface
+
 │   ├── common/           # Shared components
 │   ├── dashboard/        # Dashboard components
 │   ├── lessons/          # Lesson components
@@ -187,10 +222,85 @@ Custom design system with:
 - **Dark Mode**: Full dark mode support with theme toggle
 
 ### AI Configuration
-- **Model**: Google Gemini 2.0 Flash for text generation
+- **Model**: Google Gemini 2.0 Flash for text generation and mathematical analysis
+
+- **Visual Analysis**: SVG parsing for geometric shape analysis
+- **Mathematical Engine**: Advanced problem-solving with step-by-step solutions
 - **Embeddings**: text-embedding-004 for semantic search
 - **Vector Store**: In-memory storage with 1000 vector limit
 - **Fallback**: Hash-based embeddings for offline scenarios
+
+## 🎨 AI Analysis Features
+
+### **Visual Problem Solving**
+The AI system provides powerful analysis capabilities for uploaded images and mathematical content.
+
+### **Comprehensive Mathematical Analysis**
+When you upload mathematical problems or images, the AI provides detailed analysis including:
+
+#### **Problem Identification**
+- Automatic recognition of geometric shapes and mathematical elements
+- Identification of problem types (area calculation, perimeter, missing sides, etc.)
+- Analysis of given measurements and annotations
+
+#### **Mathematical Concepts & Formulas**
+- Relevant formula identification and explanation
+- Geometric theorem references (Pythagorean theorem, area formulas, etc.)
+- Step-by-step formula applications
+
+#### **Detailed Solutions**
+- Complete mathematical work with intermediate steps
+- Clear explanations for each calculation step
+- Unit handling and conversions
+- Verification of results
+
+#### **Educational Insights**
+- Concept explanations and broader mathematical context
+- Alternative solution methods
+- Real-world applications
+- Related practice problem suggestions
+
+### **Smart Response Formatting**
+- **Multi-section Layout**: Responses are organized into clear sections
+- **Mathematical Notation**: Proper formatting for formulas and calculations
+- **Visual Positioning**: AI responses appear optimally positioned near selected shapes
+- **Adaptive Length**: Long responses are split into multiple readable text boxes
+
+### **Usage Modes**
+
+#### **Full Analysis Mode**
+Click "Full Analysis" for automatic comprehensive breakdown:
+```
+🤖 COMPREHENSIVE ANALYSIS
+
+**Problem Identification:**
+Rectangle with dimensions 10cm × 5cm
+
+**Given Information:**
+- Length = 10 cm
+- Width = 5 cm
+
+**Mathematical Concepts & Formulas:**
+- Area = length × width
+- Perimeter = 2(length + width)
+
+**Detailed Step-by-Step Solution:**
+1. Calculate area: 10 × 5 = 50 cm²
+2. Calculate perimeter: 2(10 + 5) = 30 cm
+
+**Final Answer:**
+- Area = 50 cm²
+- Perimeter = 30 cm
+```
+
+#### **Custom Query Mode**
+Click "Ask" to pose specific questions:
+- "Calculate the area and perimeter"
+- "Find the missing side length"
+- "Solve this step by step"
+- "Explain the mathematical concepts"
+- "Show all formulas used"
+- "Verify this solution"
 
 ## 🎯 Usage Examples
 
@@ -202,8 +312,29 @@ Custom design system with:
 // Take adaptive exercises
 /dashboard/lessons/[id]
 
+// Use AI buddy for help
+/dashboard/buddy-ai
+
 // Chat with AI tutor
 // Use Buddy AI chat interface for instant help
+```
+
+### AI Buddy Features
+```typescript
+// Chat with AI tutor for comprehensive help
+/dashboard/buddy-ai
+
+// Upload images and get instant analysis
+// 1. Upload mathematical problems, diagrams, or any image
+// 2. Ask specific questions about the content
+// 3. Get detailed explanations and step-by-step solutions
+// 4. Chat naturally with the AI tutor
+
+// Example AI responses include:
+// - Step-by-step problem solutions
+// - Concept explanations and educational insights
+// - Formula derivations and applications
+// - Educational insights and related concepts
 ```
 
 ### For Educators
@@ -263,8 +394,6 @@ firebase deploy
 ```bash
 # Development
 npm run dev              # Start Next.js development server
-npm run genkit:dev       # Start AI development server
-npm run genkit:watch     # Start AI server with file watching
 
 # Production
 npm run build            # Build for production
@@ -273,15 +402,6 @@ npm run start            # Start production server
 # Code Quality
 npm run lint             # Run ESLint
 npm run typecheck        # Run TypeScript type checking
-```
-
-### AI Development
-The project includes a dedicated AI development environment:
-```bash
-# Start Genkit development server
-npm run genkit:dev
-
-# Access Genkit UI at http://localhost:4000
 ```
 
 ## 🔒 Security Features
@@ -331,6 +451,8 @@ We welcome contributions! Please follow these steps:
 - **Search Response Time**: <500ms for semantic search
 - **Page Load Time**: <2s for initial load
 - **AI Response Time**: <3s for content generation
+- **AI Analysis**: <5s for comprehensive mathematical analysis
+- **Shape Recognition**: Real-time SVG parsing and analysis
 - **Vector Store**: Handles 1000+ indexed items efficiently
 
 ### Optimization Features

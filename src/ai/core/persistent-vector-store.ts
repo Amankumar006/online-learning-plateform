@@ -3,7 +3,7 @@
  * Replaces in-memory storage with persistent database storage
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/ai';
 import {
     EmbeddingVector,
     VectorMetadata,

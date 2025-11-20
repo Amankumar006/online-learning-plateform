@@ -6,8 +6,8 @@
  * - quickChat - A function that provides a direct answer to a single question.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 
 const QuickChatInputSchema = z.object({
   question: z.string().describe('The user\'s question.'),

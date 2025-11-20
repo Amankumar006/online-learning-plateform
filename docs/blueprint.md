@@ -6,7 +6,7 @@
 - Lessons: Interactive lessons that supports text, images, and videos.
 - Adaptive Exercises: Adaptive exercises that adjust difficulty in real-time.
 - Progress Tracking: Visual progress tracking and mastery charts.
-- Buddy AI: AI-powered study buddy to incorporate knowledge to generate different types of conversation (using Genkit as a tool)
+- Buddy AI: AI-powered study buddy to incorporate knowledge to generate different types of conversation (using custom AI tools)
 - Authentication: Secure authentication with Firebase Auth
 
 ## Style Guidelines:

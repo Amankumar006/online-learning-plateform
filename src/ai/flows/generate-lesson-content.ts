@@ -8,8 +8,8 @@
  * - GenerateLessonContentOutput - The return type for the generateLessonContent function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 
 const GenerateLessonContentInputSchema = z.object({
   topic: z.string().describe('The topic for the lesson to be generated.'),

@@ -2,6 +2,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+// Force dynamic rendering to avoid build-time Firebase initialization
+export const dynamic = 'force-dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BookCopy, Users, Bell, Megaphone, ArrowRight } from "lucide-react";
 import { getLessons, getUsers, getPendingLessonRequests, approveLessonRequest, LessonRequest } from "@/lib/data";

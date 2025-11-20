@@ -41,25 +41,25 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
 
 type NavItem = {
-    href: string;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    isBeta?: boolean;
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isBeta?: boolean;
 };
 
 const navItems: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-    { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
-    { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
-    { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
-    { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+  { href: "/dashboard/lessons", label: "Lessons", icon: BookCopy },
+  { href: "/dashboard/practice", label: "Practice", icon: BrainCircuit },
+  { href: "/dashboard/buddy-ai", label: "Buddy AI", icon: Bot },
+  { href: "/dashboard/progress", label: "Progress", icon: TrendingUp },
 ];
 
 const announcementIcons: Record<AnnouncementType, React.ReactNode> = {
-    new_lesson: <BookCopy className="h-5 w-5 text-blue-500" />,
-    new_exercise: <BrainCircuit className="h-5 w-5 text-green-500" />,
-    general_update: <Megaphone className="h-5 w-5 text-purple-500" />,
-    new_feature: <Wand2 className="h-5 w-5 text-orange-500" />,
+  new_lesson: <BookCopy className="h-5 w-5 text-blue-500" />,
+  new_exercise: <BrainCircuit className="h-5 w-5 text-green-500" />,
+  general_update: <Megaphone className="h-5 w-5 text-purple-500" />,
+  new_feature: <Wand2 className="h-5 w-5 text-orange-500" />,
 };
 
 export default function DashboardNav() {
@@ -75,13 +75,17 @@ export default function DashboardNav() {
 
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [highlighterStyle, setHighlighterStyle] = useState({});
+  
+  // Auto-hide functionality
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [mouseY, setMouseY] = useState(0);
 
   const activeItem = useMemo(() => {
     const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
     if (matchingItems.length === 0) return null;
 
     return matchingItems.reduce((best, current) => {
-        return current.href.length > best.href.length ? current : best;
+      return current.href.length > best.href.length ? current : best;
     });
   }, [pathname]);
 
@@ -107,37 +111,37 @@ export default function DashboardNav() {
     });
     return () => unsubscribe();
   }, []);
-  
+
   useEffect(() => {
     if (isLoading || !navContainerRef.current || !activeItem) {
-        setHighlighterStyle({ opacity: 0 });
-        return;
+      setHighlighterStyle({ opacity: 0 });
+      return;
     };
 
     const activeIndex = navItems.findIndex((item) => item.href === activeItem.href);
     const activeLinkEl = navContainerRef.current.children[activeIndex] as HTMLElement | undefined;
 
     if (activeLinkEl) {
-        setHighlighterStyle({
-            width: `${activeLinkEl.offsetWidth}px`,
-            transform: `translateX(${activeLinkEl.offsetLeft}px)`,
-            opacity: 1,
-        });
+      setHighlighterStyle({
+        width: `${activeLinkEl.offsetWidth}px`,
+        transform: `translateX(${activeLinkEl.offsetLeft}px)`,
+        opacity: 1,
+      });
     } else {
-        setHighlighterStyle({ opacity: 0 });
+      setHighlighterStyle({ opacity: 0 });
     }
   }, [pathname, isLoading, activeItem]);
 
   const handlePopoverOpenChange = async (open: boolean) => {
-      setIsPopoverOpen(open);
-      if (open && hasUnread && user) {
-          try {
-              await markAnnouncementsAsRead(user.uid);
-              setHasUnread(false);
-          } catch (error) {
-              console.error("Failed to mark announcements as read:", error);
-          }
+    setIsPopoverOpen(open);
+    if (open && hasUnread && user) {
+      try {
+        await markAnnouncementsAsRead(user.uid);
+        setHasUnread(false);
+      } catch (error) {
+        console.error("Failed to mark announcements as read:", error);
       }
+    }
   };
 
 
@@ -186,58 +190,58 @@ export default function DashboardNav() {
                 )}
               >
                 <Link href={item.href} className="flex items-center gap-1.5">
-                    {item.label}
-                    {item.isBeta && <Badge variant="outline" className="text-xs px-1.5 py-0 leading-none">Beta</Badge>}
+                  {item.label}
+                  {item.isBeta && <Badge variant="outline" className="text-xs px-1.5 py-0 leading-none">Beta</Badge>}
                 </Link>
               </Button>
             ))}
           </div>
         </div>
-        
+
         <ThemeToggle />
 
         <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative rounded-full">
-                    <Bell className="h-5 w-5" />
-                    {hasUnread && (
-                        <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-                    )}
-                    <span className="sr-only">Notifications</span>
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
-                <div className="p-3 border-b">
-                    <h4 className="font-medium text-sm">Notifications</h4>
-                </div>
-                <ScrollArea className="h-80">
-                    <div className="p-2">
-                        {announcements.length > 0 ? (
-                            announcements.map(announcement => (
-                                <Link
-                                    key={announcement.id}
-                                    href={announcement.link || '#'}
-                                    className="block p-3 mb-1 rounded-lg hover:bg-muted"
-                                    onClick={() => setIsPopoverOpen(false)}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className="mt-1">{announcementIcons[announcement.type]}</div>
-                                    <div className="flex-1">
-                                      <p className="font-semibold text-sm mb-1">{announcement.title}</p>
-                                      <p className="text-xs text-muted-foreground mb-2">{announcement.message}</p>
-                                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(announcement.createdAt.toDate(), { addSuffix: true })}</p>
-                                    </div>
-                                  </div>
-                                </Link>
-                            ))
-                        ) : (
-                            <div className="text-center text-muted-foreground p-8">
-                                <p>No notifications yet.</p>
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </PopoverContent>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative rounded-full">
+              <Bell className="h-5 w-5" />
+              {hasUnread && (
+                <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-0">
+            <div className="p-3 border-b">
+              <h4 className="font-medium text-sm">Notifications</h4>
+            </div>
+            <ScrollArea className="h-80">
+              <div className="p-2">
+                {announcements.length > 0 ? (
+                  announcements.map(announcement => (
+                    <Link
+                      key={announcement.id}
+                      href={announcement.link || '#'}
+                      className="block p-3 mb-1 rounded-lg hover:bg-muted"
+                      onClick={() => setIsPopoverOpen(false)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1">{announcementIcons[announcement.type]}</div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm mb-1">{announcement.title}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{announcement.message}</p>
+                          <p className="text-xs text-muted-foreground">{formatDistanceToNow(announcement.createdAt.toDate(), { addSuffix: true })}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-center text-muted-foreground p-8">
+                    <p>No notifications yet.</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </PopoverContent>
         </Popover>
 
         <DropdownMenu>
@@ -263,8 +267,8 @@ export default function DashboardNav() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      
-       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-2 backdrop-blur-sm md:hidden">
+
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-2 backdrop-blur-sm md:hidden">
         <div className="grid h-16 grid-cols-5 gap-1">
           {navItems.map((item) => (
             <Link

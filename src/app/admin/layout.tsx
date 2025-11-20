@@ -1,6 +1,9 @@
 
 "use client";
 
+// Force dynamic rendering to avoid build-time Firebase initialization
+export const dynamic = 'force-dynamic';
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {

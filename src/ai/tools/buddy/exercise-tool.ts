@@ -1,5 +1,5 @@
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { generateCustomExercise } from '../../flows/generate-custom-exercise';
 import { createExercise, Exercise } from '@/lib/data';
 

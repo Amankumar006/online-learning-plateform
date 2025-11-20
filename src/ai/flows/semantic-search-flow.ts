@@ -6,8 +6,8 @@
  * to find content based on meaning and context rather than just keyword matching.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import {
     semanticSearchService,
     type SemanticSearchRequest,

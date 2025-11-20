@@ -3,8 +3,8 @@
  * Uses NLP service for intelligent topic extraction and content understanding
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { nlpService, type TopicExtractionRequest, type ContentUnderstandingRequest } from '@/ai/services/nlp-service';
 
 export const extractTopicsTool = ai.defineTool(

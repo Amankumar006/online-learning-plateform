@@ -11,7 +11,7 @@ The application follows a modern client-server architecture built on Next.js, wi
 -   **Database:** Firestore, a NoSQL cloud database, is the primary data store for structured data like user profiles, lesson content, exercises, and user progress.
 -   **Storage:** Firebase Storage is used for storing user-uploaded files and AI-generated assets, such as images for lessons and audio for text-to-speech.
 -   **Authentication:** Firebase Authentication manages user registration, login (including email/password and OAuth providers like Google/GitHub), and session management across the application.
--   **AI Integration:** The application integrates with Google AI services through Genkit, a framework for building production-ready AI applications. Genkit flows are defined in `/src/ai/flows` and are called from Server Actions to perform tasks like content generation, grading, and conversational chat.
+-   **AI Integration:** The application integrates with Google AI services through a custom compatibility layer that interfaces directly with the Google Gemini API. This lightweight implementation mimics the structure of Genkit (flows, tools, schemas) for maintainability without the full framework dependency.
 
 ## 2. Core Modules
 
@@ -28,8 +28,9 @@ The project is organized into several key modules, reflected in the file structu
     -   `actions.ts`: Defines all Next.js Server Actions, which serve as the primary "API layer" called by the client components.
     -   `storage.ts`: Contains functions for uploading files (images, audio) to Firebase Storage.
 -   **/src/ai**: The dedicated module for all AI-related functionality.
-    -   `genkit.ts`: Initializes and configures the global Genkit instance and plugins.
-    -   `flows`: Contains individual Genkit flows, each responsible for a specific AI task (e.g., `generate-lesson-content.ts`, `buddy-chat.ts`).
+    -   `ai.ts`: The main entry point and service configuration.
+    -   `core`: Contains the custom AI provider logic and flow helpers.
+    -   `flows`: Contains individual AI flows, each responsible for a specific AI task (e.g., `generate-lesson-content.ts`, `buddy-chat.ts`).
     -   `tools`: Defines custom tools that AI flows can use, such as searching the web or creating a practice exercise.
     -   `schemas`: Contains Zod schemas for defining the input and output structures of AI flows and tools.
 -   **/src/hooks**: Custom React hooks for encapsulating complex client-side logic (e.g., `use-speech-recognition.ts`, `use-utility-sidebar.tsx`).
@@ -45,7 +46,7 @@ Component interaction occurs at several levels:
     -   `onAuthStateChanged` is used in layouts to protect routes and fetch user profiles.
     -   Firestore's `onSnapshot` is used in real-time features to listen for changes to documents and collections.
 -   **Server Action to Data Layer:** Server Actions in `actions.ts` call functions from `data.ts` to interact with Firestore, keeping the actions clean and focused on orchestration.
--   **Server Action to AI Module:** Server Actions call Genkit flows defined in `/src/ai/flows` to perform AI tasks. For example, when an admin generates a lesson, the server action calls the `generateLessonContent` flow.
+-   **Server Action to AI Module:** Server Actions call AI flows defined in `/src/ai/flows` to perform AI tasks. For example, when an admin generates a lesson, the server action calls the `generateLessonContent` flow.
 -   **Components within Frontend:** Standard React patterns are used:
     -   Props are passed down from parent to child components.
     -   State is managed locally with `useState` and `useEffect`.
@@ -58,7 +59,7 @@ Component interaction occurs at several levels:
     -   **Firestore:** A scalable NoSQL database with real-time listeners, perfect for interactive features like chat and live progress updates. Its flexible data model is ideal for the evolving schemas of lessons and exercises.
     -   **Firebase Authentication:** Provides a secure, managed authentication solution with built-in support for multiple providers, reducing development overhead.
     -   **Firebase Storage:** A simple and robust solution for storing user-generated content and AI-generated assets.
--   **Genkit:** A Google-built framework for AI applications. It standardizes the process of defining AI workflows (flows) with typed inputs/outputs (using Zod), chaining model calls, and creating custom tools for the AI to use. This makes the AI logic more structured, testable, and maintainable.
+-   **Custom AI Layer (Gemini):** A lightweight, custom implementation that interfaces directly with the Google Gemini API. It adopts the structured patterns of Genkit (flows, tools, schemas) to ensure maintainability and type safety (via Zod) while keeping the application lightweight and dependency-free.
 -   **Tailwind CSS & Shadcn/ui:** A powerful combination for rapid UI development. Tailwind provides low-level utility classes, while Shadcn/ui offers a collection of beautifully crafted, accessible, and customizable components, greatly accelerating the creation of a polished user interface.
 -   **TypeScript:** Used across the entire stack. It ensures type safety between the client, server actions, and database models, significantly reducing runtime errors and improving code quality and developer productivity.
 -   **Modular Design:** Each major feature is isolated into its own module with clean interfaces.
@@ -66,7 +67,7 @@ Component interaction occurs at several levels:
 ## 5. Key Features and Workflows
 
 -   **User Authentication:** Users can sign up and log in via email/password or OAuth (Google, GitHub). `createUserInFirestore` is called on first login to create a corresponding user profile in the database.
--   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated chat interface (`/dashboard/buddy-ai`) powered by the `buddy-chat.ts` Genkit flow. The AI can adopt different personas and use a suite of tools defined in `buddy-tools.ts` (e.g., `createCustomExercise`, `searchTheWeb`) to provide rich, interactive responses.
+-   **Tool-Equipped AI Chat (`Buddy AI`):** A sophisticated chat interface (`/dashboard/buddy-ai`) powered by the `buddy-chat.ts` flow. The AI can adopt different personas and use a suite of tools defined in `buddy-tools.ts` (e.g., `createCustomExercise`, `searchTheWeb`) to provide rich, interactive responses.
 -   **Unified Content Generation (Admin):** Admins use a unified page (`/admin/exercises/new`) to generate exercises. They can either generate a set based on an existing lesson's content or create a single, custom exercise from a detailed prompt. This is powered by the `generate-exercise.ts` and `generate-custom-exercise.ts` flows.
 -   **Code Execution Simulation:** In practice exercises, students can write code in a Monaco-based editor (`/components/lessons/code-editor.tsx`). The `simulate-code-execution.ts` flow analyzes this code, predicting its output, errors, and computational complexity without actually executing it on the server.
 -   **Long Form & Math Answer Grading:** For open-ended questions, the `grade-long-form-answer.ts` flow uses AI to evaluate the student's text and/or handwritten image uploads. The `grade-math-solution.ts` flow is specialized for grading step-by-step mathematical solutions.
@@ -81,7 +82,7 @@ Component interaction occurs at several levels:
     1.  A user action calls a Server Action (e.g., `generateExercise`).
     2.  The action calls the corresponding AI flow from `/ai/flows`.
     3.  The flow prepares a prompt and calls `ai.generate()` or `ai.generateStream()`.
-    4.  Genkit sends the request to the configured Google AI model.
+    4.  The custom AI provider sends the request to the configured Google AI model.
     5.  The model's response is parsed (often into a Zod schema) and returned up the call stack to the client.
 -   **Real-time Updates:**
     1.  A user's action (e.g., sending a chat message) writes data to Firestore.
@@ -125,5 +126,5 @@ Firebase Authentication is the sole authentication mechanism.
 ## 11. Configuration and Environment
 
 -   **Firebase Configuration:** Stored in `.env` and loaded into `next.config.ts` or directly accessed via `process.env`.
--   **Genkit Configuration:** The core Genkit instance is configured in `src/ai/genkit.ts`, specifying the AI models to use (e.g., `googleai/gemini-2.0-flash`).
+-   **AI Configuration:** The AI service is configured in `src/ai/core/ai-provider.ts`, managing API keys and model selection (e.g., `gemini-2.0-flash-exp`).
 -   **Styling Configuration:** The app's theme (colors, fonts, etc.) is defined in `tailwind.config.ts` and `src/app/globals.css` using CSS variables, making it easy to theme the application.

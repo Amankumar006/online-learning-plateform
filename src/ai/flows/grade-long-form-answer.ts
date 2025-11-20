@@ -8,8 +8,8 @@
  * - GradeLongFormAnswerOutput - The return type for the gradeLongFormAnswer function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 
 const GradeLongFormAnswerInputSchema = z.object({
   question: z.string().describe("The original long-form question that was asked."),
