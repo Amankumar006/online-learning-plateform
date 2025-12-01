@@ -1,5 +1,6 @@
 /**
  * AI Provider Service - Multi-provider support for Gemini, Mercury, and OpenAI
+ * With automatic fallback when primary provider fails
  */
 
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
@@ -31,10 +32,12 @@ export interface AIGenerateOptions {
   temperature?: number;
   maxTokens?: number;
   responseFormat?: 'text' | 'json';
+  disableFallback?: boolean; // Set to true to disable automatic fallback
 }
 
 export interface AIGenerateResult {
   text: string;
+  provider?: AIProvider; // Which provider actually handled the request
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -51,15 +54,20 @@ export interface PromptTemplate {
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
   gemini: 'gemini-2.0-flash',
-  mercury: 'mercury-coder-small',
+  mercury: 'mercury',  // Updated to use main Mercury model
   openai: 'gpt-4o-mini'
 };
+
+// ==================== Fallback Order ====================
+// Define the order in which providers should be tried
+const FALLBACK_ORDER: AIProvider[] = ['gemini', 'mercury', 'openai'];
 
 // ==================== AI Service Class ====================
 
 export class AIService {
   private geminiClient: GoogleGenerativeAI | null = null;
   private defaultProvider: AIProvider = 'gemini';
+  private enableFallback: boolean = true;
 
   constructor() {
     this.initializeClients();
@@ -84,11 +92,76 @@ export class AIService {
     return this.defaultProvider;
   }
 
-  // ==================== Main Generate Method ====================
+  setFallbackEnabled(enabled: boolean) {
+    this.enableFallback = enabled;
+  }
+
+  // Check if a provider is available (has API key configured)
+  isProviderAvailable(provider: AIProvider): boolean {
+    switch (provider) {
+      case 'gemini':
+        return !!(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
+      case 'mercury':
+        return !!process.env.INCEPTION_API_KEY && process.env.INCEPTION_API_KEY !== 'your_inception_api_key_here';
+      case 'openai':
+        return !!process.env.OPENAI_API_KEY;
+      default:
+        return false;
+    }
+  }
+
+  // Get list of available fallback providers (excluding the failed one)
+  private getAvailableFallbacks(excludeProvider: AIProvider): AIProvider[] {
+    return FALLBACK_ORDER.filter(p => p !== excludeProvider && this.isProviderAvailable(p));
+  }
+
+  // ==================== Main Generate Method with Fallback ====================
 
   async generate(options: AIGenerateOptions): Promise<AIGenerateResult> {
     const provider = options.provider || this.defaultProvider;
+    const shouldFallback = this.enableFallback && !options.disableFallback;
 
+    try {
+      const result = await this.generateWithProvider(provider, options);
+      return { ...result, provider };
+    } catch (error: any) {
+      console.error(`❌ ${provider} failed:`, error.message);
+
+      // If fallback is disabled, throw the error
+      if (!shouldFallback) {
+        throw error;
+      }
+
+      // Try fallback providers
+      const fallbacks = this.getAvailableFallbacks(provider);
+      
+      if (fallbacks.length === 0) {
+        console.error('❌ No fallback providers available');
+        throw error;
+      }
+
+      for (const fallbackProvider of fallbacks) {
+        try {
+          console.log(`🔄 Falling back to ${fallbackProvider}...`);
+          const result = await this.generateWithProvider(fallbackProvider, {
+            ...options,
+            model: undefined // Use default model for fallback provider
+          });
+          console.log(`✅ Fallback to ${fallbackProvider} successful`);
+          return { ...result, provider: fallbackProvider };
+        } catch (fallbackError: any) {
+          console.error(`❌ Fallback ${fallbackProvider} also failed:`, fallbackError.message);
+          continue;
+        }
+      }
+
+      // All providers failed
+      throw new Error(`All AI providers failed. Last error: ${error.message}`);
+    }
+  }
+
+  // Route to specific provider
+  private async generateWithProvider(provider: AIProvider, options: AIGenerateOptions): Promise<AIGenerateResult> {
     switch (provider) {
       case 'gemini':
         return this.generateWithGemini(options);
