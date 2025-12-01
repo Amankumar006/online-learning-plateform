@@ -8,8 +8,8 @@
  * - GenerateProactiveSuggestionOutput - The return type for the function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 
 const GenerateProactiveSuggestionInputSchema = z.object({
   strugglingTopic: z.string().describe('The topic the student is struggling with, e.g., "JavaScript Promises", "quadratic equations".'),

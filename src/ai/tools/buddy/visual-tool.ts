@@ -1,5 +1,5 @@
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { imageGenerationService, type ImageGenerationRequest } from '@/ai/services/image-generation';
 
 export const generateImageForExplanationTool = ai.defineTool(

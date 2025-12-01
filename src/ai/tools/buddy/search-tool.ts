@@ -1,5 +1,5 @@
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import * as cheerio from 'cheerio';
 import { semanticSearchService } from '@/ai/services/semantic-search';
 

@@ -3,8 +3,8 @@
  * Handles analysis of uploaded files including images, PDFs, and documents
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 
 // Schema for file analysis requests
 const FileAnalysisRequestSchema = z.object({

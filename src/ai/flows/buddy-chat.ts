@@ -7,8 +7,8 @@
  * - StreamedOutput - The output type for the function's stream.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { PersonaSchema } from '@/ai/schemas/buddy-schemas';
 import { getBuddyChatTools, setCurrentUserId, setCurrentUserData } from '@/ai/tools/buddy';
 import { getSystemPrompt } from '@/ai/prompts';

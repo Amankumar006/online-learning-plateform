@@ -8,8 +8,8 @@
  * - GeneratedExercise - The output type (reused from schemas).
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {ai} from '@/ai/ai';
+import {z} from 'zod';
 import { GeneratedExercise, GeneratedExerciseSchema } from '@/ai/schemas/exercise-schemas';
 
 const GenerateCustomExerciseInputSchema = z.object({

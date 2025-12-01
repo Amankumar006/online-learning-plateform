@@ -3,7 +3,7 @@
  * Provides intelligent topic extraction, content understanding, and semantic analysis
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/ai';
 
 export interface TopicExtractionRequest {
   content: string;

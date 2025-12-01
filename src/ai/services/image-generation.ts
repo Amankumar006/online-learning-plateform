@@ -3,7 +3,7 @@
  * Handles educational diagram and illustration generation
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/ai';
 
 export interface ImageGenerationRequest {
   concept: string;

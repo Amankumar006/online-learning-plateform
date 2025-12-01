@@ -3,7 +3,7 @@
  * Provides comprehensive code analysis including complexity, quality, and suggestions
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/ai';
 
 export interface CodeAnalysisRequest {
   code: string;

@@ -2,7 +2,7 @@
 /**
  * @fileOverview Shared Zod schemas and TypeScript types for exercises.
  */
-import {z} from 'genkit';
+import {z} from 'zod';
 
 export const QuestionCategorySchema = z.enum(['code', 'math', 'general']).describe("The category of the question, either 'code', 'math', or 'general'.");
 

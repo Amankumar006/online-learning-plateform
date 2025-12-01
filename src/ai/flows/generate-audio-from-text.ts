@@ -6,8 +6,8 @@
  * - generateAudioFromText - Converts text (including LaTeX) into a WAV audio data URI.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import wav from 'wav';
 
 const GenerateAudioFromTextInputSchema = z.object({

@@ -3,7 +3,7 @@
  * Handles vector storage, similarity calculations, and embeddings
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/ai';
 
 // Core types
 export interface EmbeddingVector {
