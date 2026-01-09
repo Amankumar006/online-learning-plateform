@@ -80,17 +80,31 @@ export class AIService {
   private enableFallback: boolean = true;
 
   constructor() {
+    console.log('🚀 AIService: Constructor called');
     this.initializeClients();
   }
 
   private initializeClients() {
+    console.log('🚀 AIService: initializeClients called');
     // Initialize Gemini
     const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    console.log('🚀 AIService: Checking API keys:', {
+      GOOGLE_API_KEY_EXISTS: !!process.env.GOOGLE_API_KEY,
+      GEMINI_API_KEY_EXISTS: !!process.env.GEMINI_API_KEY
+    });
+
     if (googleApiKey) {
       if (process.env.GOOGLE_API_KEY && process.env.GEMINI_API_KEY) {
         console.log('Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.');
       }
-      this.geminiClient = new GoogleGenerativeAI(googleApiKey);
+      try {
+        this.geminiClient = new GoogleGenerativeAI(googleApiKey);
+        console.log('🚀 AIService: Gemini client initialized successfully');
+      } catch (e: any) {
+        console.error('❌ AIService: Failed to initialize Gemini client:', e);
+      }
+    } else {
+      console.warn('⚠️ AIService: No Google API key found');
     }
   }
 
@@ -187,15 +201,19 @@ export class AIService {
   // ==================== Gemini Implementation ====================
 
   private async generateWithGemini(options: AIGenerateOptions): Promise<AIGenerateResult> {
+    console.log('🚀 generateWithGemini: called with model', options.model);
     if (!this.geminiClient) {
+      console.error('❌ generateWithGemini: Gemini client is null');
       throw new Error('Gemini client not initialized. Set GOOGLE_API_KEY or GEMINI_API_KEY.');
     }
 
     const modelName = options.model || DEFAULT_MODELS.gemini;
+    console.log('🚀 generateWithGemini: getting generative model', modelName);
     const model = this.geminiClient.getGenerativeModel({ model: modelName });
 
     // Build content parts
     const parts: any[] = [];
+    console.log('🚀 generateWithGemini: building prompt parts');
 
     if (typeof options.prompt === 'string') {
       parts.push({ text: options.prompt });
@@ -241,8 +259,11 @@ export class AIService {
       systemInstruction = options.systemPrompt;
     }
 
+    console.log('🚀 generateWithGemini: ready to call API');
+
     // Start chat if history is provided
     if (options.history && options.history.length > 0) {
+      console.log('🚀 generateWithGemini: using startChat');
       const chat = model.startChat({
         history: options.history.map(msg => ({
           role: msg.role === 'model' ? 'model' : 'user',
@@ -252,7 +273,9 @@ export class AIService {
         systemInstruction
       });
 
+      console.log('🚀 generateWithGemini: sending message');
       const result = await chat.sendMessage(parts);
+      console.log('🚀 generateWithGemini: message sent, receiving response');
       const response = result.response;
 
       return {
@@ -265,21 +288,29 @@ export class AIService {
     }
 
     // Simple generation without history
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts }],
-      generationConfig,
-      systemInstruction
-    });
+    console.log('🚀 generateWithGemini: using generateContent');
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts }],
+        generationConfig,
+        systemInstruction
+      });
 
-    const response = result.response;
+      console.log('🚀 generateWithGemini: content generated');
+      const response = result.response;
+      console.log('🚀 generateWithGemini: response received');
 
-    return {
-      text: response.text(),
-      usage: {
-        inputTokens: response.usageMetadata?.promptTokenCount || 0,
-        outputTokens: response.usageMetadata?.candidatesTokenCount || 0
-      }
-    };
+      return {
+        text: response.text(),
+        usage: {
+          inputTokens: response.usageMetadata?.promptTokenCount || 0,
+          outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+        }
+      };
+    } catch (err: any) {
+      console.error('❌ generateWithGemini: generateContent failed:', err);
+      throw err;
+    }
   }
 
   // ==================== Mercury Implementation ====================
