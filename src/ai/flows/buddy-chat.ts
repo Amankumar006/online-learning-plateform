@@ -56,6 +56,7 @@ const StreamedOutputSchema = z.object({
 });
 export type StreamedOutput = z.infer<typeof StreamedOutputSchema>;
 
+/*
 const buddyChatFlow = ai.defineFlow(
     {
         name: 'buddyChatFlow',
@@ -257,6 +258,7 @@ Please respond helpfully and appropriately based on the context and conversation
         }
     }
 );
+*/
 
 // Helper function for file size formatting
 function formatFileSize(bytes: number): string {
@@ -267,14 +269,27 @@ function formatFileSize(bytes: number): string {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// DEBUG: Checking if module loads
+console.log('🚀 LOADING buddy-chat.ts module');
+
 export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOutput> {
+    console.log('🚀 buddyChatStream called with input:', JSON.stringify(input));
     try {
+        // TEMPORARY BYPASS: Simple echo to verify connectivity
+        return {
+            type: 'response',
+            content: "Debug Mode: I am received your message: " + input.userMessage,
+            suggestions: ["Debug suggestion 1", "Debug suggestion 2"],
+        };
+
+        /* ORIGINAL LOGIC COMMENTED OUT FOR DEBUGGING
         const result = await buddyChatFlow(input);
         return {
             type: 'response',
             content: result.response,
             suggestions: result.suggestions,
         };
+        */
     } catch (e: any) {
         console.error("❌ CRITICAL ERROR in buddyChatStream:", e);
         if (e.digest) console.error("Error digest:", e.digest);
