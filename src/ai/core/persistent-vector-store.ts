@@ -3,7 +3,7 @@
  * Replaces in-memory storage with persistent database storage
  */
 
-import { ai } from '@/ai/ai';
+import { aiService } from './ai-provider';
 import {
     EmbeddingVector,
     VectorMetadata,
@@ -43,6 +43,10 @@ class FileVectorStore {
             const path = await import('path');
 
             const dataDir = path.join(process.cwd(), 'data');
+            // Ensure dataDir is not root if process.cwd() is weird (safety check)
+            if (dataDir === '/' || dataDir === '/data') {
+                throw new Error('Unsafe data directory path');
+            }
             const filePath = path.join(dataDir, this.storageFile);
 
             try {
@@ -303,7 +307,7 @@ class FileVectorStore {
     private async generateEmbedding(text: string): Promise<number[]> {
         try {
             const cleanText = this.cleanText(text);
-            const response = await ai.embed({
+            const response = await aiService.embed({
                 embedder: 'googleai/text-embedding-004',
                 content: cleanText,
             });
