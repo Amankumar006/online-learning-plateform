@@ -193,14 +193,6 @@ ${input.uploadedFiles && input.uploadedFiles.length > 0 ? `
 
 Please respond helpfully and appropriately based on the context and conversation history.`,
                 tools,
-                config: {
-                    safetySettings: [
-                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-                    ],
-                },
             });
 
 
@@ -284,9 +276,13 @@ export async function buddyChatStream(input: BuddyChatInput): Promise<StreamedOu
             suggestions: result.suggestions,
         };
     } catch (e: any) {
+        console.error("❌ CRITICAL ERROR in buddyChatStream:", e);
+        if (e.digest) console.error("Error digest:", e.digest);
+        if (e.stack) console.error("Error stack:", e.stack);
+
         return {
             type: 'error',
-            content: e.message,
+            content: e.message || "An unexpected error occurred.",
         };
     }
 }

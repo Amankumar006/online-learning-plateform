@@ -81,6 +81,11 @@ class FileVectorStore {
     }
 
     private async persist(): Promise<void> {
+        // Skip persistence in production/serverless environments to avoid read-only FS errors
+        if (process.env.NETLIFY || process.env.NODE_ENV === 'production' || process.env.NEXT_RUNTIME === 'edge') {
+            return;
+        }
+
         try {
             const fs = await import('fs/promises');
             const path = await import('path');
