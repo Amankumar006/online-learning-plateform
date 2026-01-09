@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/ai';
 import { z } from 'zod';
-import { GeneratedExercise, GeneratedExerciseSchema } from '@/ai/schemas/exercise-schemas';
+import { GeneratedExerciseSchema, type GeneratedExercise } from '@/ai/schemas/exercise-schemas';
 
 const GenerateCustomExerciseInputSchema = z.object({
   prompt: z.string().describe("The user's request for a custom exercise, e.g., 'a python question about lists'"),
@@ -18,7 +18,7 @@ const GenerateCustomExerciseInputSchema = z.object({
   ageGroup: z.string().optional().describe('The age group of the students (e.g., "15-17 years old").'),
   curriculumBoard: z.string().optional().describe('The curriculum board (e.g., "CBSE", "ICSE", "NCERT", "State Board").'),
   difficulty: z.number().min(1).max(3).optional().describe('The desired difficulty from 1 (easy) to 3 (hard).'),
-  questionType: z.enum(['mcq', 'true_false', 'long_form', 'fill_in_the_blanks', 'any']).optional().describe("The preferred question type. 'any' lets the AI decide."),
+  questionType: z.enum(['mcq', 'true_false', 'long_form', 'fill_in_the_blanks', 'code', 'any']).optional().describe("The preferred question type. 'any' lets the AI decide."),
 });
 export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseInputSchema>;
 export type { GeneratedExercise };
@@ -94,6 +94,29 @@ ${input.questionType ? `- Preferred Question Type: ${input.questionType} (if 'an
       "explanation": "Paris is the capital.",
       "hint": "Starts with P",
       "tags": ["geography"]
+    }
+    
+    **Example for 'code' (Interactive Coding Challenge):**
+    {
+      "type": "code",
+      "category": "code",
+      "difficulty": 2,
+      "title": "Reverse a String",
+      "description": "Write a function that reverses a given string.",
+      "language": "python",
+      "starterCode": "def reverse_string(s):\n    # Your code here\n    pass",
+      "testCases": [
+        {
+          "id": "tc1",
+          "input": "hello",
+          "expectedOutput": "olleh",
+          "description": "Reverses a simple word",
+          "points": 5
+        }
+      ],
+      "totalPoints": 10,
+      "hint": "Try using string slicing with step -1.",
+      "tags": ["python", "strings", "algorithms"]
     }
 
 Return your response as a single, valid JSON object that strictly conforms to the exercise schema.

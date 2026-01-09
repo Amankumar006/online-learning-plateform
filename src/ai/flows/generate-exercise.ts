@@ -8,11 +8,11 @@
  * - GeneratedExercise - The output type for a single generated exercise (imported from schemas).
  */
 
-import {ai} from '@/ai/ai';
-import {z} from 'zod';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import {
-    GeneratedExercise,
-    GenerateExerciseOutputSchema
+  GenerateExerciseOutputSchema,
+  type GeneratedExercise
 } from '@/ai/schemas/exercise-schemas';
 
 const GenerateExerciseInputSchema = z.object({
@@ -42,8 +42,8 @@ export async function generateExercise(input: GenerateExerciseInput): Promise<Ge
 
 const prompt = ai.definePrompt({
   name: 'generateExercisePrompt',
-  input: {schema: GenerateExerciseInputSchema},
-  output: {schema: GenerateExerciseOutputSchema},
+  input: { schema: GenerateExerciseInputSchema },
+  output: { schema: GenerateExerciseOutputSchema },
   prompt: `You are an expert curriculum developer creating adaptive exercises for an AI learning platform.
 Based on the following lesson content, generate a precise set of exercises based on these requirements:
 {{#if mcqCount}}
@@ -80,7 +80,7 @@ const generateExerciseFlow = ai.defineFlow(
     outputSchema: GenerateExerciseOutputSchema.nullable(),
   },
   async input => {
-    const {output} = await prompt(input);
+    const { output } = await prompt(input);
     if (output && output.exercises) {
       // Ensure MCQ correct answers are one of the options.
       output.exercises.forEach(ex => {
