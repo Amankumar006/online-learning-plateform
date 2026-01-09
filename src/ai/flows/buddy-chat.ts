@@ -86,11 +86,83 @@ const buddyChatFlow = ai.defineFlow(
             let systemPrompt = getSystemPrompt(input.persona ?? 'buddy', !!input.lessonContext);
             console.log("🚀 System prompt generated");
 
-            // DEBUG: Tools currently disabled to isolate crash
-            const tools: any[] = [];
-            // const tools = await getBuddyChatTools(input.webSearchEnabled);
+            // Add web search context if enabled
+            if (input.webSearchEnabled) {
+                systemPrompt += `\n\n**WEB SEARCH TOOL AVAILABLE**
+You have access to the searchTheWeb tool for current information. Use it when users ask about:
+- Current rankings or "top X" lists (e.g., "top AI coding tools", "best code editors")
+- Latest versions or updates
+- Recent developments or trends
+- Any question where you need current, up-to-date information`;
+            }
 
-            console.log("🚀 Calling ai.generate (no tools)");
+            const tools = await getBuddyChatTools(input.webSearchEnabled);
+
+
+
+            // Special handling for image uploads - try direct vision analysis first
+            if (input.uploadedFiles && input.uploadedFiles.length > 0) {
+                const imageFiles = input.uploadedFiles.filter(f => f.type === 'image' && f.preview);
+
+                if (imageFiles.length > 0) {
+
+
+                    try {
+                        // Try direct vision analysis without tools
+                        const imageFile = imageFiles[0]; // Start with first image
+
+                        const visionPrompt = `You are analyzing an image uploaded by a student. 
+
+User's question: "${input.userMessage}"
+
+Please analyze the image and provide a detailed, helpful response. Describe what you see and answer their question directly.
+
+If you see:
+- Math equations: Solve them step by step
+- Diagrams: Explain what they show
+- Text: Read and explain it
+- Charts/graphs: Interpret the data
+- Educational content: Teach the concepts
+
+Be thorough and educational in your response.`;
+
+                        const visionResponse = await ai.generate({
+                            prompt: [
+                                { text: visionPrompt },
+                                { media: { url: imageFile.preview! } }
+                            ]
+                        });
+
+                        if (visionResponse.text) {
+
+
+                            // Generate follow-up suggestions
+                            const followUpResult = await generateFollowUpSuggestions({
+                                lastUserMessage: input.userMessage,
+                                aiResponse: visionResponse.text,
+                            });
+
+                            return {
+                                response: visionResponse.text,
+                                suggestions: followUpResult.suggestions.slice(0, 3),
+                                topics: [],
+                                toolsUsed: ['direct-vision-analysis'],
+                                intent: {
+                                    category: 'image-analysis',
+                                    confidence: 0.9,
+                                    parameters: { imageCount: imageFiles.length }
+                                },
+                                complexity: { level: 'intermediate', score: 60 }
+                            };
+                        }
+                    } catch (visionError) {
+                        console.error('❌ Direct vision analysis failed:', visionError);
+                        // Fall back to tool-based approach
+                    }
+                }
+            }
+
+            // Use ai.generate with tools (fallback or non-image content)
             const response = await ai.generate({
                 prompt: `${systemPrompt}
 
@@ -100,16 +172,27 @@ ${input.history && input.history.length > 0 ? `**CONVERSATION HISTORY:**\n${inpu
 
 **USER MESSAGE:** ${input.userMessage}
 
+${input.uploadedFiles && input.uploadedFiles.length > 0 ? `
+
+**UPLOADED FILES:** The user has uploaded ${input.uploadedFiles.length} file(s). Please use the analyzeUploadedFiles tool to analyze them and provide detailed insights.` : ''}
+
 Please respond helpfully and appropriately based on the context and conversation history.`,
-                tools: [], // Explicitly empty for this test
+                tools,
             });
-            console.log("🚀 ai.generate success");
+
+
 
             const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
 
+            // Generate follow-up suggestions
+            const followUpResult = await generateFollowUpSuggestions({
+                lastUserMessage: input.userMessage,
+                aiResponse: aiResponseText,
+            });
+
             return {
                 response: aiResponseText,
-                suggestions: ["Debug Suggestion A", "Debug Suggestion B"],
+                suggestions: followUpResult.suggestions.slice(0, 3),
                 topics: [],
                 toolsUsed: [],
                 intent: {

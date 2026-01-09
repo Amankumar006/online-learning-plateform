@@ -3,7 +3,7 @@
  * With automatic fallback when primary provider fails
  */
 
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+// import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai'; // Removed to reduce bundle size and fix serverless/edge compatibility
 
 // ==================== Types ====================
 
@@ -63,7 +63,7 @@ export interface PromptTemplate {
 // ==================== Default Models ====================
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-1.5-flash', // Use 1.5-flash for speed/cost balance
   mercury: 'mercury',  // Updated to use main Mercury model
   openai: 'gpt-4o-mini'
 };
@@ -75,7 +75,7 @@ const FALLBACK_ORDER: AIProvider[] = ['gemini', 'mercury', 'openai'];
 // ==================== AI Service Class ====================
 
 export class AIService {
-  private geminiClient: GoogleGenerativeAI | null = null;
+  // private geminiClient: GoogleGenerativeAI | null = null; // Removed SDK client
   private defaultProvider: AIProvider = 'gemini';
   private enableFallback: boolean = true;
 
@@ -86,25 +86,17 @@ export class AIService {
 
   private initializeClients() {
     console.log('🚀 AIService: initializeClients called');
-    // Initialize Gemini
+    // Check for keys
     const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     console.log('🚀 AIService: Checking API keys:', {
       GOOGLE_API_KEY_EXISTS: !!process.env.GOOGLE_API_KEY,
       GEMINI_API_KEY_EXISTS: !!process.env.GEMINI_API_KEY
     });
 
-    if (googleApiKey) {
-      if (process.env.GOOGLE_API_KEY && process.env.GEMINI_API_KEY) {
-        console.log('Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.');
-      }
-      try {
-        this.geminiClient = new GoogleGenerativeAI(googleApiKey);
-        console.log('🚀 AIService: Gemini client initialized successfully');
-      } catch (e: any) {
-        console.error('❌ AIService: Failed to initialize Gemini client:', e);
-      }
-    } else {
+    if (!googleApiKey) {
       console.warn('⚠️ AIService: No Google API key found');
+    } else {
+      console.log('🚀 AIService: Google API key detected');
     }
   }
 
@@ -201,114 +193,115 @@ export class AIService {
   // ==================== Gemini Implementation ====================
 
   private async generateWithGemini(options: AIGenerateOptions): Promise<AIGenerateResult> {
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     console.log('🚀 generateWithGemini: called with model', options.model);
-    if (!this.geminiClient) {
-      console.error('❌ generateWithGemini: Gemini client is null');
-      throw new Error('Gemini client not initialized. Set GOOGLE_API_KEY or GEMINI_API_KEY.');
+
+    if (!apiKey) {
+      console.error('❌ generateWithGemini: No API Key found');
+      throw new Error('Gemini API key not found. Set GOOGLE_API_KEY or GEMINI_API_KEY.');
     }
 
     const modelName = options.model || DEFAULT_MODELS.gemini;
-    console.log('🚀 generateWithGemini: getting generative model', modelName);
-    const model = this.geminiClient.getGenerativeModel({ model: modelName });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    // Build content parts
-    const parts: any[] = [];
-    console.log('🚀 generateWithGemini: building prompt parts');
+    console.log('🚀 generateWithGemini: calling URL', url.split('?')[0]); // Log URL without key
 
+    // Build contents
+    const contents: any[] = [];
+
+    // Add history first if exists
+    if (options.history && options.history.length > 0) {
+      options.history.forEach(msg => {
+        contents.push({
+          role: msg.role === 'model' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      });
+    }
+
+    // Build current turn parts
+    const currentParts: any[] = [];
     if (typeof options.prompt === 'string') {
-      parts.push({ text: options.prompt });
+      currentParts.push({ text: options.prompt });
     } else if (Array.isArray(options.prompt)) {
       for (const part of options.prompt) {
         if (part.text) {
-          parts.push({ text: part.text });
+          currentParts.push({ text: part.text });
         }
         if (part.media?.url) {
-          // Handle media URLs (images)
           if (part.media.url.startsWith('data:')) {
             const [header, base64Data] = part.media.url.split(',');
             const mimeType = header.split(':')[1].split(';')[0];
-            parts.push({
+            currentParts.push({
               inlineData: {
                 mimeType,
                 data: base64Data
               }
             });
           } else {
-            // For regular URLs, we need to fetch and convert
-            parts.push({ text: `[Image: ${part.media.url}]` });
+            // URL not supported directly in inlineData usually, but for now fallback to text
+            currentParts.push({ text: `[Image: ${part.media.url}]` });
           }
         }
       }
     }
 
+    contents.push({ role: 'user', parts: currentParts });
+
     // Build generation config
     const generationConfig: any = {};
-    if (options.temperature !== undefined) {
-      generationConfig.temperature = options.temperature;
-    }
-    if (options.maxTokens !== undefined) {
-      generationConfig.maxOutputTokens = options.maxTokens;
-    }
-    if (options.responseFormat === 'json') {
-      generationConfig.responseMimeType = 'application/json';
-    }
+    if (options.temperature !== undefined) generationConfig.temperature = options.temperature;
+    if (options.maxTokens !== undefined) generationConfig.maxOutputTokens = options.maxTokens;
+    if (options.responseFormat === 'json') generationConfig.responseMimeType = 'application/json';
 
-    // Add system prompt if provided
-    let systemInstruction: string | undefined;
+    // Build system instruction
+    let systemInstructionObj: any = undefined;
     if (options.systemPrompt) {
-      systemInstruction = options.systemPrompt;
-    }
-
-    console.log('🚀 generateWithGemini: ready to call API');
-
-    // Start chat if history is provided
-    if (options.history && options.history.length > 0) {
-      console.log('🚀 generateWithGemini: using startChat');
-      const chat = model.startChat({
-        history: options.history.map(msg => ({
-          role: msg.role === 'model' ? 'model' : 'user',
-          parts: [{ text: msg.content }]
-        })),
-        generationConfig,
-        systemInstruction
-      });
-
-      console.log('🚀 generateWithGemini: sending message');
-      const result = await chat.sendMessage(parts);
-      console.log('🚀 generateWithGemini: message sent, receiving response');
-      const response = result.response;
-
-      return {
-        text: response.text(),
-        usage: {
-          inputTokens: response.usageMetadata?.promptTokenCount || 0,
-          outputTokens: response.usageMetadata?.candidatesTokenCount || 0
-        }
+      systemInstructionObj = {
+        parts: [{ text: options.systemPrompt }]
       };
     }
 
-    // Simple generation without history
-    console.log('🚀 generateWithGemini: using generateContent');
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts }],
-        generationConfig,
-        systemInstruction
+      console.log('🚀 generateWithGemini: sending fetch request');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents,
+          generationConfig,
+          systemInstruction: systemInstructionObj
+        })
       });
 
-      console.log('🚀 generateWithGemini: content generated');
-      const response = result.response;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Gemini API Error (${response.status}):`, errorText);
+        throw new Error(`Gemini API Error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
       console.log('🚀 generateWithGemini: response received');
 
+      // Extract text
+      let text = '';
+      const candidate = data.candidates?.[0];
+      if (candidate?.content?.parts) {
+        text = candidate.content.parts.map((p: any) => p.text).join('');
+      }
+
       return {
-        text: response.text(),
+        text,
         usage: {
-          inputTokens: response.usageMetadata?.promptTokenCount || 0,
-          outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+          inputTokens: data.usageMetadata?.promptTokenCount || 0,
+          outputTokens: data.usageMetadata?.candidatesTokenCount || 0
         }
       };
+
     } catch (err: any) {
-      console.error('❌ generateWithGemini: generateContent failed:', err);
+      console.error('❌ generateWithGemini: fetch failed:', err);
       throw err;
     }
   }
@@ -485,22 +478,43 @@ export class AIService {
   // ==================== Embedding ====================
 
   async embed(options: AIEmbedOptions): Promise<AIEmbedResult> {
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Gemini API key not found');
+    }
+
     const modelName = options.model || options.embedder?.split('/')[1] || 'text-embedding-004';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:embedContent?key=${apiKey}`;
 
-    if (!this.geminiClient) {
-      throw new Error('Gemini client not initialized for embedding');
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: { parts: [{ text: options.content }] }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini Embedding Error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const embedding = data.embedding?.values;
+
+      if (!embedding) {
+        throw new Error('Failed to generate embedding: No values returned');
+      }
+
+      return {
+        embedding: embedding as number[]
+      };
+
+    } catch (error: any) {
+      console.error("❌ Embedding failed:", error);
+      throw error;
     }
-
-    const model = this.geminiClient.getGenerativeModel({ model: modelName });
-    const result = await model.embedContent(options.content);
-
-    if (!result.embedding || !result.embedding.values) {
-      throw new Error('Failed to generate embedding');
-    }
-
-    return {
-      embedding: result.embedding.values as number[]
-    };
   }
 }
 
