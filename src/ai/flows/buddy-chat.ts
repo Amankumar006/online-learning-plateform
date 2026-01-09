@@ -77,16 +77,62 @@ const buddyChatFlow = ai.defineFlow(
         }),
     },
     async (input) => {
-        // DEBUG: Dummy handler to test flow wrapper compatibility
-        console.log("🚀 buddyChatFlow handler executing");
-        return {
-            response: "Flow Logic Restored (Shell Only): " + input.userMessage,
-            suggestions: ["Shell Suggestion 1", "Shell Suggestion 2"],
-            topics: [],
-            toolsUsed: [],
-            intent: { category: 'debug', confidence: 1.0, parameters: {} },
-            complexity: { level: 'debug', score: 0 }
-        };
+        try {
+            // Set the user ID and data for tools to access
+            await setCurrentUserId(input.userId);
+            await setCurrentUserData(input.userProgress, input.availableLessons);
+
+            // Generate system prompt
+            let systemPrompt = getSystemPrompt(input.persona ?? 'buddy', !!input.lessonContext);
+            console.log("🚀 System prompt generated");
+
+            // DEBUG: Tools currently disabled to isolate crash
+            const tools: any[] = [];
+            // const tools = await getBuddyChatTools(input.webSearchEnabled);
+
+            console.log("🚀 Calling ai.generate (no tools)");
+            const response = await ai.generate({
+                prompt: `${systemPrompt}
+
+${input.lessonContext ? `**LESSON CONTEXT:**\n---\n${input.lessonContext}\n---\n\n` : ''}
+
+${input.history && input.history.length > 0 ? `**CONVERSATION HISTORY:**\n${input.history.map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`).join('\n')}\n\n` : ''}
+
+**USER MESSAGE:** ${input.userMessage}
+
+Please respond helpfully and appropriately based on the context and conversation history.`,
+                tools: [], // Explicitly empty for this test
+            });
+            console.log("🚀 ai.generate success");
+
+            const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
+
+            return {
+                response: aiResponseText,
+                suggestions: ["Debug Suggestion A", "Debug Suggestion B"],
+                topics: [],
+                toolsUsed: [],
+                intent: {
+                    category: 'question',
+                    confidence: 0.8,
+                    parameters: {}
+                },
+                complexity: { level: 'intermediate', score: 50 }
+            };
+
+        } catch (e: any) {
+            console.error("❌ Error in buddyChatFlow:", e);
+            console.error("Error stack:", e.stack);
+
+            return {
+                response: "Error during generation: " + e.message,
+                suggestions: [],
+            };
+        } finally {
+            // Clear the user ID and data after processing
+            await setCurrentUserId(null);
+            await setCurrentUserData(null, null);
+        }
     }
 );
 
