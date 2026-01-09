@@ -9,6 +9,7 @@ export const ai = {
   defineFlow: flowHelpers.defineFlow,
   definePrompt: flowHelpers.definePrompt,
   defineTool: flowHelpers.defineTool,
+  embed: aiService.embed.bind(aiService),
 };
 
 export { AIService, aiService };

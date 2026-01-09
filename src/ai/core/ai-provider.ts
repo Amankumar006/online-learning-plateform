@@ -44,6 +44,16 @@ export interface AIGenerateResult {
   };
 }
 
+export interface AIEmbedOptions {
+  content: string;
+  model?: string; // e.g. 'text-embedding-004'
+  embedder?: string; // Legacy support
+}
+
+export interface AIEmbedResult {
+  embedding: number[];
+}
+
 export interface PromptTemplate {
   name: string;
   template: string;
@@ -134,7 +144,7 @@ export class AIService {
 
       // Try fallback providers
       const fallbacks = this.getAvailableFallbacks(provider);
-      
+
       if (fallbacks.length === 0) {
         console.error('❌ No fallback providers available');
         throw error;
@@ -186,7 +196,7 @@ export class AIService {
 
     // Build content parts
     const parts: any[] = [];
-    
+
     if (typeof options.prompt === 'string') {
       parts.push({ text: options.prompt });
     } else if (Array.isArray(options.prompt)) {
@@ -244,7 +254,7 @@ export class AIService {
 
       const result = await chat.sendMessage(parts);
       const response = result.response;
-      
+
       return {
         text: response.text(),
         usage: {
@@ -262,7 +272,7 @@ export class AIService {
     });
 
     const response = result.response;
-    
+
     return {
       text: response.text(),
       usage: {
@@ -281,9 +291,9 @@ export class AIService {
     }
 
     const modelName = options.model || DEFAULT_MODELS.mercury;
-    
+
     const messages: any[] = [];
-    
+
     // Add system message if provided
     if (options.systemPrompt) {
       messages.push({ role: 'system', content: options.systemPrompt });
@@ -330,7 +340,7 @@ export class AIService {
     }
 
     const data = await response.json();
-    
+
     return {
       text: data.choices[0]?.message?.content || '',
       usage: {
@@ -349,9 +359,9 @@ export class AIService {
     }
 
     const modelName = options.model || DEFAULT_MODELS.openai;
-    
+
     const messages: any[] = [];
-    
+
     // Add system message if provided
     if (options.systemPrompt) {
       messages.push({ role: 'system', content: options.systemPrompt });
@@ -406,7 +416,7 @@ export class AIService {
     }
 
     const data = await response.json();
-    
+
     return {
       text: data.choices[0]?.message?.content || '',
       usage: {
@@ -424,7 +434,7 @@ export class AIService {
     const result = await this.generate({
       ...options,
       responseFormat: 'json',
-      prompt: typeof options.prompt === 'string' 
+      prompt: typeof options.prompt === 'string'
         ? `${options.prompt}\n\nRespond with valid JSON only.`
         : options.prompt
     });
@@ -439,6 +449,27 @@ export class AIService {
       }
       throw new Error(`Failed to parse JSON response: ${result.text.substring(0, 200)}`);
     }
+  }
+
+  // ==================== Embedding ====================
+
+  async embed(options: AIEmbedOptions): Promise<AIEmbedResult> {
+    const modelName = options.model || options.embedder?.split('/')[1] || 'text-embedding-004';
+
+    if (!this.geminiClient) {
+      throw new Error('Gemini client not initialized for embedding');
+    }
+
+    const model = this.geminiClient.getGenerativeModel({ model: modelName });
+    const result = await model.embedContent(options.content);
+
+    if (!result.embedding || !result.embedding.values) {
+      throw new Error('Failed to generate embedding');
+    }
+
+    return {
+      embedding: result.embedding.values as number[]
+    };
   }
 }
 

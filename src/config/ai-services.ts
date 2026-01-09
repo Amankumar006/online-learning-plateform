@@ -1,8 +1,3 @@
-/**
- * AI Services Configuration
- * Central configuration for all AI-powered services
- */
-
 export interface AIServicesConfig {
   vectorStore: {
     persistent: boolean;
@@ -90,8 +85,8 @@ export const defaultConfig: AIServicesConfig = {
       enabled: !!process.env.GOOGLE_API_KEY,
       models: {
         embedding: 'googleai/text-embedding-004',
-        chat: 'googleai/gemini-1.5-flash',
-        vision: 'googleai/gemini-1.5-flash'
+        chat: 'googleai/gemini-2.0-flash',
+        vision: 'googleai/gemini-2.0-flash'
       }
     },
     openAI: {
@@ -146,12 +141,12 @@ export function checkServiceAvailability(): {
   openAI: boolean;
 } {
   const config = getAIServicesConfig();
-  
+
   return {
     vectorStore: config.vectorStore.persistent,
     imageGeneration: config.imageGeneration.enabled && (
-      config.apis.googleAI.enabled || 
-      config.apis.openAI.enabled || 
+      config.apis.googleAI.enabled ||
+      config.apis.openAI.enabled ||
       config.imageGeneration.fallbackToSVG
     ),
     codeAnalysis: config.codeAnalysis.enabled,
@@ -181,11 +176,11 @@ export function validateConfiguration(): { valid: boolean; issues: string[] } {
       const fs = require('fs');
       const path = require('path');
       const dataDir = path.join(process.cwd(), 'data');
-      
+
       if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
-      
+
       // Test write permissions
       const testFile = path.join(dataDir, 'test-write.tmp');
       fs.writeFileSync(testFile, 'test');

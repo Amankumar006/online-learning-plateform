@@ -83,12 +83,11 @@ const buddyChatFlow = ai.defineFlow(
             await setCurrentUserData(input.userProgress, input.availableLessons);
 
             // Generate system prompt
-            let systemPrompt = getSystemPrompt(input.persona, !!input.lessonContext);
+            let systemPrompt = getSystemPrompt(input.persona ?? 'buddy', !!input.lessonContext);
 
             // Add file context if files are uploaded
             if (input.uploadedFiles && input.uploadedFiles.length > 0) {
-                console.log('Files uploaded:', input.uploadedFiles.length);
-                console.log('File details:', input.uploadedFiles.map(f => ({ name: f.name, type: f.type, hasPreview: !!f.preview })));
+
 
                 systemPrompt += `\n\n**UPLOADED FILES CONTEXT:**
 The user has uploaded ${input.uploadedFiles.length} file(s):
@@ -114,15 +113,14 @@ You have access to the searchTheWeb tool for current information. Use it when us
 
             const tools = await getBuddyChatTools(input.webSearchEnabled);
 
-            console.log('Starting AI generation with tools...');
-            console.log('Available tools:', tools.map(t => t.name));
+
 
             // Special handling for image uploads - try direct vision analysis first
             if (input.uploadedFiles && input.uploadedFiles.length > 0) {
                 const imageFiles = input.uploadedFiles.filter(f => f.type === 'image' && f.preview);
 
                 if (imageFiles.length > 0) {
-                    console.log('🖼️ Direct image analysis for', imageFiles.length, 'images');
+
 
                     try {
                         // Try direct vision analysis without tools
@@ -143,13 +141,15 @@ If you see:
 
 Be thorough and educational in your response.`;
 
-                        const visionResponse = await ai.generate([
-                            { text: visionPrompt },
-                            { media: { url: imageFile.preview! } }
-                        ]);
+                        const visionResponse = await ai.generate({
+                            prompt: [
+                                { text: visionPrompt },
+                                { media: { url: imageFile.preview! } }
+                            ]
+                        });
 
                         if (visionResponse.text) {
-                            console.log('✅ Direct vision analysis successful');
+
 
                             // Generate follow-up suggestions
                             const followUpResult = await generateFollowUpSuggestions({
@@ -203,8 +203,7 @@ Please respond helpfully and appropriately based on the context and conversation
                 },
             });
 
-            console.log('AI generation completed');
-            console.log('Response text length:', response.text?.length || 0);
+
 
             const aiResponseText = response.text || 'I apologize, but I was unable to generate a response.';
 

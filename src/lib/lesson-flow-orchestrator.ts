@@ -91,7 +91,7 @@ export class LessonFlowOrchestrator {
       if (!input.topic?.trim()) {
         throw new Error('Topic is required')
       }
-      this.completeStep('validate', { 
+      this.completeStep('validate', {
         topic: input.topic,
         hasOptionalFields: !!(input.gradeLevel || input.ageGroup)
       })
@@ -122,25 +122,21 @@ export class LessonFlowOrchestrator {
       // Step 3: Generate Image (if requested)
       let imageUrl = 'https://placehold.co/600x400/png'
       if (input.generateImage) {
-        console.log('🍌 Starting image generation in orchestrator...')
+
         this.startStep('generate-image')
         try {
           const imagePrompt = `A high-quality, educational illustration for "${lessonContent.title}" in ${lessonContent.subject}. Clean, modern, engaging style.`
-          console.log('🍌 Image prompt:', imagePrompt)
-          
+
+
           const imageResult = await generateLessonImage({
             prompt: imagePrompt,
             style: 'educational',
             speed: 'nano-banana',
             context: `Lesson: ${lessonContent.title}, Subject: ${lessonContent.subject}`
           })
-          
-          console.log('🍌 Image generation successful:', {
-            model: imageResult.model,
-            generationTime: imageResult.generationTime,
-            imageUrlLength: imageResult.imageUrl.length
-          })
-          
+
+
+
           this.completeStep('generate-image', {
             model: imageResult.model,
             generationTime: imageResult.generationTime,
@@ -151,9 +147,9 @@ export class LessonFlowOrchestrator {
           this.startStep('upload-image')
           try {
             const fileName = `lesson_${Date.now()}`
-            console.log('🍌 Uploading image to storage...')
+
             imageUrl = await uploadImageFromDataUrl(imageResult.imageUrl, fileName)
-            console.log('🍌 Image upload successful:', imageUrl)
+
             this.completeStep('upload-image', {
               fileName,
               url: imageUrl
@@ -175,7 +171,7 @@ export class LessonFlowOrchestrator {
           // Continue with placeholder image
         }
       } else {
-        console.log('🍌 Image generation skipped - not requested')
+
         this.skipStep('generate-image', 'Image generation not requested')
         this.skipStep('upload-image', 'No image to upload')
       }
@@ -193,7 +189,7 @@ export class LessonFlowOrchestrator {
           curriculumBoard: input.curriculumBoard,
           topicDepth: input.topicDepth
         }
-        
+
         lessonId = await createLesson(lessonData)
         this.completeStep('save-lesson', {
           lessonId,

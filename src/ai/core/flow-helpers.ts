@@ -43,8 +43,8 @@ export function defineFlow<TInput = any, TOutput = any>(
       }
       return await handler(input);
     } catch (error: any) {
-      console.error(`Flow \${config.name} error:`, error);
-      throw new Error(`Flow \${config.name} failed: \${error.message}`);
+      console.error(`Flow ${config.name} error:`, error);
+      throw new Error(`Flow ${config.name} failed: ${error.message}`);
     }
   };
 }
@@ -63,8 +63,8 @@ export function defineTool<TInput = any, TOutput = any>(
         const validatedInput = config.inputSchema.parse(input);
         return await handler(validatedInput);
       } catch (error: any) {
-        console.error(`Tool \${config.name} error:`, error);
-        throw new Error(`Tool \${config.name} failed: \${error.message}`);
+        console.error(`Tool ${config.name} error:`, error);
+        throw new Error(`Tool ${config.name} failed: ${error.message}`);
       }
     }
   };
@@ -83,9 +83,10 @@ export function definePrompt<TInput = any, TOutput = any>(config: PromptConfig<T
       } else {
         promptText = config.prompt;
         for (const [key, value] of Object.entries(validatedInput as any)) {
-          promptText = promptText.replace(new RegExp(`{{\${key}}}`, 'g'), String(value));
+          promptText = promptText.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
         }
       }
+      console.log(`DEBUG: [${config.name}] Prompt being sent to AI (${config.model || 'default'}):`, promptText);
       const result = await aiService.generate({
         prompt: promptText,
         model: config.model,
@@ -101,14 +102,18 @@ export function definePrompt<TInput = any, TOutput = any>(config: PromptConfig<T
           if (jsonMatch) {
             try {
               return { output: config.output.schema.parse(JSON.parse(jsonMatch[1])) };
-            } catch { return { output: null }; }
+            } catch (error: any) { // Catch for JSON.parse inside code block
+              console.error(`Prompt ${config.name} JSON parsing failed (code block parse):`, error);
+              return { output: null };
+            }
           }
+          console.error(`Prompt ${config.name} failed to parse JSON. Error: ${error instanceof Error ? error.message : String(error)} Raw output:`, result.text.substring(0, 200) + '...');
           return { output: null };
         }
       }
       return { output: result.text as any };
     } catch (error: any) {
-      console.error(`Prompt \${config.name} error:`, error);
+      console.error(`Prompt ${config.name} error:`, error);
       return { output: null };
     }
   };
@@ -117,7 +122,7 @@ export function definePrompt<TInput = any, TOutput = any>(config: PromptConfig<T
 export function renderTemplate(template: string, variables: Record<string, any>): string {
   let result = template;
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`{{\${key}}}`, 'g'), String(value));
+    result = result.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
   }
   return result;
 }

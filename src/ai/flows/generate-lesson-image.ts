@@ -53,22 +53,13 @@ export async function generateLessonImage(input: GenerateLessonImageInput): Prom
   const startTime = Date.now();
 
   // Log the request for debugging (following demo pattern)
-  console.log('Image generation request:', {
-    prompt: input.prompt.substring(0, 100) + '...',
-    style: input.style,
-    speed: input.speed,
-    context: input.context ? input.context.substring(0, 50) + '...' : null
-  });
+
 
   try {
     const result = await nanoBananaImageGeneration(input);
     const generationTime = Date.now() - startTime;
 
-    console.log('🍌 Nano-banana success:', {
-      model: result.model,
-      generationTime: generationTime + 'ms',
-      imageLength: result.imageUrl.length
-    });
+
 
     return {
       ...result,
@@ -82,11 +73,7 @@ export async function generateLessonImage(input: GenerateLessonImageInput): Prom
       const result = await standardImageGeneration(input);
       const generationTime = Date.now() - startTime;
 
-      console.log('Fallback generation success:', {
-        model: result.model,
-        generationTime: generationTime + 'ms',
-        imageLength: result.imageUrl.length
-      });
+
 
       return {
         ...result,
@@ -142,10 +129,10 @@ async function nanoBananaImageGeneration(input: GenerateLessonImageInput): Promi
         // Based on the part type, either get the text or image data
         if (part.text) {
           data.message = part.text;
-          console.log('Received text response:', part.text);
+
         } else if (part.inlineData && part.inlineData.data) {
           const imageData = part.inlineData.data;
-          console.log('Received image data, length:', imageData.length);
+
           // Include the base64 data in the response
           data.imageData = imageData;
         }

@@ -2,7 +2,7 @@
 /**
  * @fileOverview Shared Zod schemas and TypeScript types for exercises.
  */
-import {z} from 'zod';
+import { z } from 'zod';
 
 export const QuestionCategorySchema = z.enum(['code', 'math', 'general']).describe("The category of the question, either 'code', 'math', or 'general'.");
 
@@ -51,8 +51,28 @@ export const FillInTheBlanksQuestionSchema = z.object({
     tags: z.array(z.string()).describe("A list of 3-4 relevant string tags for the question."),
 });
 
+export const CodeQuestionSchema = z.object({
+    type: z.enum(['code']),
+    category: z.literal('code'),
+    difficulty: z.number().min(1).max(3),
+    title: z.string().describe("Use a descriptive title for the coding problem."),
+    description: z.string().describe("The full problem description in markdown format."),
+    language: z.string().describe("The programming language, e.g., 'python', 'javascript', 'cpp'."),
+    starterCode: z.string().optional().describe("Initial code boilerplate provided to the user."),
+    testCases: z.array(z.object({
+        id: z.string().describe("A unique ID for the test case (e.g., 'tc1')."),
+        input: z.string().optional().describe("Input string for the test case (if applicable)."),
+        expectedOutput: z.string().describe("The expected output for the given input."),
+        description: z.string().describe("A brief description of what this test case checks."),
+        points: z.number().describe("Points awarded for passing this test case.")
+    })).describe("A list of test cases to verify the user's solution."),
+    totalPoints: z.number().describe("Total points available for this exercise."),
+    hint: z.string().describe("A hint for the student."),
+    tags: z.array(z.string()).describe("A list of 3-4 relevant string tags for the question."),
+});
 
-export const GeneratedExerciseSchema = z.discriminatedUnion("type", [McqQuestionSchema, TrueFalseQuestionSchema, LongFormQuestionSchema, FillInTheBlanksQuestionSchema]);
+
+export const GeneratedExerciseSchema = z.discriminatedUnion("type", [McqQuestionSchema, TrueFalseQuestionSchema, LongFormQuestionSchema, FillInTheBlanksQuestionSchema, CodeQuestionSchema]);
 export type GeneratedExercise = z.infer<typeof GeneratedExerciseSchema>;
 
 export const GenerateExerciseOutputSchema = z.object({

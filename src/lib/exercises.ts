@@ -11,7 +11,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         const exerciseRef = doc(db, 'exercises', id);
         const exerciseSnap = await getDoc(exerciseRef);
         if (exerciseSnap.exists()) {
-            const data = exerciseSnap.data();   
+            const data = exerciseSnap.data();
             if (data.type === 'true_false' && typeof data.correctAnswer === 'string') {
                 data.correctAnswer = data.correctAnswer.toLowerCase() === 'true';
             }
@@ -19,7 +19,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
         } else {
             return null;
         }
-    } catch (error) {   
+    } catch (error) {
         console.error("Error fetching exercise: ", error);
         throw new Error(`Failed to fetch exercise ${id}.`);
     }
@@ -36,7 +36,7 @@ export async function getCustomExercisesForUser(userId: string): Promise<Exercis
     const q = query(collection(db, "exercises"), where("isCustom", "==", true), where("userId", "==", userId));
     const snapshot = await getDocs(q);
     const exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-    return exercises.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return exercises.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
 export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
@@ -48,8 +48,8 @@ export async function getAllExercises(): Promise<ExerciseWithLessonTitle[]> {
         const lessonsMap = new Map(lessonsSnapshot.docs.map(doc => [doc.id, doc.data().title]));
         return exercisesSnapshot.docs.map(doc => {
             const data = doc.data() as Omit<Exercise, 'id'>;
-            const questionText = data.type === 'fill_in_the_blanks' 
-                ? (data as FillInTheBlanksExercise).questionParts.join('___') 
+            const questionText = data.type === 'fill_in_the_blanks'
+                ? (data as FillInTheBlanksExercise).questionParts.join('___')
                 : (data as BaseExercise).question;
 
             return {
@@ -77,13 +77,13 @@ export async function createExercise(exerciseData: Omit<Exercise, 'id'>): Promis
 }
 
 export async function updateExercise(exerciseId: string, exerciseData: Partial<Omit<Exercise, 'id' | 'lessonId'>>): Promise<void> {
-  try {
-    const exerciseRef = doc(db, 'exercises', exerciseId);
-    await updateDoc(exerciseRef, exerciseData);
-  } catch (error) {
-    console.error("Error updating exercise: ", error);
-    throw new Error("Failed to update exercise");
-  }
+    try {
+        const exerciseRef = doc(db, 'exercises', exerciseId);
+        await updateDoc(exerciseRef, exerciseData);
+    } catch (error) {
+        console.error("Error updating exercise: ", error);
+        throw new Error("Failed to update exercise");
+    }
 }
 
 export async function deleteExercise(exerciseId: string): Promise<void> {
@@ -102,24 +102,24 @@ export async function saveExerciseAttempt(
     const responseRef = doc(db, 'exerciseResponses', `${userId}_${exercise.id}`);
     let responseSnap: any = null;
     let isFirstAttempt = true;
-    
+
     try {
         // Check if this response already exists
         responseSnap = await getDoc(responseRef);
         isFirstAttempt = !responseSnap.exists();
-        
-        const feedbackString = typeof feedback === 'object' && feedback !== null ? feedback.feedback : undefined;
+
+        const feedbackString = typeof feedback === 'object' && feedback !== null ? feedback.feedback : null;
 
         const dataToSave: Partial<UserExerciseResponse> = {
-            userId, 
-            lessonId: exercise.lessonId, 
+            userId,
+            lessonId: exercise.lessonId,
             exerciseId: exercise.id,
             question: exercise.type === 'fill_in_the_blanks' ? (exercise as FillInTheBlanksExercise).questionParts.join('___') : (exercise as BaseExercise).question,
-            lessonTitle, 
-            submittedAnswer, 
-            isCorrect, 
-            score, 
-            feedback: feedbackString, 
+            lessonTitle,
+            submittedAnswer,
+            isCorrect,
+            score,
+            feedback: feedbackString,
             tags: exercise.tags || [],
             submittedAt: Date.now(),
         };
@@ -158,7 +158,7 @@ export async function getAllUserResponses(userId: string): Promise<Map<string, U
 export async function updateUserExerciseIndex(userId: string, lessonId: string, index: number) {
     const userRef = doc(db, 'users', userId);
     try {
-        await updateDoc(userRef, { 
+        await updateDoc(userRef, {
             [`progress.exerciseProgress.${lessonId}`]: { currentExerciseIndex: index }
         });
     } catch (e) {

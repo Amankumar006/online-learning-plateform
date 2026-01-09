@@ -8,8 +8,8 @@
  * - GeneratedExercise - The output type (reused from schemas).
  */
 
-import {ai} from '@/ai/ai';
-import {z} from 'zod';
+import { ai } from '@/ai/ai';
+import { z } from 'zod';
 import { GeneratedExercise, GeneratedExerciseSchema } from '@/ai/schemas/exercise-schemas';
 
 const GenerateCustomExerciseInputSchema = z.object({
@@ -35,19 +35,19 @@ export async function generateCustomExercise(input: GenerateCustomExerciseInput)
 
 const prompt = ai.definePrompt({
   name: 'generateCustomExercisePrompt',
-  input: {schema: GenerateCustomExerciseInputSchema},
-  output: {schema: GeneratedExerciseSchema},
-  prompt: `You are an expert curriculum developer. An admin wants you to create a single custom exercise based on their prompt and structured context.
+  input: { schema: GenerateCustomExerciseInputSchema },
+  output: { schema: GeneratedExerciseSchema },
+  prompt: (input) => `
+      You are an expert educational content generator. Your task is to generate a custom practice exercise based on the user's request.
 
-**Admin's Request:**
-"{{{prompt}}}"
+      User Request: ${input.prompt}
 
 **Structured Context:**
-{{#if gradeLevel}}- Grade Level: {{gradeLevel}}{{/if}}
-{{#if ageGroup}}- Age Group: {{ageGroup}}{{/if}}
-{{#if curriculumBoard}}- Curriculum Board: {{curriculumBoard}} (You MUST align the question style, terminology, and complexity with this board's standards.){{/if}}
-{{#if difficulty}}- Difficulty: {{difficulty}} (1=easy, 2=medium, 3=hard){{/if}}
-{{#if questionType}}- Preferred Question Type: {{questionType}} (if 'any', choose the best fit for the prompt){{/if}}
+${input.gradeLevel ? `- Grade Level: ${input.gradeLevel}` : ''}
+${input.ageGroup ? `- Age Group: ${input.ageGroup}` : ''}
+${input.curriculumBoard ? `- Curriculum Board: ${input.curriculumBoard} (You MUST align the question style, terminology, and complexity with this board's standards.)` : ''}
+${input.difficulty ? `- Difficulty: ${input.difficulty} (1=easy, 2=medium, 3=hard)` : ''}
+${input.questionType ? `- Preferred Question Type: ${input.questionType} (if 'any', choose the best fit for the prompt)` : ''}
 
 
 **Instructions:**
@@ -57,8 +57,47 @@ const prompt = ai.definePrompt({
 4.  **Set Difficulty:** If a difficulty level is provided in the context, use it. Otherwise, infer a difficulty level (1-3) from the prompt.
 5.  **Categorize:** Assign a category: 'code', 'math', or 'general'.
 6.  **Add Tags:** Generate 3-4 relevant string tags (e.g., 'python', 'arrays', 'loops').
+7.  **JSON Structure:** You MUST output valid JSON with a structure matching the 'type'.
+    
+    **Example for 'mcq':**
+    {
+      "type": "mcq",
+      "category": "code",
+      "difficulty": 1,
+      "question": "What is the output of print(2+2)?",
+      "options": ["3", "4", "5", "22"],
+      "correctAnswer": "4",
+      "explanation": "Standard integer addition.",
+      "hint": "Basic math.",
+      "tags": ["python", "math"]
+    }
 
-Return your response as a single JSON object that conforms to the exercise schema. Do not wrap it in any other object or array.
+    **Example for 'long_form' (Coding/Essay):**
+    {
+      "type": "long_form",
+      "category": "code",
+      "difficulty": 2,
+      "question": "Write a Python function to reverse a string.",
+      "language": "python", // Required for code category
+      "evaluationCriteria": "Check for correct slicing or reversed() usage.",
+      "hint": "Try using string slicing [::-1]",
+      "tags": ["python", "strings"]
+    }
+
+    **Example for 'fill_in_the_blanks':**
+    {
+      "type": "fill_in_the_blanks",
+      "category": "general",
+      "difficulty": 1,
+      "questionParts": ["The capital of France is", "."],
+      "correctAnswers": ["Paris"],
+      "explanation": "Paris is the capital.",
+      "hint": "Starts with P",
+      "tags": ["geography"]
+    }
+
+Return your response as a single, valid JSON object that strictly conforms to the exercise schema.
+**IMPORTANT:** Do not include any markdown formatting (like \`\`\`json ... \`\`\`), checks, or conversational text. Return ONLY the raw JSON string. If you must use markdown, ensure the code block is clean.
 `,
 });
 
@@ -69,15 +108,15 @@ const generateCustomExerciseFlow = ai.defineFlow(
     outputSchema: GeneratedExerciseSchema.nullable(),
   },
   async input => {
-    const {output} = await prompt(input);
-     if (!output) {
+    const { output } = await prompt(input);
+    if (!output) {
       // Return null instead of throwing an error to allow the UI to handle it gracefully.
       return null;
     }
-     // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
-     if (output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
-        output.correctAnswer = output.options[0];
-     }
+    // Fallback: if the AI hallucinates a correct answer not in the options, default to the first option.
+    if (output.type === 'mcq' && !output.options.includes(output.correctAnswer)) {
+      output.correctAnswer = output.options[0];
+    }
     return output;
   }
 );

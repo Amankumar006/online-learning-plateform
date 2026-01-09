@@ -66,7 +66,7 @@ class FileVectorStore {
                 });
             } catch (error) {
                 // File doesn't exist or is corrupted, start fresh
-                console.log('Starting with empty vector store');
+                // File doesn't exist or is corrupted, start fresh
             }
 
             this.isLoaded = true;
