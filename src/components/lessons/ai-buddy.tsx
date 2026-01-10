@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Bot, User, Loader2, SendHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,8 +12,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 
 interface Message {
-    role: 'user' | 'assistant';
-    content: string;
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
@@ -29,10 +28,10 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
 
   useEffect(() => {
     if (scrollAreaRef.current) {
-        scrollAreaRef.current.scrollTo({
-            top: scrollAreaRef.current.scrollHeight,
-            behavior: 'smooth'
-        });
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [messages]);
 
@@ -46,28 +45,36 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
     setError(null);
 
     try {
-      const result = await buddyChatStream({ 
-        userMessage: input, 
-        lessonContext: lessonContent,
-        history: messages.map(msg => ({ 
-          role: msg.role === 'assistant' ? 'model' : 'user', 
-          content: msg.content 
-        })),
-        userId: user?.uid || 'anonymous',
-        persona: 'buddy',
-        webSearchEnabled: true
+      // Convert messages to API format
+      const apiMessages = [...messages, userMessage].map(msg => ({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      }));
+
+      // Add lesson context to the system context
+      if (apiMessages.length === 2) {
+        apiMessages[0].content = `Context about this lesson:\n${lessonContent}\n\n${apiMessages[0].content}`;
+      }
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages })
       });
-      
-      const assistantMessage: Message = { 
-        role: 'assistant', 
-        content: result.content 
+
+      if (!response.ok) throw new Error('Failed to get response');
+
+      const text = await response.text();
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: text || 'Sorry, I could not generate a response.'
       };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (e: any) {
       console.error(e);
-      const errorMessage: Message = { 
-        role: 'assistant', 
-        content: `Sorry, I encountered an error: ${e.message || 'Unknown error'}. Please try again.` 
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${e.message || 'Unknown error'}. Please try again.`
       };
       setMessages(prev => [...prev, errorMessage]);
       setError('An error occurred while communicating with the AI.');
@@ -75,77 +82,77 @@ export default function AIBuddy({ lessonContent }: { lessonContent: string }) {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="flex flex-col h-[60vh]">
-        <div className="mb-4">
-            <h3 className="font-headline text-xl font-semibold flex items-center gap-2">
-                <Bot /> AI Study Buddy
-            </h3>
-            <p className="text-sm text-muted-foreground">
-                Chat with an AI to deepen your understanding of the lesson.
-            </p>
-        </div>
-        
-        <ScrollArea className="flex-1 mb-4 p-4 border rounded-md" ref={scrollAreaRef}>
-            <div className="space-y-6">
-                {messages.map((message, index) => (
-                    <div key={index} className={cn("flex items-start gap-4", message.role === 'user' ? 'justify-end' : 'justify-start')}>
-                        {message.role === 'assistant' && (
-                            <Avatar className="w-8 h-8">
-                                <AvatarFallback><Bot size={20} /></AvatarFallback>
-                            </Avatar>
-                        )}
-                        <div className={cn("max-w-md p-3 rounded-lg", message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        </div>
-                         {message.role === 'user' && (
-                            <Avatar className="w-8 h-8">
-                                <AvatarFallback><User size={20} /></AvatarFallback>
-                            </Avatar>
-                        )}
-                    </div>
-                ))}
-                 {isLoading && (
-                     <div className="flex items-start gap-4 justify-start">
-                        <Avatar className="w-8 h-8">
-                            <AvatarFallback><Bot size={20} /></AvatarFallback>
-                        </Avatar>
-                        <div className="bg-muted p-3 rounded-lg">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                        </div>
-                    </div>
-                 )}
-            </div>
-        </ScrollArea>
-        
-        {error && (
-            <Alert variant="destructive" className="my-2">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-            </Alert>
-        )}
+      <div className="mb-4">
+        <h3 className="font-headline text-xl font-semibold flex items-center gap-2">
+          <Bot /> AI Study Buddy
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Chat with an AI to deepen your understanding of the lesson.
+        </p>
+      </div>
 
-        <div className="flex items-center gap-2">
-            <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question about the lesson..."
-                className="flex-1 resize-none"
-                rows={1}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                    }
-                }}
-                disabled={isLoading}
-            />
-            <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
-                <span className="sr-only">Send</span>
-            </Button>
+      <ScrollArea className="flex-1 mb-4 p-4 border rounded-md" ref={scrollAreaRef}>
+        <div className="space-y-6">
+          {messages.map((message, index) => (
+            <div key={index} className={cn("flex items-start gap-4", message.role === 'user' ? 'justify-end' : 'justify-start')}>
+              {message.role === 'assistant' && (
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback><Bot size={20} /></AvatarFallback>
+                </Avatar>
+              )}
+              <div className={cn("max-w-md p-3 rounded-lg", message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              </div>
+              {message.role === 'user' && (
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback><User size={20} /></AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex items-start gap-4 justify-start">
+              <Avatar className="w-8 h-8">
+                <AvatarFallback><Bot size={20} /></AvatarFallback>
+              </Avatar>
+              <div className="bg-muted p-3 rounded-lg">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            </div>
+          )}
         </div>
+      </ScrollArea>
+
+      {error && (
+        <Alert variant="destructive" className="my-2">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a question about the lesson..."
+          className="flex-1 resize-none"
+          rows={1}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          disabled={isLoading}
+        />
+        <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
+          <span className="sr-only">Send</span>
+        </Button>
+      </div>
     </div>
   );
 }

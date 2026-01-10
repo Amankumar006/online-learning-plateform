@@ -1,3 +1,3 @@
 // This file is deprecated and will be removed.
-// The functionality has been merged into /src/ai/flows/buddy-chat.ts
-export {};
+// The chat functionality now uses the /api/chat route instead.
+export { };

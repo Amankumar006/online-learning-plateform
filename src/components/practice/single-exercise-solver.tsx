@@ -167,14 +167,17 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
             return;
         }
 
-        const lfExercise = exercise as LongFormExercise;
+        // Get language from either LongFormExercise or CodeExercise
+        const language = exercise.type === 'code'
+            ? (exercise as CodeExercise).language
+            : (exercise as LongFormExercise).language || 'javascript';
 
         // Check if code needs input and show input field if needed
-        if (needsInput(longFormAnswer, lfExercise.language || 'javascript') && !showInputField) {
+        if (needsInput(longFormAnswer, language) && !showInputField && !programInput) {
             setShowInputField(true);
             toast({
-                title: "Input Required",
-                description: "Your program needs input. Please provide it below and run again."
+                title: "📝 Input Required",
+                description: "Your program needs input values. Enter them below and run again."
             });
             return;
         }
@@ -185,13 +188,13 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
         // Show immediate feedback
         toast({
             title: "Running Code...",
-            description: `Executing your ${lfExercise.language} code in a secure sandbox.`
+            description: `Executing your ${language} code in a secure sandbox.`
         });
 
         try {
             const result = await codeExecutionClient.executeCode({
                 code: longFormAnswer,
-                language: lfExercise.language,
+                language: language,
                 input: programInput || undefined, // Provide input if available
                 userId: userId
             });
@@ -618,6 +621,36 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                                 isExecuting={isExecuting}
                             />
                         </div>
+
+                        {/* Program Input Field - shown when code needs stdin input */}
+                        {(showInputField || needsInput(longFormAnswer, codeExercise.language)) && (
+                            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                                    <h4 className="font-medium text-blue-900 dark:text-blue-100">Program Input (stdin)</h4>
+                                    <Badge variant="secondary" className="text-xs">
+                                        {codeExercise.language === 'c' || codeExercise.language === 'cpp' ? 'scanf/cin' : 'input()'}
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                                    Your program requires input. Enter the values your program should read (one value per line for multiple inputs):
+                                </p>
+                                <Textarea
+                                    value={programInput}
+                                    onChange={(e) => setProgramInput(e.target.value)}
+                                    placeholder={
+                                        codeExercise.language === 'c' || codeExercise.language === 'cpp'
+                                            ? "Example: Enter two numbers for scanf\n5\n10\n+"
+                                            : "Enter input values (one per line if multiple)"
+                                    }
+                                    rows={3}
+                                    className="font-mono text-sm bg-white dark:bg-blue-950/30"
+                                />
+                                <div className="flex items-center justify-between text-xs text-blue-600 dark:text-blue-400">
+                                    <span>💡 Enter values separated by newlines if your program reads multiple inputs</span>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Execution Panel */}
                         {showExecutionPanel && (

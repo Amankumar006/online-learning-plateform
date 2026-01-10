@@ -1,7 +1,7 @@
 // This file is deprecated and will be removed.
-// The functionality has been merged into /src/ai/flows/buddy-chat.ts
+// The chat functionality now uses the /api/chat route instead.
 
 // Temporary export to prevent import errors
 export async function chatWithAIBuddy() {
-  throw new Error("This function has been deprecated. Please use buddyChatStream from buddy-chat.ts instead.");
+  throw new Error("This function has been deprecated. Please use the /api/chat route instead.");
 }
