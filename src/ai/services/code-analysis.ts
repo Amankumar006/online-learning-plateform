@@ -169,7 +169,7 @@ Provide:
 Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity objects.`;
 
       const response = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
         prompt,
         config: { temperature: 0.1 }
       });
@@ -555,13 +555,13 @@ Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity ob
 
     const pattern = commentPatterns[language.toLowerCase() as keyof typeof commentPatterns] || commentPatterns.default;
     const commentLines = (code.match(pattern) || []).length;
-    
+
     return commentLines / totalLines;
   }
 
   private checkNamingConventions(code: string, language: string): string[] {
     const issues: string[] = [];
-    
+
     // Check for single letter variables (except common ones like i, j, k)
     const singleLetterVars = code.match(/\b[a-h,l-z]\b/g) || [];
     if (singleLetterVars.length > 3) {
@@ -573,11 +573,11 @@ Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity ob
 
   private extractFunctions(code: string, language: string): Array<{ name: string; lines: number }> {
     const functions: Array<{ name: string; lines: number }> = [];
-    
+
     // Simple function extraction (can be enhanced)
     const functionPattern = /function\s+(\w+)|def\s+(\w+)|(\w+)\s*\(/g;
     let match;
-    
+
     while ((match = functionPattern.exec(code)) !== null) {
       const name = match[1] || match[2] || match[3];
       // Estimate function length (simplified)
@@ -592,14 +592,14 @@ Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity ob
     // Simplified duplication detection
     const lines = code.split('\n').map(line => line.trim()).filter(line => line.length > 10);
     const uniqueLines = new Set(lines);
-    
+
     return 1 - (uniqueLines.size / lines.length);
   }
 
   private detectGlobalVariables(code: string, language: string): string[] {
     // Simplified global variable detection
     const globalVars: string[] = [];
-    
+
     if (language.toLowerCase() === 'javascript') {
       const varMatches = code.match(/var\s+(\w+)/g) || [];
       globalVars.push(...varMatches.map(match => match.replace('var ', '')));
@@ -610,12 +610,12 @@ Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity ob
 
   private detectSideEffects(code: string, language: string): string[] {
     const sideEffects: string[] = [];
-    
+
     // Look for common side effect patterns
     if (code.includes('console.log') || code.includes('print(')) {
       sideEffects.push('Console output');
     }
-    
+
     if (code.includes('fetch') || code.includes('XMLHttpRequest')) {
       sideEffects.push('Network requests');
     }
@@ -676,7 +676,7 @@ Format as JSON with timeComplexity, spaceComplexity, and cyclomaticComplexity ob
 
   private generateSummary(result: Partial<CodeAnalysisResult>): string {
     const score = result.overallScore || 75;
-    
+
     if (score >= 90) return 'Excellent code quality with minimal issues';
     if (score >= 80) return 'Good code quality with minor improvements needed';
     if (score >= 70) return 'Acceptable code quality with some areas for improvement';

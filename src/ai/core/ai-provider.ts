@@ -63,7 +63,7 @@ export interface PromptTemplate {
 // ==================== Default Models ====================
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  gemini: 'gemini-1.5-flash', // Use 1.5-flash for speed/cost balance
+  gemini: 'gemini-2.5-flash', // Use 2.5-flash for speed/cost balance
   mercury: 'mercury',  // Updated to use main Mercury model
   openai: 'gpt-4o-mini'
 };

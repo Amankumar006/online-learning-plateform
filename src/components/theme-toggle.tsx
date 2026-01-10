@@ -13,7 +13,7 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [isAnimating, setIsAnimating] = React.useState(false)
-  
+
   // Prevent hydration mismatch by only rendering after mount
   React.useEffect(() => {
     setMounted(true)
@@ -21,14 +21,14 @@ export function ThemeToggle() {
 
   const cycleTheme = () => {
     if (isAnimating) return
-    
+
     setIsAnimating(true)
     const currentIndex = AVAILABLE_THEMES.findIndex(t => t.name === theme)
     const nextIndex = (currentIndex + 1) % AVAILABLE_THEMES.length
     const nextTheme = AVAILABLE_THEMES[nextIndex]
-    
+
     setTheme(nextTheme.name)
-    
+
     // Reset animation state after transition
     setTimeout(() => setIsAnimating(false), 600)
   }
@@ -65,51 +65,48 @@ export function ThemeToggle() {
         <motion.div
           className="absolute inset-0 rounded-md"
           animate={{
-            background: theme === "light" 
+            background: theme === "light"
               ? "linear-gradient(135deg, hsl(var(--primary)/0.08), hsl(var(--accent)/0.08))"
               : theme === "dark"
-              ? "linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--accent)/0.15))"
-              : "linear-gradient(135deg, hsl(var(--primary)/0.12), hsl(var(--accent)/0.12))"
+                ? "linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--accent)/0.15))"
+                : "linear-gradient(135deg, hsl(var(--primary)/0.12), hsl(var(--accent)/0.12))"
           }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
         />
-        
+
         {/* Icon container with 3D rotation */}
         <div className="relative z-10 theme-toggle-icon">
           <AnimatePresence mode="wait">
             <motion.div
               key={theme}
-              initial={{ 
-                rotateY: -180, 
+              initial={{
+                rotateY: -180,
                 scale: 0.6,
                 opacity: 0,
                 filter: "blur(4px)"
               }}
-              animate={{ 
-                rotateY: 0, 
+              animate={{
+                rotateY: 0,
                 scale: 1,
                 opacity: 1,
                 filter: "blur(0px)"
               }}
-              exit={{ 
-                rotateY: 180, 
+              exit={{
+                rotateY: 180,
                 scale: 0.6,
                 opacity: 0,
                 filter: "blur(4px)"
               }}
-              transition={{ 
-                duration: 0.5, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                type: "spring",
-                stiffness: 300,
-                damping: 25
+              transition={{
+                duration: 0.5,
+                ease: "easeInOut" // Changed from spring to easeInOut to avoid negative blur values overshooting
               }}
               className="flex items-center justify-center"
             >
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 5 }}
                 whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                transition={{ duration: 0.2 }}
               >
                 <CurrentIcon className="h-[1.2rem] w-[1.2rem] transition-all duration-300" />
               </motion.div>
@@ -121,12 +118,12 @@ export function ThemeToggle() {
         <motion.div
           className="absolute inset-0 rounded-md pointer-events-none"
           initial={{ scale: 0, opacity: 0 }}
-          animate={isAnimating ? { 
-            scale: [0, 1.2, 1.8], 
-            opacity: [0.4, 0.2, 0] 
-          } : { 
-            scale: 0, 
-            opacity: 0 
+          animate={isAnimating ? {
+            scale: [0, 1.2, 1.8],
+            opacity: [0.4, 0.2, 0]
+          } : {
+            scale: 0,
+            opacity: 0
           }}
           transition={{ duration: 0.8, ease: "easeOut" }}
           style={{
@@ -171,16 +168,16 @@ export function ThemeToggle() {
             key={themeOption.name}
             className="w-1.5 h-1.5 rounded-full"
             animate={{
-              backgroundColor: theme === themeOption.name 
-                ? "hsl(var(--primary))" 
+              backgroundColor: theme === themeOption.name
+                ? "hsl(var(--primary))"
                 : "hsl(var(--muted-foreground)/0.25)",
               scale: theme === themeOption.name ? 1.3 : 1,
-              boxShadow: theme === themeOption.name 
-                ? "0 0 8px hsl(var(--primary)/0.5)" 
+              boxShadow: theme === themeOption.name
+                ? "0 0 8px hsl(var(--primary)/0.5)"
                 : "none"
             }}
-            transition={{ 
-              duration: 0.4, 
+            transition={{
+              duration: 0.4,
               ease: "easeInOut",
               type: "spring",
               stiffness: 300,

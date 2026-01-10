@@ -5,17 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { 
-    Loader2, 
-    Mic, 
-    Send, 
-    Globe, 
-    Search, 
-    Paperclip, 
-    Image as ImageIcon, 
-    FileText, 
-    File, 
-    X, 
+import {
+    Loader2,
+    Mic,
+    Send,
+    Globe,
+    Search,
+    Paperclip,
+    Image as ImageIcon,
+    FileText,
+    File,
+    X,
     Upload,
     Eye,
     Download
@@ -45,8 +45,8 @@ interface FileUploadInputFormProps {
 }
 
 export function FileUploadInputForm({
-    input,
-    onInputChange,
+    input = '',
+    onInputChange = () => { },
     onSend,
     isLoading,
     isListening,
@@ -69,12 +69,12 @@ export function FileUploadInputForm({
     const handleSend = () => {
         const readyFiles = uploadedFiles.filter(f => f.status === 'ready');
         console.log('Sending files:', readyFiles.length);
-        console.log('File details:', readyFiles.map(f => ({ 
-            name: f.file.name, 
-            type: f.type, 
+        console.log('File details:', readyFiles.map(f => ({
+            name: f.file.name,
+            type: f.type,
             hasPreview: !!f.preview,
             previewLength: f.preview?.length || 0,
-            status: f.status 
+            status: f.status
         })));
         onSend(input, readyFiles);
         setUploadedFiles([]);
@@ -83,8 +83,8 @@ export function FileUploadInputForm({
     const getFileType = (file: File): UploadedFile['type'] => {
         if (file.type.startsWith('image/')) return 'image';
         if (file.type === 'application/pdf') return 'pdf';
-        if (file.type.includes('document') || file.type.includes('text') || 
-            file.name.endsWith('.docx') || file.name.endsWith('.doc') || 
+        if (file.type.includes('document') || file.type.includes('text') ||
+            file.name.endsWith('.docx') || file.name.endsWith('.doc') ||
             file.name.endsWith('.txt') || file.name.endsWith('.md')) return 'document';
         return 'other';
     };
@@ -92,7 +92,7 @@ export function FileUploadInputForm({
     const processFile = async (file: File): Promise<UploadedFile> => {
         const id = Math.random().toString(36).substr(2, 9);
         const fileType = getFileType(file);
-        
+
         const uploadedFile: UploadedFile = {
             id,
             file,
@@ -115,7 +115,7 @@ export function FileUploadInputForm({
         // Process file content
         try {
             uploadedFile.status = 'processing';
-            
+
             if (fileType === 'image') {
                 // For images, we'll use the AI vision capabilities
                 uploadedFile.status = 'ready';
@@ -174,7 +174,7 @@ export function FileUploadInputForm({
     const handleFileSelect = useCallback(async (files: FileList) => {
         const maxFiles = 5;
         const maxSize = 10 * 1024 * 1024; // 10MB
-        
+
         if (uploadedFiles.length + files.length > maxFiles) {
             toast({
                 variant: "destructive",
@@ -185,10 +185,10 @@ export function FileUploadInputForm({
         }
 
         const newFiles: UploadedFile[] = [];
-        
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            
+
             if (file.size > maxSize) {
                 toast({
                     variant: "destructive",
@@ -208,7 +208,7 @@ export function FileUploadInputForm({
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
-        
+
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             handleFileSelect(files);
@@ -267,8 +267,8 @@ export function FileUploadInputForm({
                             {uploadedFiles.map((file) => (
                                 <Card key={file.id} className="p-2 flex items-center gap-2 max-w-xs">
                                     {file.type === 'image' && file.preview ? (
-                                        <img 
-                                            src={file.preview} 
+                                        <img
+                                            src={file.preview}
                                             alt={file.file.name}
                                             className="w-8 h-8 object-cover rounded"
                                         />
@@ -277,7 +277,7 @@ export function FileUploadInputForm({
                                             {getFileIcon(file.type)}
                                         </div>
                                     )}
-                                    
+
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-medium truncate">{file.file.name}</p>
                                         <div className="flex items-center gap-1">
@@ -293,7 +293,7 @@ export function FileUploadInputForm({
                                             <p className="text-xs text-red-600 dark:text-red-400">{file.error}</p>
                                         )}
                                     </div>
-                                    
+
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -309,7 +309,7 @@ export function FileUploadInputForm({
                 )}
 
                 {/* Input Container */}
-                <div 
+                <div
                     className={cn(
                         "relative flex items-center gap-2 p-2 bg-muted/30 rounded-2xl border border-border/50 focus-within:border-primary/50 transition-all",
                         isDragging && "border-primary bg-primary/5"
@@ -350,11 +350,11 @@ export function FileUploadInputForm({
                         placeholder={
                             isDragging
                                 ? 'Drop files here...'
-                                : isListening 
-                                    ? 'Listening...' 
+                                : isListening
+                                    ? 'Listening...'
                                     : uploadedFiles.length > 0
                                         ? 'Ask about your files...'
-                                        : webSearchEnabled 
+                                        : webSearchEnabled
                                             ? 'Ask me anything - I can search the web!'
                                             : 'Type your message or drag files here...'
                         }
@@ -373,8 +373,8 @@ export function FileUploadInputForm({
                                 variant="ghost"
                                 className={cn(
                                     "h-8 w-8 rounded-full transition-all",
-                                    webSearchEnabled 
-                                        ? "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50" 
+                                    webSearchEnabled
+                                        ? "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
                                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                                 )}
                                 title={webSearchEnabled ? "Disable web search" : "Enable web search"}
@@ -386,7 +386,7 @@ export function FileUploadInputForm({
                                 )}
                             </Button>
                         )}
-                        
+
                         {/* Voice Input */}
                         <Button
                             onClick={onMicClick}
@@ -394,15 +394,15 @@ export function FileUploadInputForm({
                             variant="ghost"
                             className={cn(
                                 "h-8 w-8 rounded-full transition-all",
-                                isListening 
-                                    ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-900/30 dark:text-red-400" 
+                                isListening
+                                    ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-900/30 dark:text-red-400"
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                             )}
                             title={isListening ? "Stop listening" : "Voice input"}
                         >
                             <Mic className="w-4 h-4" />
                         </Button>
-                        
+
                         {/* Send Button */}
                         <Button
                             onClick={handleSend}

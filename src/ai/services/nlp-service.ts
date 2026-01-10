@@ -282,7 +282,7 @@ Extract up to ${maxTopics} topics and return them as JSON with this structure:
 Focus on educational and technical topics. Prioritize programming concepts, learning objectives, and key themes.`;
 
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       prompt,
       config: { temperature: 0.1 }
     });
@@ -319,7 +319,7 @@ Return as valid JSON with the complete ContentUnderstanding structure.`;
 
     try {
       const response = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
         prompt,
         config: { temperature: 0.2 }
       });
@@ -347,7 +347,7 @@ Return as JSON with SemanticSimilarityResult structure.`;
 
     try {
       const response = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
         prompt,
         config: { temperature: 0.1 }
       });
@@ -378,7 +378,7 @@ Return as JSON with IntentClassification structure.`;
 
     try {
       const response = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
         prompt,
         config: { temperature: 0.2 }
       });
@@ -396,10 +396,10 @@ Return as JSON with IntentClassification structure.`;
   private extractTopicsRuleBased(content: string, maxTopics: number, includeSubtopics: boolean, confidenceThreshold: number): ExtractedTopic[] {
     const words = this.tokenize(content);
     const phrases = this.extractPhrases(content);
-    
+
     // Score words and phrases
     const topicCandidates = new Map<string, number>();
-    
+
     // Score individual words
     words.forEach(word => {
       if (!this.stopWords.has(word.toLowerCase()) && word.length > 2) {
@@ -407,13 +407,13 @@ Return as JSON with IntentClassification structure.`;
         topicCandidates.set(word, score);
       }
     });
-    
+
     // Score phrases (higher weight)
     phrases.forEach(phrase => {
       const score = this.calculatePhraseScore(phrase, content) * 1.5;
       topicCandidates.set(phrase, score);
     });
-    
+
     // Convert to topics
     const topics: ExtractedTopic[] = Array.from(topicCandidates.entries())
       .sort(([, a], [, b]) => b - a)
@@ -428,7 +428,7 @@ Return as JSON with IntentClassification structure.`;
         relevanceScore: score,
         context: this.getTopicContext(topic, content)
       }));
-    
+
     return topics;
   }
 
@@ -438,7 +438,7 @@ Return as JSON with IntentClassification structure.`;
   private analyzeContentRuleBased(content: string, options: any): ContentUnderstanding {
     const sentences = this.splitIntoSentences(content);
     const words = this.tokenize(content);
-    
+
     return {
       mainTheme: this.extractMainTheme(content),
       keyPoints: this.extractKeyPoints(sentences),
@@ -458,26 +458,26 @@ Return as JSON with IntentClassification structure.`;
   private calculateSimilarityRuleBased(text1: string, text2: string, analysisType: string): SemanticSimilarityResult {
     const words1 = new Set(this.tokenize(text1.toLowerCase()));
     const words2 = new Set(this.tokenize(text2.toLowerCase()));
-    
+
     const intersection = new Set([...words1].filter(x => words2.has(x)));
     const union = new Set([...words1, ...words2]);
-    
+
     const jaccardSimilarity = intersection.size / union.size;
-    
+
     // Enhanced similarity with phrase matching
     const phrases1 = this.extractPhrases(text1);
     const phrases2 = this.extractPhrases(text2);
-    const phraseIntersection = phrases1.filter(p1 => 
+    const phraseIntersection = phrases1.filter(p1 =>
       phrases2.some(p2 => this.phraseSimilarity(p1, p2) > 0.8)
     );
     const phraseSimilarity = phraseIntersection.length / Math.max(phrases1.length, phrases2.length, 1);
-    
+
     const semantic = (jaccardSimilarity + phraseSimilarity) / 2;
     const syntactic = this.calculateSyntacticSimilarity(text1, text2);
     const conceptual = this.calculateConceptualSimilarity(text1, text2);
-    
+
     const overall = (semantic * 0.5 + syntactic * 0.2 + conceptual * 0.3);
-    
+
     return {
       similarity: overall,
       analysisType,
@@ -493,7 +493,7 @@ Return as JSON with IntentClassification structure.`;
    */
   private classifyIntentRuleBased(text: string, domain: string): IntentClassification {
     const lowerText = text.toLowerCase();
-    
+
     // Question patterns
     if (this.isQuestion(lowerText)) {
       return {
@@ -504,7 +504,7 @@ Return as JSON with IntentClassification structure.`;
         suggestedResponse: 'Provide a detailed explanation with examples'
       };
     }
-    
+
     // Request patterns
     if (this.isRequest(lowerText)) {
       return {
@@ -515,7 +515,7 @@ Return as JSON with IntentClassification structure.`;
         suggestedResponse: 'Fulfill the request with appropriate content'
       };
     }
-    
+
     // Greeting patterns
     if (this.isGreeting(lowerText)) {
       return {
@@ -526,7 +526,7 @@ Return as JSON with IntentClassification structure.`;
         suggestedResponse: 'Respond with a friendly greeting and offer help'
       };
     }
-    
+
     // Default to explanation request
     return {
       intent: 'seek_explanation',
@@ -548,14 +548,14 @@ Return as JSON with IntentClassification structure.`;
   private extractPhrases(text: string): string[] {
     const phrases: string[] = [];
     const words = text.split(/\s+/);
-    
+
     // Extract 2-3 word phrases
     for (let i = 0; i < words.length - 1; i++) {
       const twoWord = `${words[i]} ${words[i + 1]}`.toLowerCase().replace(/[^\w\s]/g, '');
       if (twoWord.length > 3 && !this.stopWords.has(words[i].toLowerCase())) {
         phrases.push(twoWord);
       }
-      
+
       if (i < words.length - 2) {
         const threeWord = `${words[i]} ${words[i + 1]} ${words[i + 2]}`.toLowerCase().replace(/[^\w\s]/g, '');
         if (threeWord.length > 5) {
@@ -563,7 +563,7 @@ Return as JSON with IntentClassification structure.`;
         }
       }
     }
-    
+
     return [...new Set(phrases)];
   }
 
@@ -572,7 +572,7 @@ Return as JSON with IntentClassification structure.`;
     const length = word.length;
     const isTechnical = this.technicalTerms.has(word.toLowerCase()) ? 1.5 : 1;
     const isCapitalized = /^[A-Z]/.test(word) ? 1.2 : 1;
-    
+
     return (frequency * length * isTechnical * isCapitalized) / content.length;
   }
 
@@ -580,14 +580,14 @@ Return as JSON with IntentClassification structure.`;
     const frequency = (content.toLowerCase().match(new RegExp(phrase.toLowerCase(), 'g')) || []).length;
     const wordCount = phrase.split(' ').length;
     const hasTechnicalTerm = phrase.split(' ').some(word => this.technicalTerms.has(word.toLowerCase()));
-    
+
     return (frequency * wordCount * (hasTechnicalTerm ? 2 : 1)) / content.length;
   }
 
   private findSubtopics(topic: string, content: string): string[] {
     const subtopics: string[] = [];
     const sentences = this.splitIntoSentences(content);
-    
+
     sentences.forEach(sentence => {
       if (sentence.toLowerCase().includes(topic.toLowerCase())) {
         const words = this.tokenize(sentence);
@@ -598,36 +598,36 @@ Return as JSON with IntentClassification structure.`;
         });
       }
     });
-    
+
     return [...new Set(subtopics)].slice(0, 5);
   }
 
   private extractKeywords(topic: string, content: string): string[] {
     const keywords: string[] = [];
     const words = this.tokenize(content);
-    
+
     // Find words that frequently appear near the topic
     const topicIndex = words.findIndex(word => word.toLowerCase() === topic.toLowerCase());
     if (topicIndex !== -1) {
       const start = Math.max(0, topicIndex - 5);
       const end = Math.min(words.length, topicIndex + 5);
-      
+
       for (let i = start; i < end; i++) {
         if (i !== topicIndex && !this.stopWords.has(words[i]) && words[i].length > 2) {
           keywords.push(words[i]);
         }
       }
     }
-    
+
     return [...new Set(keywords)].slice(0, 5);
   }
 
   private getTopicContext(topic: string, content: string): string {
     const sentences = this.splitIntoSentences(content);
-    const contextSentence = sentences.find(sentence => 
+    const contextSentence = sentences.find(sentence =>
       sentence.toLowerCase().includes(topic.toLowerCase())
     );
-    
+
     return contextSentence ? contextSentence.substring(0, 100) + '...' : '';
   }
 
@@ -649,7 +649,7 @@ Return as JSON with IntentClassification structure.`;
 
   private extractEntities(content: string): NamedEntity[] {
     const entities: NamedEntity[] = [];
-    
+
     // Simple pattern matching for common entities
     const patterns = {
       TECHNOLOGY: /\b(JavaScript|Python|React|Node\.js|HTML|CSS|SQL|Git|Docker|AWS|API)\b/gi,
@@ -657,7 +657,7 @@ Return as JSON with IntentClassification structure.`;
       FRAMEWORK: /\b(React|Angular|Vue|Express|Django|Flask|Spring|Laravel)\b/gi,
       CONCEPT: /\b(algorithm|function|variable|array|object|class|method|loop)\b/gi
     };
-    
+
     Object.entries(patterns).forEach(([type, pattern]) => {
       const matches = content.match(pattern);
       if (matches) {
@@ -671,13 +671,13 @@ Return as JSON with IntentClassification structure.`;
         });
       }
     });
-    
+
     return entities.slice(0, 10);
   }
 
   private getEntityContext(entity: string, content: string): string {
     const sentences = this.splitIntoSentences(content);
-    const contextSentence = sentences.find(sentence => 
+    const contextSentence = sentences.find(sentence =>
       sentence.toLowerCase().includes(entity.toLowerCase())
     );
     return contextSentence ? contextSentence.substring(0, 100) + '...' : '';
@@ -686,14 +686,14 @@ Return as JSON with IntentClassification structure.`;
   private analyzeSentiment(content: string): SentimentAnalysis {
     const positiveWords = ['good', 'great', 'excellent', 'amazing', 'helpful', 'useful', 'easy', 'simple'];
     const negativeWords = ['bad', 'terrible', 'difficult', 'hard', 'confusing', 'complex', 'error', 'problem'];
-    
+
     const words = this.tokenize(content);
     const positiveCount = words.filter(word => positiveWords.includes(word)).length;
     const negativeCount = words.filter(word => negativeWords.includes(word)).length;
-    
+
     let overall: 'positive' | 'negative' | 'neutral' = 'neutral';
     let confidence = 0.5;
-    
+
     if (positiveCount > negativeCount) {
       overall = 'positive';
       confidence = Math.min(0.9, 0.5 + (positiveCount - negativeCount) * 0.1);
@@ -701,7 +701,7 @@ Return as JSON with IntentClassification structure.`;
       overall = 'negative';
       confidence = Math.min(0.9, 0.5 + (negativeCount - positiveCount) * 0.1);
     }
-    
+
     return {
       overall,
       confidence,
@@ -711,10 +711,10 @@ Return as JSON with IntentClassification structure.`;
   }
 
   private determineTone(content: string): 'formal' | 'informal' | 'technical' | 'educational' | 'conversational' {
-    const technicalTermCount = this.tokenize(content).filter(word => 
+    const technicalTermCount = this.tokenize(content).filter(word =>
       this.technicalTerms.has(word.toLowerCase())
     ).length;
-    
+
     if (technicalTermCount > 3) return 'technical';
     if (content.includes('?') || content.includes('let\'s') || content.includes('we can')) return 'educational';
     if (content.includes('!') || content.includes('you')) return 'conversational';
@@ -725,19 +725,19 @@ Return as JSON with IntentClassification structure.`;
     const avgWordsPerSentence = words.length / sentences.length;
     const avgSyllablesPerWord = this.calculateAverageSyllables(words);
     const fleschKincaidGrade = 0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59;
-    
+
     const vocabularyComplexity = this.calculateVocabularyComplexity(words);
     const sentenceComplexity = avgWordsPerSentence > 20 ? 80 : (avgWordsPerSentence / 20) * 80;
     const conceptualDepth = this.calculateConceptualDepth(content);
     const technicalDensity = this.calculateTechnicalDensity(words);
-    
+
     const overallScore = (vocabularyComplexity + sentenceComplexity + conceptualDepth + technicalDensity) / 4;
-    
+
     let level: 'beginner' | 'intermediate' | 'advanced' | 'expert' = 'beginner';
     if (overallScore > 75) level = 'expert';
     else if (overallScore > 60) level = 'advanced';
     else if (overallScore > 40) level = 'intermediate';
-    
+
     return {
       level,
       score: overallScore,
@@ -766,7 +766,7 @@ Return as JSON with IntentClassification structure.`;
     const vowels = 'aeiouy';
     let count = 0;
     let previousWasVowel = false;
-    
+
     for (let i = 0; i < word.length; i++) {
       const isVowel = vowels.includes(word[i].toLowerCase());
       if (isVowel && !previousWasVowel) {
@@ -774,12 +774,12 @@ Return as JSON with IntentClassification structure.`;
       }
       previousWasVowel = isVowel;
     }
-    
+
     // Handle silent e
     if (word.endsWith('e') && count > 1) {
       count--;
     }
-    
+
     return Math.max(1, count);
   }
 
@@ -787,20 +787,20 @@ Return as JSON with IntentClassification structure.`;
     const uniqueWords = new Set(words);
     const longWords = words.filter(word => word.length > 6).length;
     const technicalWords = words.filter(word => this.technicalTerms.has(word.toLowerCase())).length;
-    
+
     const lexicalDiversity = uniqueWords.size / words.length;
     const longWordRatio = longWords / words.length;
     const technicalRatio = technicalWords / words.length;
-    
+
     return (lexicalDiversity * 40 + longWordRatio * 30 + technicalRatio * 30);
   }
 
   private calculateConceptualDepth(content: string): number {
     const abstractConcepts = ['algorithm', 'paradigm', 'architecture', 'pattern', 'principle', 'methodology'];
-    const conceptCount = abstractConcepts.filter(concept => 
+    const conceptCount = abstractConcepts.filter(concept =>
       content.toLowerCase().includes(concept)
     ).length;
-    
+
     return Math.min(100, conceptCount * 20);
   }
 
@@ -811,16 +811,16 @@ Return as JSON with IntentClassification structure.`;
 
   private determineEducationalLevel(content: string, words: string[]): EducationalLevel {
     const complexity = this.analyzeComplexity(content, words, this.splitIntoSentences(content));
-    
+
     const levelMap = {
       beginner: { grade: '6-8', age: '11-14 years' },
       intermediate: { grade: '9-12', age: '14-18 years' },
       advanced: { grade: 'College', age: '18+ years' },
       expert: { grade: 'Graduate', age: '22+ years' }
     };
-    
+
     const level = levelMap[complexity.level];
-    
+
     return {
       gradeLevel: level.grade,
       ageRange: level.age,
@@ -832,29 +832,29 @@ Return as JSON with IntentClassification structure.`;
 
   private extractPrerequisites(content: string): string[] {
     const prerequisites: string[] = [];
-    const technicalTerms = this.tokenize(content).filter(word => 
+    const technicalTerms = this.tokenize(content).filter(word =>
       this.technicalTerms.has(word.toLowerCase())
     );
-    
+
     technicalTerms.forEach(term => {
       if (term.toLowerCase() === 'react') prerequisites.push('JavaScript basics');
       if (term.toLowerCase() === 'algorithm') prerequisites.push('Basic programming concepts');
       if (term.toLowerCase() === 'database') prerequisites.push('Data structures');
     });
-    
+
     return [...new Set(prerequisites)].slice(0, 3);
   }
 
   private extractLearningObjectives(content: string): string[] {
     const objectives: string[] = [];
     const sentences = this.splitIntoSentences(content);
-    
+
     sentences.forEach(sentence => {
       if (sentence.toLowerCase().includes('learn') || sentence.toLowerCase().includes('understand')) {
         objectives.push(sentence.trim());
       }
     });
-    
+
     return objectives.slice(0, 3);
   }
 
@@ -868,13 +868,13 @@ Return as JSON with IntentClassification structure.`;
     const hasSteps = /\d+\.|step|first|second|then|next|finally/i.test(content);
     const hasQuestions = /\?/.test(content);
     const hasExamples = /example|for instance|such as/i.test(content);
-    
+
     let primary: ContentType['primary'] = 'explanation';
     if (hasCode && hasSteps) primary = 'tutorial';
     else if (hasCode) primary = 'example';
     else if (hasQuestions) primary = 'exercise';
     else if (hasSteps) primary = 'tutorial';
-    
+
     return {
       primary,
       secondary: [],
@@ -890,7 +890,7 @@ Return as JSON with IntentClassification structure.`;
     const hasCodeBlocks = /```|`/.test(content);
     const hasList = /\n\s*[-*•]|\n\s*\d+\./.test(content);
     const hasSteps = /step|first|second|then|next/i.test(content);
-    
+
     return {
       hasIntroduction,
       hasConclusion,
@@ -905,7 +905,7 @@ Return as JSON with IntentClassification structure.`;
   private extractSections(content: string): ContentStructure['sections'] {
     const sections: ContentStructure['sections'] = [];
     const lines = content.split('\n');
-    
+
     lines.forEach((line, index) => {
       if (line.startsWith('#') || line.match(/^[A-Z][^.]*:$/)) {
         const title = line.replace(/^#+\s*/, '').replace(/:$/, '');
@@ -917,13 +917,13 @@ Return as JSON with IntentClassification structure.`;
         });
       }
     });
-    
+
     return sections;
   }
 
   private determineSectionType(title: string, index: number, totalLines: number): ContentStructure['sections'][0]['type'] {
     const lowerTitle = title.toLowerCase();
-    
+
     if (index < totalLines * 0.2 && (lowerTitle.includes('intro') || lowerTitle.includes('overview'))) {
       return 'introduction';
     }
@@ -936,14 +936,14 @@ Return as JSON with IntentClassification structure.`;
     if (lowerTitle.includes('exercise') || lowerTitle.includes('practice')) {
       return 'exercise';
     }
-    
+
     return 'explanation';
   }
 
   private extractRelationships(content: string): ConceptRelationship[] {
     const relationships: ConceptRelationship[] = [];
     const topics = this.extractTopicsRuleBased(content, 10, false, 0.2);
-    
+
     // Find relationships between topics
     for (let i = 0; i < topics.length; i++) {
       for (let j = i + 1; j < topics.length; j++) {
@@ -953,22 +953,22 @@ Return as JSON with IntentClassification structure.`;
         }
       }
     }
-    
+
     return relationships.slice(0, 5);
   }
 
   private findRelationship(concept1: string, concept2: string, content: string): ConceptRelationship | null {
     const sentences = this.splitIntoSentences(content);
-    
+
     for (const sentence of sentences) {
       const lowerSentence = sentence.toLowerCase();
       const hasConcept1 = lowerSentence.includes(concept1.toLowerCase());
       const hasConcept2 = lowerSentence.includes(concept2.toLowerCase());
-      
+
       if (hasConcept1 && hasConcept2) {
         let relationship: ConceptRelationship['relationship'] = 'related_to';
         let strength = 0.5;
-        
+
         if (lowerSentence.includes('before') || lowerSentence.includes('prerequisite')) {
           relationship = 'prerequisite';
           strength = 0.8;
@@ -979,7 +979,7 @@ Return as JSON with IntentClassification structure.`;
           relationship = 'example_of';
           strength = 0.6;
         }
-        
+
         return {
           concept1,
           concept2,
@@ -989,39 +989,39 @@ Return as JSON with IntentClassification structure.`;
         };
       }
     }
-    
+
     return null;
   }
 
   private calculateSyntacticSimilarity(text1: string, text2: string): number {
     const sentences1 = this.splitIntoSentences(text1);
     const sentences2 = this.splitIntoSentences(text2);
-    
+
     const avgLength1 = sentences1.reduce((sum, s) => sum + s.length, 0) / sentences1.length;
     const avgLength2 = sentences2.reduce((sum, s) => sum + s.length, 0) / sentences2.length;
-    
+
     const lengthSimilarity = 1 - Math.abs(avgLength1 - avgLength2) / Math.max(avgLength1, avgLength2);
-    
+
     return Math.max(0, lengthSimilarity);
   }
 
   private calculateConceptualSimilarity(text1: string, text2: string): number {
     const topics1 = this.extractTopicsRuleBased(text1, 5, false, 0.1);
     const topics2 = this.extractTopicsRuleBased(text2, 5, false, 0.1);
-    
+
     const topicNames1 = new Set(topics1.map(t => t.topic.toLowerCase()));
     const topicNames2 = new Set(topics2.map(t => t.topic.toLowerCase()));
-    
+
     const intersection = new Set([...topicNames1].filter(x => topicNames2.has(x)));
     const union = new Set([...topicNames1, ...topicNames2]);
-    
+
     return intersection.size / union.size;
   }
 
   private findDifferences(words1: Set<string>, words2: Set<string>): string[] {
     const diff1 = [...words1].filter(w => !words2.has(w));
     const diff2 = [...words2].filter(w => !words1.has(w));
-    
+
     return [...diff1, ...diff2].slice(0, 10);
   }
 
@@ -1034,24 +1034,24 @@ Return as JSON with IntentClassification structure.`;
   }
 
   private isQuestion(text: string): boolean {
-    return text.includes('?') || 
-           text.startsWith('what') || 
-           text.startsWith('how') || 
-           text.startsWith('why') || 
-           text.startsWith('when') || 
-           text.startsWith('where') ||
-           text.startsWith('can you') ||
-           text.startsWith('could you');
+    return text.includes('?') ||
+      text.startsWith('what') ||
+      text.startsWith('how') ||
+      text.startsWith('why') ||
+      text.startsWith('when') ||
+      text.startsWith('where') ||
+      text.startsWith('can you') ||
+      text.startsWith('could you');
   }
 
   private isRequest(text: string): boolean {
     return text.includes('please') ||
-           text.startsWith('create') ||
-           text.startsWith('generate') ||
-           text.startsWith('make') ||
-           text.startsWith('build') ||
-           text.startsWith('show me') ||
-           text.startsWith('help me');
+      text.startsWith('create') ||
+      text.startsWith('generate') ||
+      text.startsWith('make') ||
+      text.startsWith('build') ||
+      text.startsWith('show me') ||
+      text.startsWith('help me');
   }
 
   private isGreeting(text: string): boolean {
@@ -1084,7 +1084,7 @@ Return as JSON with IntentClassification structure.`;
     // Simple parsing of topics from AI response text
     const lines = text.split('\n');
     const topics: ExtractedTopic[] = [];
-    
+
     lines.forEach(line => {
       const match = line.match(/^\d+\.\s*(.+)/);
       if (match) {
@@ -1097,17 +1097,17 @@ Return as JSON with IntentClassification structure.`;
         });
       }
     });
-    
+
     return topics;
   }
 
   private phraseSimilarity(phrase1: string, phrase2: string): number {
     const words1 = phrase1.split(' ');
     const words2 = phrase2.split(' ');
-    
+
     const intersection = words1.filter(w => words2.includes(w));
     const union = [...new Set([...words1, ...words2])];
-    
+
     return intersection.length / union.length;
   }
 

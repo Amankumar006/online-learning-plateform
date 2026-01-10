@@ -1,33 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Bot, User, Loader2, Send, Mic, Square } from 'lucide-react';
+import { useChat } from '@ai-sdk/react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getUser, ProactiveSuggestion, clearProactiveSuggestion, getLessons, getConversationMemory, generatePersonalizedPrompts, saveConversationSession, updateConversationPatterns } from '@/lib/data';
+import { getUser, ProactiveSuggestion, clearProactiveSuggestion, getLessons, saveConversationSession, updateConversationPatterns } from '@/lib/data';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { buddyChatStream } from '@/ai/flows/buddy-chat';
 import { Persona } from '@/ai/schemas/buddy-schemas';
 import { generateAudioFromText } from '@/ai/flows/generate-audio-from-text';
 import { Timestamp } from 'firebase/firestore';
 
-import { BuddySidebar, Personas } from '@/components/buddy-ai/BuddySidebar';
-import { MessageList } from '@/components/buddy-ai/MessageList';
+import { BuddySidebar } from '@/components/buddy-ai/BuddySidebar';
 import { EnhancedMessageList } from '@/components/buddy-ai/EnhancedMessageList';
 import { WelcomeScreen } from '@/components/buddy-ai/WelcomeScreen';
-import { EnhancedWelcomeScreen } from '@/components/buddy-ai/EnhancedWelcomeScreen';
-import { BuddyInputForm } from '@/components/buddy-ai/BuddyInputForm';
 import { FileUploadInputForm } from '@/components/buddy-ai/FileUploadInputForm';
-import { AdvancedInputForm } from '@/components/buddy-ai/AdvancedInputForm';
-
-export interface Message {
-  role: 'user' | 'model';
-  content: string;
-  suggestions?: string[];
-  isError?: boolean;
-  files?: UploadedFile[];
-}
 
 export interface UploadedFile {
   id: string;
@@ -42,7 +29,7 @@ export interface UploadedFile {
 export interface Conversation {
   id: string;
   title: string;
-  messages: Message[];
+  messages: any[]; // relaxed type for ai sdk compatibility
   createdAt: number;
   persona: Persona;
 }
@@ -51,435 +38,240 @@ export default function BuddyAIPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Add state for user progress and lessons data
+  // Session / User Progress State
   const [userProgress, setUserProgress] = useState<any>(null);
   const [availableLessons, setAvailableLessons] = useState<any[]>([]);
-
-  // Add session tracking state
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
-  const [sessionTopics, setSessionTopics] = useState<string[]>([]);
-  const [sessionToolsUsed, setSessionToolsUsed] = useState<string[]>([]);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
 
+  // Audio State
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<number | null>(null);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('buddy-ai-web-search') === 'true';
-    }
-    return false;
-  });
-  const [useEnhancedUI, setUseEnhancedUI] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('buddy-ai-enhanced-ui') !== 'false';
-    }
-    return true;
-  });
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const { toast } = useToast();
 
-  // Move activeConversation memoization before the callbacks that use it
   const activeConversation = useMemo(() => {
     return conversations.find(c => c.id === activeConversationId);
   }, [conversations, activeConversationId]);
 
-  // Session tracking functions
+  // Vercel AI SDK Hook - Robust Implementation
+  const chatHelpers = useChat({
+    // @ts-ignore - SDK version compatibility
+    api: '/api/chat',
+    id: activeConversationId || 'default',
+    initialMessages: activeConversation?.messages || [],
+    body: {
+      data: {
+        userId: user?.uid,
+        userProgress,
+        webSearchEnabled
+      }
+    },
+    onFinish: (message) => {
+      console.log('Chat finished:', message);
+      // Sync back to local conversations state for persistence
+      if (activeConversationId) {
+        setConversations(prev => prev.map(c => {
+          if (c.id === activeConversationId) {
+            return { ...c, messages: [...c.messages, message] };
+          }
+          return c;
+        }));
+      }
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  });
+
+  // Manual state management because useChat in this version doesn't provide it
+  const [input, setInput] = useState('');
+
+  // Extract helpers with fallbacks/checks
+  const { messages, sendMessage, regenerate, status } = chatHelpers;
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  // Adapter functions to match previous API usage
+  const append = async (message: any) => {
+    // Map experimental_attachments (Files) to files (FileList | File[])
+    // SDK expects { text: string, files?: ... }
+    return sendMessage({
+      text: message.content,
+      files: message.experimental_attachments
+    });
+  };
+
+  const reload = regenerate;
+
+  // Manual handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = (e?: any) => {
+    e?.preventDefault?.();
+    if (!input.trim()) return;
+    sendMessage({ text: input });
+    setInput('');
+  };
+
+  // Debug Vercel AI SDK availability
+  useEffect(() => {
+    console.log('[BuddyAI] useChat Debug:', {
+      keys: Object.keys(chatHelpers),
+      status,
+      isLoading
+    });
+  }, [chatHelpers, status, isLoading]);
+
+  useEffect(() => {
+    if (activeConversationId && messages.length > 0) {
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          // simple title generation for new chats
+          let title = c.title;
+          if (c.messages.length === 0 && messages.length > 0) {
+            // Get text content from message (supports both legacy and new parts format)
+            const firstMessageContent = messages[0]?.parts
+              ?.filter((p: any) => p.type === 'text')
+              ?.map((p: any) => p.text)
+              ?.join('') || (messages[0] as any)?.content || '';
+            title = firstMessageContent.substring(0, 40) || "New Chat";
+          }
+          return { ...c, title, messages };
+        }
+        return c;
+      }));
+    }
+  }, [messages, activeConversationId]);
+
+
+  // Session Management
   const startNewSession = useCallback(() => {
     setSessionStartTime(new Date());
-    setSessionTopics([]);
-    setSessionToolsUsed([]);
   }, []);
 
   const endSession = useCallback(async () => {
+    // Basic session saving logic (simplified for now)
     if (!user || !sessionStartTime || !activeConversation) return;
-
     const endTime = new Date();
     const duration = Math.floor((endTime.getTime() - sessionStartTime.getTime()) / 1000);
-
-    // Only save sessions longer than 30 seconds
-    if (duration < 30) return;
+    if (duration < 10) return; // ignore short sessions
 
     try {
-      await saveConversationSession({
-        userId: user.uid,
-        persona: activeConversation.persona,
-        title: activeConversation.title,
-        messages: activeConversation.messages.map((msg, index) => ({
-          id: `msg_${index}`,
-          role: msg.role,
-          content: msg.content,
-          timestamp: Timestamp.fromDate(new Date(sessionStartTime.getTime() + (index * 30000))), // Approximate timestamps
-          mediaContent: [],
-          context: {
-            topicTags: sessionTopics,
-            toolsUsed: sessionToolsUsed,
-          }
-        })),
-        startTime: Timestamp.fromDate(sessionStartTime),
-        endTime: Timestamp.fromDate(endTime),
-        duration,
-        topicsCovered: sessionTopics,
-        toolsUsed: sessionToolsUsed,
-      });
-
-      // Update conversation patterns
       await updateConversationPatterns(user.uid, {
-        topics: sessionTopics,
-        toolsUsed: sessionToolsUsed,
         duration,
-        messageCount: activeConversation.messages.length,
+        messageCount: messages.length,
+        topics: [], // TODO: extract topics
+        toolsUsed: []
       });
+    } catch (e) { console.error("Session save error", e) }
 
-    } catch (error) {
-      console.error("Error saving session:", error);
-    }
-  }, [user, sessionStartTime, activeConversation, sessionTopics, sessionToolsUsed]);
+  }, [user, sessionStartTime, activeConversation, messages.length]);
 
-  // Helper function to extract topics from AI response
-  const extractTopicsFromResponse = useCallback((content: string): string[] => {
-    const topics: string[] = [];
-    const commonTopics = [
-      'python', 'javascript', 'react', 'math', 'algebra', 'calculus', 'physics',
-      'chemistry', 'biology', 'history', 'english', 'programming', 'algorithms',
-      'data structures', 'machine learning', 'artificial intelligence', 'databases',
-      'web development', 'mobile development', 'science', 'literature'
-    ];
-
-    const text = content.toLowerCase();
-    commonTopics.forEach(topic => {
-      if (text.includes(topic)) {
-        topics.push(topic);
-      }
-    });
-
-    return topics;
-  }, []);
-
-  // Enhanced handleSend with session tracking and file support
-  const handleSend = useCallback(async (prompt?: string, files?: UploadedFile[]) => {
-    const messageToSend = prompt || input;
-    if ((!messageToSend.trim() && (!files || files.length === 0)) || !user || !activeConversation) return;
-
-    // Start session if not already started
-    if (!sessionStartTime) {
-      startNewSession();
-    }
-
-    const userMessage: Message = { 
-      role: 'user', 
-      content: messageToSend,
-      files: files 
-    };
-
-    setConversations(prev => prev.map(c => {
-      if (c.id === activeConversationId) {
-        const newMessages = c.messages.map(m => ({ ...m, suggestions: undefined }));
-        const isNewChat = c.messages.length === 0;
-        const newTitle = isNewChat ? messageToSend.substring(0, 40) + (messageToSend.length > 40 ? '...' : '') : c.title;
-        return { ...c, title: newTitle, messages: [...newMessages, userMessage], createdAt: Date.now() };
-      }
-      return c;
-    }).sort((a, b) => b.createdAt - a.createdAt));
-
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      // Convert uploaded files to the format expected by the AI flow
-      const processedFiles = files?.map(file => ({
-        id: file.id,
-        name: file.file.name,
-        type: file.type,
-        content: file.content,
-        preview: file.preview,
-        size: file.file.size
-      }));
-
-      console.log('Processing files for AI:', processedFiles?.length || 0);
-      if (processedFiles && processedFiles.length > 0) {
-        console.log('File details for AI:', processedFiles.map(f => ({ 
-          name: f.name, 
-          type: f.type, 
-          hasPreview: !!f.preview,
-          hasContent: !!f.content,
-          size: f.size 
-        })));
-      }
-
-      const result = await buddyChatStream({
-        userMessage: messageToSend,
-        history: activeConversation.messages.map(msg => ({ role: msg.role, content: msg.content })),
-        userId: user.uid,
-        persona: activeConversation.persona,
-        userProgress: userProgress,
-        availableLessons: availableLessons,
-        webSearchEnabled: webSearchEnabled,
-        uploadedFiles: processedFiles
-      });
-
-      const isError = result.type === 'error';
-      const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
-
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, assistantMessage] };
-        }
-        return c;
-      }));
-
-      // Track topics and tools from the AI response
-      if (result.type === 'response') {
-        // Extract topics from the response (you can enhance this with better NLP)
-        const detectedTopics = extractTopicsFromResponse(result.content);
-        setSessionTopics(prev => [...new Set([...prev, ...detectedTopics])]);
-
-        // Track tool usage if available
-        if (result.suggestions) {
-          setSessionToolsUsed(prev => [...new Set([...prev, 'generateFollowUpSuggestions'])]);
-        }
-      }
-
-    } catch (e: any) {
-      console.error(e);
-      const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
-      const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, errorMessage] };
-        }
-        return c;
-      }));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, user, activeConversation, sessionStartTime, startNewSession, activeConversationId, userProgress, availableLessons, extractTopicsFromResponse]);
-
-  // End session when conversation changes or component unmounts
-  useEffect(() => {
-    return () => {
-      if (sessionStartTime) {
-        endSession();
-      }
-    };
-  }, [endSession, sessionStartTime]);
-
-  // End session when switching conversations
-  const handleSelectConversation = useCallback((id: string) => {
-    if (sessionStartTime && activeConversationId !== id) {
-      endSession();
-    }
-    setActiveConversationId(id);
-    startNewSession();
-  }, [sessionStartTime, activeConversationId, endSession, startNewSession]);
-
-  const handleNewChat = useCallback((persona: Persona) => {
-    if (sessionStartTime) {
-      endSession();
-    }
-    const newId = `convo_${Date.now()}_${Math.random()}`;
-    const newConversation: Conversation = { id: newId, title: "New Chat", messages: [], createdAt: Date.now(), persona };
-    setConversations(prev => [newConversation, ...prev.sort((a, b) => b.createdAt - a.createdAt)]);
-    setActiveConversationId(newId);
-    setInput('');
-    startNewSession();
-  }, [sessionStartTime, endSession, startNewSession]);
-
-  const handleDeleteConversation = useCallback((convoId: string) => {
-    const newConversations = conversations.filter(c => c.id !== convoId);
-    setConversations(newConversations);
-    if (activeConversationId === convoId) {
-      if (newConversations.length > 0) setActiveConversationId(newConversations[0].id);
-      else handleNewChat('buddy');
-    }
-  }, [conversations, activeConversationId, handleNewChat]);
-
-  const handleRegenerate = useCallback(async () => {
-    if (!activeConversation || !user) return;
-    const lastModelIndex = activeConversation.messages.findLastIndex(m => m.role === 'model');
-    if (lastModelIndex === -1) return;
-    const historyForRegen = activeConversation.messages.slice(0, lastModelIndex);
-    const lastUserMessage = historyForRegen.at(-1);
-
-    if (!lastUserMessage || lastUserMessage.role !== 'user') {
-      toast({ variant: "destructive", title: "Cannot Regenerate", description: "Could not find the original prompt." });
-      return;
-    }
-
-    // Remove the last AI response from the conversation
-    setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: historyForRegen } : c));
-
-    // Start loading and regenerate response without adding user message again
-    setIsLoading(true);
-
-    try {
-      const result = await buddyChatStream({
-        userMessage: lastUserMessage.content,
-        history: historyForRegen.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content })), // Exclude the last user message from history
-        userId: user.uid,
-        persona: activeConversation.persona,
-        userProgress: userProgress,
-        availableLessons: availableLessons,
-        webSearchEnabled: webSearchEnabled
-      });
-
-      const isError = result.type === 'error';
-      const assistantMessage: Message = { role: 'model', content: result.content, suggestions: result.suggestions, isError };
-
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, assistantMessage] };
-        }
-        return c;
-      }));
-    } catch (e: any) {
-      console.error(e);
-      const errorMessageContent = `Sorry, a critical error occurred and I could not complete your request. Please try again.\n\n> ${e.message || 'An unknown error occurred.'}`;
-      const errorMessage: Message = { role: 'model', content: errorMessageContent, isError: true };
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, messages: [...c.messages, errorMessage] };
-        }
-        return c;
-      }));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeConversation, user, activeConversationId, userProgress, availableLessons, toast]);
-
-  const handleProactiveSuggestion = useCallback((suggestion: ProactiveSuggestion, newConversations: Conversation[]) => {
-    const newId = `convo_${Date.now()}_${Math.random()}`;
-    const proactiveConversation: Conversation = {
-      id: newId,
-      title: `Help with ${suggestion.topic}`,
-      messages: [{ role: 'model', content: suggestion.message }],
-      createdAt: Date.now(),
-      persona: 'buddy'
-    };
-    const updatedConversations = [proactiveConversation, ...newConversations];
-    setConversations(updatedConversations);
-    setActiveConversationId(newId);
-    startNewSession();
-  }, [startNewSession]);
-
-  const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({ onSpeechEnd: () => { if (transcript) handleSend(transcript); } });
-
-  useEffect(() => { if (transcript) setInput(transcript); }, [transcript]);
-
-  const handleMicClick = () => { isListening ? stopListening() : startListening(); };
-  
-  const handleWebSearchToggle = () => {
-    setWebSearchEnabled(prev => {
-      const newValue = !prev;
-      localStorage.setItem('buddy-ai-web-search', newValue.toString());
-      return newValue;
-    });
-  };
-
-  const handlePlayAudio = async (text: string, index: number) => {
-    if (playingMessageIndex === index) {
-      audioRef.current?.pause();
-      setPlayingMessageIndex(null);
-      return;
-    }
-
-    setIsGeneratingAudio(index);
-    setPlayingMessageIndex(index);
-    try {
-      const { audioDataUri } = await generateAudioFromText({ sectionTitle: '', sectionContent: text });
-      if (audioRef.current) {
-        audioRef.current.src = audioDataUri;
-        audioRef.current.play();
-      }
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Audio Error', description: e.message });
-      setPlayingMessageIndex(null);
-    } finally {
-      setIsGeneratingAudio(null);
-    }
-  };
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onEnded = () => setPlayingMessageIndex(null);
-    audio.addEventListener('ended', onEnded);
-    return () => audio.removeEventListener('ended', onEnded);
-  }, []);
-
-  // Load user data and conversation memory
+  // Auth & Data Loading
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        const [profile, lessons] = await Promise.all([getUser(currentUser.uid), getLessons()]);
+        setUserProgress(profile?.progress);
+        setAvailableLessons(lessons);
 
-        try {
-          // Load user progress and lessons data
-          const [userProfile, lessonsData, savedConvos] = await Promise.all([
-            getUser(currentUser.uid),
-            getLessons(),
-            localStorage.getItem(`conversations_${currentUser.uid}`)
-          ]);
-
-          if (userProfile) {
-            setUserProgress(userProfile.progress);
-          }
-          setAvailableLessons(lessonsData);
-
-          let parsedConvos: Conversation[] = [];
-          if (savedConvos) {
-            try {
-              if (savedConvos && savedConvos.trim().startsWith('[')) {
-                const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-                parsedConvos = JSON.parse(savedConvos)
-                  .map((convo: any) => ({ ...convo, messages: convo.messages || [] }))
-                  .filter((convo: Conversation) => convo.createdAt && convo.createdAt > thirtyDaysAgo);
-              } else {
-                throw new Error("Invalid JSON format for conversations.");
-              }
-            } catch (e) {
-              console.error("Failed to parse conversations from localStorage, clearing data.", e);
-              localStorage.removeItem(`conversations_${currentUser.uid}`);
-            }
-          }
-
-          if (userProfile?.proactiveSuggestion) {
-            handleProactiveSuggestion(userProfile.proactiveSuggestion, parsedConvos);
-            clearProactiveSuggestion(currentUser.uid).catch(console.error);
-          } else {
-            setConversations(parsedConvos);
-            if (parsedConvos.length > 0) {
-              setActiveConversationId(parsedConvos[0].id);
-              startNewSession();
-            } else {
-              handleNewChat('buddy');
-            }
-          }
-        } catch (error) {
-          console.error("Error loading user data:", error);
+        // Load local storage conversations
+        const saved = localStorage.getItem(`conversations_${currentUser.uid}`);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setConversations(parsed);
+            if (parsed.length > 0) setActiveConversationId(parsed[0].id);
+            else handleNewChat('buddy');
+          } catch (e) { console.error("LS Parse Error", e); handleNewChat('buddy'); }
+        } else {
           handleNewChat('buddy');
         }
       }
     });
     return () => unsubscribe();
-  }, [handleProactiveSuggestion, startNewSession]);
+  }, []);
 
-  // Save conversations to localStorage
+  // Persistence
   useEffect(() => {
     if (user && conversations.length > 0) {
       localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(conversations));
     }
   }, [conversations, user]);
 
-  // Prevent body scroll when component mounts
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
+  // Handlers
+  const handleSelectConversation = (id: string) => {
+    if (activeConversationId) endSession();
+    setActiveConversationId(id);
+    startNewSession();
+  };
+
+  const handleNewChat = (persona: Persona) => {
+    if (activeConversationId) endSession();
+    const newId = `convo_${Date.now()}`;
+    const newConvo: Conversation = {
+      id: newId,
+      title: 'New Chat',
+      messages: [],
+      createdAt: Date.now(),
+      persona
     };
-  }, []);
+    setConversations(prev => [newConvo, ...prev]);
+    setActiveConversationId(newId);
+    startNewSession();
+  };
+
+  const handleDeleteConversation = (id: string) => {
+    const remaining = conversations.filter(c => c.id !== id);
+    setConversations(remaining);
+    if (activeConversationId === id) {
+      if (remaining.length > 0) setActiveConversationId(remaining[0].id);
+      else handleNewChat('buddy');
+    }
+  };
+
+  // Wrapped Send Handler to support files
+  const onSendWrapper = async (text?: string, files?: UploadedFile[]) => {
+    if (!activeConversationId) return;
+
+    const attachments = files?.map(f => {
+      // Convert to base64 data URI for immediate display and sending
+      // Vercel AI SDK 'experimental_attachments' expects full URLs or data URIs
+      return f.preview; // Helper already created preview string (data:image/...)
+    }).filter(Boolean) as string[];
+
+    if (text || (attachments && attachments.length > 0)) {
+      await append({
+        role: 'user',
+        content: text || '',
+        experimental_attachments: files?.map(f => f.file), // Pass original File objects to SDK
+      });
+      setInput(''); // Clear input after sending
+    }
+  };
+
+  // Speech
+  const { isListening, transcript, startListening, stopListening } = useSpeechRecognition({
+    onSpeechEnd: () => { if (transcript) onSendWrapper(transcript); }
+  });
+  useEffect(() => { if (transcript) setInput(transcript); }, [transcript]);
+
+  // Audio Playback
+  const handlePlayAudio = async (text: string, index: number) => {
+    if (playingMessageIndex === index) { audioRef.current?.pause(); setPlayingMessageIndex(null); return; }
+    setIsGeneratingAudio(index);
+    setPlayingMessageIndex(index);
+    try {
+      const { audioDataUri } = await generateAudioFromText({ sectionTitle: '', sectionContent: text });
+      if (audioRef.current) { audioRef.current.src = audioDataUri; audioRef.current.play(); }
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Audio Error', description: e.message }); setPlayingMessageIndex(null); }
+    finally { setIsGeneratingAudio(null); }
+  };
 
   return (
     <div className="absolute inset-0 flex flex-col md:flex-row bg-background">
@@ -495,41 +287,39 @@ export default function BuddyAIPage() {
       />
 
       <div className="flex-1 flex flex-col relative min-h-0">
-        {/* Messages Area */}
         <div className="flex-1 relative min-h-0">
-          {activeConversation && activeConversation.messages.length > 0 ? (
+          {messages.length > 0 ? (
             <EnhancedMessageList
               user={user}
-              conversation={activeConversation}
+              conversation={{ ...activeConversation!, messages: messages as any }} // Cast for compat
               isLoading={isLoading}
               playingMessageIndex={playingMessageIndex}
               isGeneratingAudio={isGeneratingAudio}
               onPlayAudio={handlePlayAudio}
-              onRegenerate={handleRegenerate}
-              onSendSuggestion={handleSend}
+              onRegenerate={() => reload()}
+              onSendSuggestion={(text) => onSendWrapper(text)}
             />
           ) : (
             <div className="absolute inset-0 overflow-y-auto">
               <WelcomeScreen
                 persona={activeConversation?.persona || 'buddy'}
-                onSendSuggestion={handleSend}
+                onSendSuggestion={(text) => onSendWrapper(text)}
                 onNewChat={handleNewChat}
               />
             </div>
           )}
         </div>
 
-        {/* Input Area - Fixed at bottom */}
         <div className="bg-background z-10 shrink-0">
           <FileUploadInputForm
             input={input}
-            onInputChange={setInput}
-            onSend={handleSend}
+            onInputChange={(val) => setInput(val)}
+            onSend={(text, files) => onSendWrapper(text, files)}
             isLoading={isLoading}
             isListening={isListening}
-            onMicClick={handleMicClick}
+            onMicClick={isListening ? stopListening : startListening}
             webSearchEnabled={webSearchEnabled}
-            onWebSearchToggle={handleWebSearchToggle}
+            onWebSearchToggle={() => setWebSearchEnabled(!webSearchEnabled)}
           />
         </div>
       </div>

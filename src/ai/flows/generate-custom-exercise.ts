@@ -21,10 +21,12 @@ const GenerateCustomExerciseInputSchema = z.object({
   questionType: z.enum(['mcq', 'true_false', 'long_form', 'fill_in_the_blanks', 'code', 'any']).optional().describe("The preferred question type. 'any' lets the AI decide."),
 });
 export type GenerateCustomExerciseInput = z.infer<typeof GenerateCustomExerciseInputSchema>;
-export type { GeneratedExercise };
+
+// Re-export type for external use
+export type { GeneratedExercise } from '@/ai/schemas/exercise-schemas';
 
 
-export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<GeneratedExercise | null> {
+export async function generateCustomExercise(input: GenerateCustomExerciseInput): Promise<z.infer<typeof GeneratedExerciseSchema> | null> {
   const result = await generateCustomExerciseFlow(input);
   if (!result) {
     // Return null explicitly if the flow fails to produce a valid result.
