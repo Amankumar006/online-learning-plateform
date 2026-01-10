@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpenCheck, Loader2 } from "lucide-react";
+import { BookOpen, Loader2, Sparkles, Zap, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,13 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// Floating animated shapes for the left panel
+const FloatingShape = ({ className, delay = 0 }: { className?: string; delay?: number }) => (
+  <div
+    className={`absolute rounded-full opacity-20 animate-pulse ${className}`}
+    style={{ animationDelay: `${delay}s`, animationDuration: '3s' }}
+  />
+);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -143,114 +150,173 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm border-border bg-card shadow-lg">
-        <form onSubmit={handleEmailLogin}>
-          <CardHeader className="text-center space-y-2 pb-6">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <BookOpenCheck className="h-6 w-6" />
+    <div className="min-h-screen w-full flex flex-col lg:flex-row">
+      {/* Left Panel - Gradient with animated elements */}
+      <div className="relative lg:w-[55%] min-h-[30vh] lg:min-h-screen bg-gradient-to-br from-primary via-primary/90 to-accent overflow-hidden">
+        {/* Animated floating shapes */}
+        <FloatingShape className="w-32 h-32 bg-white/30 top-[10%] left-[10%]" delay={0} />
+        <FloatingShape className="w-24 h-24 bg-white/20 top-[30%] right-[15%]" delay={0.5} />
+        <FloatingShape className="w-40 h-40 bg-accent/40 bottom-[20%] left-[20%]" delay={1} />
+        <FloatingShape className="w-20 h-20 bg-white/25 bottom-[40%] right-[25%]" delay={1.5} />
+        <FloatingShape className="w-16 h-16 bg-primary-foreground/20 top-[50%] left-[40%]" delay={2} />
+
+        {/* Diagonal decorative lines */}
+        <div className="absolute inset-0 overflow-hidden opacity-30">
+          <div className="absolute w-[200%] h-2 bg-gradient-to-r from-transparent via-white/40 to-transparent -rotate-45 top-1/4 -left-1/2" />
+          <div className="absolute w-[200%] h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent -rotate-45 top-1/2 -left-1/4" />
+          <div className="absolute w-[200%] h-3 bg-gradient-to-r from-transparent via-white/20 to-transparent -rotate-45 bottom-1/4 -left-1/2" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-center items-start h-full p-8 lg:p-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 mb-8 lg:mb-12">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <BookOpen className="h-7 w-7 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight">
-              Welcome back
-            </CardTitle>
-            <CardDescription>
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="hello@example.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                className="bg-background"
-              />
+            <span className="text-2xl font-light tracking-wide text-white">AdaptEd</span>
+          </Link>
+
+          <div className="max-w-md">
+            <h1 className="text-3xl lg:text-5xl font-light text-white mb-4 lg:mb-6 leading-tight">
+              Welcome back to your learning journey
+            </h1>
+            <p className="text-base lg:text-lg text-white/80 font-light leading-relaxed mb-8">
+              Continue where you left off. Your personalized AI tutor is ready to help you master new concepts.
+            </p>
+
+            {/* Feature highlights */}
+            <div className="hidden lg:flex flex-col gap-4">
+              <div className="flex items-center gap-3 text-white/90">
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <span className="font-light">AI-powered personalized learning</span>
+              </div>
+              <div className="flex items-center gap-3 text-white/90">
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Zap className="h-5 w-5" />
+                </div>
+                <span className="font-light">Instant feedback & guidance</span>
+              </div>
+              <div className="flex items-center gap-3 text-white/90">
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Target className="h-5 w-5" />
+                </div>
+                <span className="font-light">Track your progress effortlessly</span>
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Button
-                  variant="link"
-                  type="button"
-                  onClick={handlePasswordReset}
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="flex-1 flex items-center justify-center bg-background p-6 lg:p-12">
+        <Card className="w-full max-w-md border-border bg-card shadow-xl">
+          <form onSubmit={handleEmailLogin}>
+            <CardHeader className="text-center space-y-2 pb-6">
+              <CardTitle className="text-2xl font-semibold tracking-tight">
+                Sign in to your account
+              </CardTitle>
+              <CardDescription>
+                Enter your credentials to continue learning
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="hello@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="px-0 text-xs text-muted-foreground hover:text-primary"
+                  className="bg-background h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Button
+                    variant="link"
+                    type="button"
+                    onClick={handlePasswordReset}
+                    disabled={isLoading}
+                    className="px-0 text-xs text-muted-foreground hover:text-primary"
+                  >
+                    Forgot password?
+                  </Button>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className="bg-background h-11"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 text-base"
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign In
+              </Button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  className="w-full h-11"
+                  type="button"
+                  onClick={() => socialLogin(new GoogleAuthProvider())}
+                  disabled={isLoading}
                 >
-                  Forgot password?
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+                  Google
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-11"
+                  type="button"
+                  onClick={() => socialLogin(new GithubAuthProvider())}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GithubIcon className="mr-2 h-4 w-4" />}
+                  GitHub
                 </Button>
               </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                className="bg-background"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
-            </Button>
-
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4 text-center text-sm text-muted-foreground pb-8">
+              <div className="w-full">
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className="font-semibold text-primary hover:underline underline-offset-4">
+                  Sign up
+                </Link>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Or continue with
-                </span>
+              <div className="text-xs text-muted-foreground/50">
+                © 2024 AdaptEd AI. Secure Login.
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                type="button"
-                onClick={() => socialLogin(new GoogleAuthProvider())}
-                disabled={isLoading}
-              >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-                Google
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                type="button"
-                onClick={() => socialLogin(new GithubAuthProvider())}
-                disabled={isLoading}
-              >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GithubIcon className="mr-2 h-4 w-4" />}
-                GitHub
-              </Button>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4 text-center text-sm text-muted-foreground pb-8">
-            <div className="w-full">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="font-semibold text-primary hover:underline underline-offset-4">
-                Sign up
-              </Link>
-            </div>
-            <div className="text-xs text-muted-foreground/50">
-              © 2024 AdaptEd AI. Secure Login.
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

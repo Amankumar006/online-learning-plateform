@@ -62,7 +62,7 @@ const HeroSection = () => {
 
             <h1 className="text-7xl md:text-9xl font-extralight leading-none mb-8 text-foreground">
               <span className="block mb-4">Wisdom</span>
-              <span className="block relative h-32 overflow-hidden">
+              <span className="block relative h-36 md:h-40 overflow-hidden">
                 {concepts.map((concept, index) => (
                   <span
                     key={concept}
@@ -100,16 +100,16 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Minimalist stats */}
+          {/* Value propositions */}
           <div className="flex justify-center gap-16 text-center">
             <div>
-              <div className="text-4xl font-light text-foreground mb-2">10,000</div>
-              <div className="text-sm font-light tracking-widest text-muted-foreground uppercase">Students</div>
+              <div className="text-4xl font-light text-foreground mb-2">AI</div>
+              <div className="text-sm font-light tracking-widest text-muted-foreground uppercase">Powered</div>
             </div>
             <div className="w-px bg-border"></div>
             <div>
-              <div className="text-4xl font-light text-foreground mb-2">95%</div>
-              <div className="text-sm font-light tracking-widest text-muted-foreground uppercase">Success</div>
+              <div className="text-4xl font-light text-foreground mb-2">24/7</div>
+              <div className="text-sm font-light tracking-widest text-muted-foreground uppercase">Available</div>
             </div>
             <div className="w-px bg-border"></div>
             <div>

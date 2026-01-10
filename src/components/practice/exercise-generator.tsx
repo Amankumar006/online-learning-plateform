@@ -31,15 +31,30 @@ export function ExerciseGenerator({ user, onSave }: ExerciseGeneratorProps) {
         try {
             // Slight delay to ensure UI updates if needed
             await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Handle special case: math_long_form generates long_form with math hint
+            let effectiveType = questionType;
+            let extraPrompt = '';
+            if (questionType === 'math_long_form') {
+                effectiveType = 'long_form';
+                extraPrompt = ' Generate a math problem where the student must show their work. Set category to "math". The question should require step-by-step mathematical solution with equations.';
+            }
+
             const generatedExercise = await generateCustomExercise({
-                prompt,
-                questionType: questionType as "any" | "mcq" | "true_false" | "long_form" | "fill_in_the_blanks" | undefined
+                prompt: prompt + extraPrompt,
+                questionType: effectiveType as "any" | "mcq" | "true_false" | "long_form" | "fill_in_the_blanks" | "code" | undefined
             });
 
             if (!generatedExercise) {
                 toast({ variant: 'destructive', title: 'Generation Failed', description: 'The AI could not generate a valid exercise. Please try again with a different prompt.' });
                 return;
             }
+
+            // For math_long_form, ensure category is set to math
+            if (questionType === 'math_long_form' && generatedExercise.type === 'long_form') {
+                (generatedExercise as any).category = 'math';
+            }
+
             setPreviewExercise(generatedExercise);
         } catch (e: any) {
             console.error(e);
@@ -142,6 +157,7 @@ export function ExerciseGenerator({ user, onSave }: ExerciseGeneratorProps) {
                             <SelectItem value="true_false">True / False</SelectItem>
                             <SelectItem value="code">Coding Challenge</SelectItem>
                             <SelectItem value="long_form">Essay / Conceptual</SelectItem>
+                            <SelectItem value="math_long_form">Math Problem (Show Work)</SelectItem>
                             <SelectItem value="fill_in_the_blanks">Fill in the Blanks</SelectItem>
                         </SelectContent>
                     </Select>

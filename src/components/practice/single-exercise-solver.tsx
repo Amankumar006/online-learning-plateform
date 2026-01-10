@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { gradeLongFormAnswer, GradeLongFormAnswerOutput } from "@/ai/flows/grade-long-form-answer";
 import { codeExecutionClient } from "@/lib/sandbox/client";
 import { ExecutionResult, ExecutionStatus } from "@/lib/sandbox/types";
+import { BlockMath, InlineMath } from 'react-katex';
 
 import { Loader2, CheckCircle, XCircle, Lightbulb, Code, BarChartHorizontal, Tags, FunctionSquare, Play, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import ImageUploader from "./image-uploader";
+import MathInputPanel from "./math-input-panel";
 
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "../ui/input";
@@ -43,13 +45,31 @@ interface SingleExerciseSolverProps {
 }
 
 const FormattedQuestion = ({ text }: { text: string }) => {
-    const parts = text.split(/(`.*?`)/g);
-    return <p className="text-lg mb-2 leading-relaxed">{parts.filter(Boolean).map((part, index) => {
+    // Parse text for LaTeX ($$...$$ block, $...$ inline) and code (`...`)
+    const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$]+\$|`[^`]+`)/g);
+    return <div className="text-lg mb-2 leading-relaxed">{parts.filter(Boolean).map((part, index) => {
+        // Block math: $$...$$
+        if (part.startsWith('$$') && part.endsWith('$$')) {
+            try {
+                return <div key={index} className="my-3"><BlockMath math={part.slice(2, -2)} /></div>;
+            } catch {
+                return <span key={index} className="text-destructive">{part}</span>;
+            }
+        }
+        // Inline math: $...$
+        if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+            try {
+                return <InlineMath key={index} math={part.slice(1, -1)} />;
+            } catch {
+                return <span key={index} className="text-destructive">{part}</span>;
+            }
+        }
+        // Code: `...`
         if (part.startsWith('`') && part.endsWith('`')) {
             return <code key={index} className="bg-muted px-1.5 py-1 rounded text-sm font-mono text-primary">{part.slice(1, -1)}</code>;
         }
         return <React.Fragment key={index}>{part}</React.Fragment>;
-    })}</p>;
+    })}</div>;
 };
 
 const difficultyToText = (level: number) => {
@@ -564,6 +584,20 @@ export default function SingleExerciseSolver({ exercise, userId, onSolved, lesso
                         </div>
                     );
                 }
+                // Math exercises get the special MathInputPanel
+                if (lfExercise.category === 'math') {
+                    return (
+                        <MathInputPanel
+                            value={longFormAnswer}
+                            onChange={setLongFormAnswer}
+                            imageDataUri={imageDataUri}
+                            onImageChange={setImageDataUri}
+                            disabled={isAnswered || isGrading}
+                            placeholder="Enter your mathematical solution..."
+                        />
+                    );
+                }
+                // General long-form exercises
                 return (
                     <div className="space-y-6">
                         <Textarea value={longFormAnswer} onChange={(e) => setLongFormAnswer(e.target.value)} rows={8} disabled={isAnswered || isGrading} />
