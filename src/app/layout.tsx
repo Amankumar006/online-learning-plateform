@@ -5,8 +5,8 @@ import 'katex/dist/katex.min.css';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'AdaptEd AI',
-  description: 'The Future of Learning is Adaptive',
+  title: 'AdaptED-LMS',
+  description: 'Adaptive Learning Management System with personalized learning paths and AI-powered content recommendations',
 };
 
 export default function RootLayout({
