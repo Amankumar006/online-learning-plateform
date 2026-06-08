@@ -1,6 +1,7 @@
 {
-  "name": "nextn",
+  "name": "adapted-lms",
   "version": "0.1.0",
+  "description": "Adaptive Learning Management System with personalized learning paths and AI-powered content recommendations",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
