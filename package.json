@@ -1,5 +1,6 @@
 {
-  "name": "nextn",
+  "name": "adapted-lms",
+  "description": "Adaptive Learning Management System with personalized learning paths and AI-powered content recommendations",
   "version": "0.1.0",
   "private": true,
   "scripts": {

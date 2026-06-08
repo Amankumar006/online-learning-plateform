@@ -1,4 +1,4 @@
-# AdaptEd AI - Intelligent Learning Platform
+# AdaptED-LMS
 
 <div align="center">
   <img src="https://img.shields.io/badge/Next.js-15.3.3-black?style=for-the-badge&logo=next.js" alt="Next.js" />
@@ -10,7 +10,7 @@
 
 <div align="center">
   <h3>🚀 The Future of Learning is Personal & Adaptive</h3>
-  <p>An AI-powered educational platform that personalizes learning journeys through adaptive content generation, intelligent tutoring, and semantic search capabilities.</p>
+  <p>Adaptive Learning Management System with personalized learning paths and AI-powered content recommendations.</p>
 </div>
 
 ---
